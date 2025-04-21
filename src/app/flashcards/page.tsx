@@ -6,24 +6,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { generateFlashcards, GenerateFlashcardsOutput } from "@/ai/flows/generate-flashcards";
+import { cn } from "@/lib/utils";
 
 const FlashcardPage = () => {
   const [topic, setTopic] = useState("");
   const [numCards, setNumCards] = useState(10);
   const [flashcards, setFlashcards] = useState<GenerateFlashcardsOutput | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-        setIsLoading(true);
-        setError(null);
+    setIsLoading(true);
+    setError(null);
     try {
       const result = await generateFlashcards({ topic, numCards });
       setFlashcards(result);
     } catch (e: any) {
       setError(e.message || "An error occurred while generating flashcards.");
     } finally {
-            setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -56,10 +57,10 @@ const FlashcardPage = () => {
               onChange={(e) => setNumCards(parseInt(e.target.value))}
             />
           </div>
-            <Button onClick={handleSubmit} disabled={isLoading}>
-                {isLoading ? "Generating Flashcards..." : "Generate Flashcards"}
-            </Button>
-            {error && <p className="text-red-500">{error}</p>}
+          <Button onClick={handleSubmit} disabled={isLoading}>
+            {isLoading ? "Generating Flashcards..." : "Generate Flashcards"}
+          </Button>
+          {error && <p className="text-red-500">{error}</p>}
         </CardContent>
       </Card>
 
@@ -71,20 +72,47 @@ const FlashcardPage = () => {
           </p>
           <div className="grid gap-4 mt-4">
             {flashcards.flashcards.map((card, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <CardTitle>Card {index + 1}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="font-bold">Front: {card.front}</p>
-                  <p>Back: {card.back}</p>
-                </CardContent>
-              </Card>
+              <AnimatedFlashcard key={index} front={card.front} back={card.back} />
             ))}
           </div>
         </div>
       )}
     </div>
+  );
+};
+
+interface AnimatedFlashcardProps {
+  front: string;
+  back: string;
+}
+
+const AnimatedFlashcard: React.FC<AnimatedFlashcardProps> = ({ front, back }) => {
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  const handleClick = () => {
+    setIsFlipped(!isFlipped);
+  };
+
+  return (
+    <Card className="w-full h-48 relative transition-transform duration-500 transform-style-3d" onClick={handleClick}
+      style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
+      <div className={cn(
+        "absolute h-full w-full flex items-center justify-center rounded-md backface-hidden",
+        isFlipped ? 'rotate-y-180' : ''
+      )}>
+        <CardContent>
+          <p className="text-xl font-bold">{front}</p>
+        </CardContent>
+      </div>
+      <div className={cn(
+        "absolute h-full w-full flex items-center justify-center rounded-md backface-hidden bg-secondary text-secondary-foreground",
+        isFlipped ? '' : 'rotate-y-180'
+      )}>
+        <CardContent>
+          <p className="text-xl">{back}</p>
+        </CardContent>
+      </div>
+    </Card>
   );
 };
 
