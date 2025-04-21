@@ -6,25 +6,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { generateMCQ, GenerateMCQOutput } from "@/ai/flows/generate-mcq";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { CheckCircle, Circle } from "lucide-react";
 
 const MCQPage = () => {
   const [topic, setTopic] = useState("");
   const [numQuestions, setNumQuestions] = useState(5);
   const [mcq, setMcq] = useState<GenerateMCQOutput | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [showAnswers, setShowAnswers] = useState(false);
 
   const handleSubmit = async () => {
-        setIsLoading(true);
-        setError(null);
+    setIsLoading(true);
+    setError(null);
     try {
       const result = await generateMCQ({ topic, numQuestions });
       setMcq(result);
+      setAnswers(Array(result.questions.length).fill(""));
+      setShowAnswers(false);
     } catch (e: any) {
       setError(e.message || "An error occurred while generating MCQs.");
     } finally {
-            setIsLoading(false);
+      setIsLoading(false);
     }
+  };
+
+  const handleAnswerChange = (index: number, value: string) => {
+    const newAnswers = [...answers];
+    newAnswers[index] = value;
+    setAnswers(newAnswers);
+  };
+
+  const handleSubmitQuiz = () => {
+    setShowAnswers(true);
   };
 
   return (
@@ -56,10 +72,10 @@ const MCQPage = () => {
               onChange={(e) => setNumQuestions(parseInt(e.target.value))}
             />
           </div>
-            <Button onClick={handleSubmit} disabled={isLoading}>
-                {isLoading ? "Generating MCQs..." : "Generate MCQs"}
-            </Button>
-                        {error && <p className="text-red-500">{error}</p>}
+          <Button onClick={handleSubmit} disabled={isLoading}>
+            {isLoading ? "Generating MCQs..." : "Generate MCQs"}
+          </Button>
+          {error && <p className="text-red-500">{error}</p>}
         </CardContent>
       </Card>
 
@@ -77,16 +93,41 @@ const MCQPage = () => {
                 </CardHeader>
                 <CardContent>
                   <p className="font-bold">{q.question}</p>
-                  <ul className="list-disc pl-5 mt-2">
+                  <RadioGroup onValueChange={(value) => handleAnswerChange(index, value)}>
                     {q.options.map((option, i) => (
-                      <li key={i}>{option}</li>
+                      <div key={i} className="flex items-center space-x-2">
+                        <RadioGroupItem value={option} id={`q-${index}-option-${i}`} />
+                        <Label htmlFor={`q-${index}-option-${i}`}>
+                          {option}
+                        </Label>
+                      </div>
                     ))}
-                  </ul>
-                  <p className="mt-2">Correct Answer: {q.correctAnswer}</p>
+                  </RadioGroup>
+                  {showAnswers && (
+                    <div className="mt-4">
+                      <p>
+                        {answers[index] === q.correctAnswer ? (
+                          <span className="text-green-500 flex gap-2 items-center"><CheckCircle className="h-4 w-4"/> Correct!</span>
+                        ) : (
+                          <span className="text-red-500 flex gap-2 items-center"><Circle className="h-4 w-4"/> Incorrect.</span>
+                        )}
+                      </p>
+                      <p className="mt-2">
+                        Correct Answer: {q.correctAnswer}
+                      </p>
+                      <p className="mt-2">
+                        Explanation: {/* Add explanation logic here if available */}
+                        {answers[index] === q.correctAnswer ? 'You got it right' : 'Better Luck Next Time'}
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
           </div>
+          {!showAnswers && (
+            <Button onClick={handleSubmitQuiz}>Submit Quiz</Button>
+          )}
         </div>
       )}
     </div>
