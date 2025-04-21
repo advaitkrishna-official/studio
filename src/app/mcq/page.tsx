@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { generateMCQ, GenerateMCQOutput } from "@/ai/flows/generate-mcq";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CheckCircle, Circle } from "lucide-react";
+import { generateMcqExplanation } from "@/ai/flows/generate-mcq-explanation";
 
 const MCQPage = () => {
   const [topic, setTopic] = useState("");
@@ -17,6 +18,7 @@ const MCQPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
   const [showAnswers, setShowAnswers] = useState(false);
+  const [explanations, setExplanations] = useState<string[]>([]); // New state for explanations
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -26,6 +28,7 @@ const MCQPage = () => {
       setMcq(result);
       setAnswers(Array(result.questions.length).fill(""));
       setShowAnswers(false);
+      setExplanations(Array(result.questions.length).fill("")); // Initialize explanations
     } catch (e: any) {
       setError(e.message || "An error occurred while generating MCQs.");
     } finally {
@@ -39,8 +42,27 @@ const MCQPage = () => {
     setAnswers(newAnswers);
   };
 
-  const handleSubmitQuiz = () => {
+  const handleSubmitQuiz = async () => {
     setShowAnswers(true);
+    // Generate explanations for each question
+    if (mcq) {
+      const newExplanations = await Promise.all(
+        mcq.questions.map(async (q) => {
+          try {
+            const explanationResult = await generateMcqExplanation({
+              question: q.question,
+              options: q.options,
+              correctAnswer: q.correctAnswer,
+            });
+            return explanationResult.explanation;
+          } catch (error: any) {
+            console.error("Error generating explanation:", error);
+            return "Explanation not available.";
+          }
+        })
+      );
+      setExplanations(newExplanations);
+    }
   };
 
   return (
@@ -116,8 +138,7 @@ const MCQPage = () => {
                         Correct Answer: {q.correctAnswer}
                       </p>
                       <p className="mt-2">
-                        Explanation: {/* Add explanation logic here if available */}
-                        {answers[index] === q.correctAnswer ? 'You got it right' : 'Better Luck Next Time'}
+                        Explanation: {explanations[index] || 'Generating Explanation...'}
                       </p>
                     </div>
                   )}
