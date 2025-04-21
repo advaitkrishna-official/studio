@@ -57,7 +57,14 @@ const FlashcardPage = () => {
               onChange={(e) => setNumCards(parseInt(e.target.value))}
             />
           </div>
-          <Button onClick={handleSubmit} disabled={isLoading}>
+          <Button onClick={() => {
+            setIsLoading(true);
+            setError(null);
+            generateFlashcards({ topic, numCards })
+              .then(result => setFlashcards(result))
+              .catch(e => setError(e.message || "An error occurred while generating flashcards."))
+              .finally(() => setIsLoading(false));
+          }} disabled={isLoading}>
             {isLoading ? "Generating Flashcards..." : "Generate Flashcards"}
           </Button>
           {error && <p className="text-red-500">{error}</p>}
@@ -94,25 +101,11 @@ const AnimatedFlashcard: React.FC<AnimatedFlashcardProps> = ({ front, back }) =>
   };
 
   return (
-    <Card className="w-full h-48 relative transition-transform duration-500 transform-style-3d" onClick={handleClick}
-      style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
-      <div className={cn(
-        "absolute h-full w-full flex items-center justify-center rounded-md backface-hidden",
-        isFlipped ? 'rotate-y-180' : ''
-      )}>
-        <CardContent>
-          <p className="text-xl font-bold">{front}</p>
-        </CardContent>
-      </div>
-      <div className={cn(
-        "absolute h-full w-full flex items-center justify-center rounded-md backface-hidden bg-secondary text-secondary-foreground",
-        isFlipped ? '' : 'rotate-y-180'
-      )}>
-        <CardContent>
-          <p className="text-xl">{back}</p>
-        </CardContent>
-      </div>
-    </Card>
+    <Button variant={"secondary"} className="w-full h-48 relative" onClick={handleClick}>
+      <CardContent style={{pointerEvents: "none"}}>
+        <p className="text-xl font-bold">{isFlipped ? back : front}</p>
+      </CardContent>
+    </Button>
   );
 };
 
