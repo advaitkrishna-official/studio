@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -100,6 +100,15 @@ const AnimatedFlashcard: React.FC<AnimatedFlashcardProps> = ({ front, back }) =>
     setIsFlipped(!isFlipped);
   };
 
+  useEffect(() => {
+    if (isFlipped) {
+      const timer = setTimeout(() => {
+        setIsFlipped(false);
+      }, 5000); // 5 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [isFlipped]);
+
   return (
     <Button variant={"secondary"} className="w-full h-48 relative" onClick={handleClick}>
       <CardContent style={{pointerEvents: "none"}}>
@@ -110,3 +119,5 @@ const AnimatedFlashcard: React.FC<AnimatedFlashcardProps> = ({ front, back }) =>
 };
 
 export default FlashcardPage;
+
+    
