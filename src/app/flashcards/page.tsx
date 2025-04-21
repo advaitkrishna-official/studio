@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { generateFlashcards, GenerateFlashcardsOutput } from "@/ai/flows/generate-flashcards";
 import { cn } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
 const FlashcardPage = () => {
   const [topic, setTopic] = useState("");
@@ -14,15 +15,19 @@ const FlashcardPage = () => {
   const [flashcards, setFlashcards] = useState<GenerateFlashcardsOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
 
   const handleSubmit = async () => {
     setIsLoading(true);
     setError(null);
+    setProgress(0);
     try {
       const result = await generateFlashcards({ topic, numCards });
       setFlashcards(result);
+      setProgress(100);
     } catch (e: any) {
       setError(e.message || "An error occurred while generating flashcards.");
+      setProgress(0);
     } finally {
       setIsLoading(false);
     }
@@ -57,16 +62,12 @@ const FlashcardPage = () => {
               onChange={(e) => setNumCards(parseInt(e.target.value))}
             />
           </div>
-          <Button onClick={() => {
-            setIsLoading(true);
-            setError(null);
-            generateFlashcards({ topic, numCards })
-              .then(result => setFlashcards(result))
-              .catch(e => setError(e.message || "An error occurred while generating flashcards."))
-              .finally(() => setIsLoading(false));
-          }} disabled={isLoading}>
-            {isLoading ? "Generating Flashcards..." : "Generate Flashcards"}
+          <Button onClick={handleSubmit} disabled={isLoading}>
+            {isLoading ? "Generate Flashcards" : "Generating Flashcards..."}
           </Button>
+          {isLoading && (
+            <Progress value={progress} className="mt-2" />
+          )}
           {error && <p className="text-red-500">{error}</p>}
         </CardContent>
       </Card>
@@ -119,5 +120,3 @@ const AnimatedFlashcard: React.FC<AnimatedFlashcardProps> = ({ front, back }) =>
 };
 
 export default FlashcardPage;
-
-    
