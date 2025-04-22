@@ -5,13 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { generateOverview, GenerateOverviewOutput } from "@/ai/flows/generate-overview";
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { useSearchParams } from "next/navigation";
 
 const OverviewPage = () => {
   const [overview, setOverview] = useState<GenerateOverviewOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+    const searchParams = useSearchParams();
+    const classId = searchParams.get('class');
 
   useEffect(() => {
     const fetchOverview = async () => {
@@ -23,9 +26,10 @@ const OverviewPage = () => {
           return;
         }
 
-        // Fetch student data from Firestore
+        // Fetch student data from Firestore, filtered by class
         const studentsCollection = collection(db, "users");
-        const studentsSnapshot = await getDocs(studentsCollection);
+        const q = query(studentsCollection, where("class", "==", classId)); // Filter by class
+        const studentsSnapshot = await getDocs(q);
         const studentsData = studentsSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
@@ -45,7 +49,7 @@ const OverviewPage = () => {
     };
 
     fetchOverview();
-  }, [user]);
+  }, [user, classId]);
 
   return (
     <div className="container mx-auto py-8">
@@ -90,6 +94,3 @@ const OverviewPage = () => {
 };
 
 export default OverviewPage;
-
-
-    

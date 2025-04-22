@@ -29,11 +29,16 @@ const LoginPage = () => {
 
       // Determine user type (teacher/student)
       let userType: 'student' | 'teacher' = 'student'; // Default to student
+      let userClass: string | null = null;
 
       // Check Firestore for a teacher role
       const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists() && userDoc.data()?.role === 'teacher') {
-        userType = 'teacher';
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData?.role === 'teacher') {
+          userType = 'teacher';
+        }
+        userClass = userData?.class || null;
       } else if (user.email?.endsWith('@teacher.com')) {
          userType = 'teacher';
       }
@@ -43,9 +48,9 @@ const LoginPage = () => {
         description: "You have successfully logged in.",
       });
 
-      // Redirect based on user type
+      // Redirect based on user type and class
       if (userType === 'teacher') {
-        router.push('/teacher-dashboard'); // Redirect to teacher dashboard
+        router.push(`/teacher-dashboard?class=${userClass}`); // Redirect to teacher dashboard with class
       } else {
         router.push('/'); // Redirect to student dashboard
       }

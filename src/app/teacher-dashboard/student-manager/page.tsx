@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, where } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogHeader, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useSearchParams } from "next/navigation";
 
 const StudentManagerPage = () => {
   const [students, setStudents] = useState<any[]>([]);
@@ -19,6 +20,9 @@ const StudentManagerPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+    const searchParams = useSearchParams();
+    const classId = searchParams.get('class');
+
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -30,9 +34,10 @@ const StudentManagerPage = () => {
           return;
         }
 
-        // Fetch student data from Firestore
+        // Fetch student data from Firestore, filtered by class
         const studentsCollection = collection(db, "users");
-        const studentsSnapshot = await getDocs(studentsCollection);
+        const q = query(studentsCollection, where("class", "==", classId));
+        const studentsSnapshot = await getDocs(q);
         const studentsData = studentsSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
@@ -47,7 +52,7 @@ const StudentManagerPage = () => {
     };
 
     fetchStudents();
-  }, [user]);
+  }, [user, classId]);
 
   const handleUpdateProgress = async (studentId: string, newProgress: number) => {
     try {

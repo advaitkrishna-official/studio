@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import Link from 'next/link';
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDocs, collection } from "firebase/firestore";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const RegisterPage = () => {
   const [email, setEmail] = useState("");
@@ -20,6 +21,23 @@ const RegisterPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+  const [classes, setClasses] = useState<string[]>([]);
+  const [selectedClass, setSelectedClass] = useState("");
+
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const classesCollection = collection(db, "classes");
+        const classesSnapshot = await getDocs(classesCollection);
+        const classesData = classesSnapshot.docs.map(doc => doc.id); // Use doc.id to get the class name
+        setClasses(classesData);
+      } catch (e: any) {
+        setError(e.message || "An error occurred while fetching classes.");
+      }
+    };
+
+    fetchClasses();
+  }, []);
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -31,12 +49,20 @@ const RegisterPage = () => {
       if (user) {
         // Determine user type (teacher/student) based on email
         const isTeacher = email.endsWith('@teacher.com');
+          
+        if (isTeacher && !selectedClass) {
+            setError("Teachers must be assigned to a class.");
+            setIsLoading(false);
+            return;
+        }
+
 
         // Create a user document in Firestore
         await setDoc(doc(db, "users", user.uid), {
           email: email,
           studentNumber: studentNumber,
           role: isTeacher ? "teacher" : "student",
+          class: selectedClass,
         });
 
         toast({
@@ -97,7 +123,20 @@ const RegisterPage = () => {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <Button onClick={handleSubmit} disabled={isLoading}>
+           <div className="grid gap-2">
+            <Label htmlFor="class">Class</Label>
+            <Select onValueChange={setSelectedClass}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a class" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map((cls) => (
+                  <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={handleSubmit} disabled={isLoading || (email.endsWith('@teacher.com') && !selectedClass)}>
             {isLoading ? "Registering..." : "Register"}
           </Button>
           {error && <p className="text-red-500">{error}</p>}

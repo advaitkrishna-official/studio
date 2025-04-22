@@ -12,6 +12,7 @@ import { collection, addDoc } from "firebase/firestore";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useSearchParams } from "next/navigation";
 
 interface LessonPlanItem {
   week: number;
@@ -39,6 +40,8 @@ const LessonPlannerPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+    const searchParams = useSearchParams();
+    const classId = searchParams.get('class');
 
   const handleGenerateLessonPlan = async () => {
     setIsLoading(true);
@@ -50,6 +53,7 @@ const LessonPlannerPage = () => {
         Learning Objectives: ${learningObjectives}
         Topics to be covered: ${topics}
         Timeframe: From ${startDate} to ${endDate}
+        Class: ${classId}
 
         Generate a detailed and editable lesson plan in JSON format with the following structure:
 
@@ -136,6 +140,7 @@ const LessonPlannerPage = () => {
         lessonPlan: lessonPlanItems,
         dateCreated: new Date(),
         status: "Draft",
+          classId: classId, 
       });
       toast({
         title: "Lesson Plan Saved",

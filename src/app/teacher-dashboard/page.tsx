@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from "@/components/auth-provider";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Link from "next/link";
@@ -11,6 +11,8 @@ import { Icons } from "@/components/icons";
 const TeacherDashboardPage = () => {
   const { user, loading, userType } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const classId = searchParams.get('class');
 
   useEffect(() => {
     if (!loading) {
@@ -22,8 +24,14 @@ const TeacherDashboardPage = () => {
       if (userType !== 'teacher') {
         router.push('/'); // Redirect non-teachers
       }
+
+      if (!classId) {
+        // Handle the case where the class is not specified for a teacher
+        // You might want to display an error or redirect to a class selection page
+        console.warn("Class not specified for teacher.");
+      }
     }
-  }, [user, loading, userType, router]);
+  }, [user, loading, userType, router, classId]);
 
   if (loading) {
     return (
@@ -37,6 +45,7 @@ const TeacherDashboardPage = () => {
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-4">Teacher Dashboard</h1>
       <p>Welcome, Teacher {user?.email}!</p>
+      {classId && <p>Class: {classId}</p>} 
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Overview Panel */}
@@ -45,7 +54,7 @@ const TeacherDashboardPage = () => {
             <CardTitle>Overview</CardTitle>
           </CardHeader>
           <CardContent>
-           <Link href="/teacher-dashboard/overview">
+           <Link href={`/teacher-dashboard/overview?class=${classId}`}>
               <Button variant="secondary">
                 View Details <Icons.arrowRight className="ml-2" />
               </Button>
@@ -59,7 +68,7 @@ const TeacherDashboardPage = () => {
             <CardTitle>Student Manager</CardTitle>
           </CardHeader>
           <CardContent>
-           <Link href="/teacher-dashboard/student-manager">
+           <Link href={`/teacher-dashboard/student-manager?class=${classId}`}>
               <Button variant="secondary">
                 View Details <Icons.arrowRight className="ml-2" />
               </Button>
@@ -73,7 +82,7 @@ const TeacherDashboardPage = () => {
             <CardTitle>AI-Powered Lesson Planner</CardTitle>
           </CardHeader>
           <CardContent>
-            <Link href="/teacher-dashboard/lesson-planner">
+            <Link href={`/teacher-dashboard/lesson-planner?class=${classId}`}>
               <Button variant="secondary">
                 View Details <Icons.arrowRight className="ml-2" />
               </Button>
