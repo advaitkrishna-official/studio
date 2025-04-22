@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
-import { app } from "@/lib/firebase";
+import { app, auth } from "@/lib/firebase";
 import Link from 'next/link';
 
 const LoginPage = () => {
@@ -23,7 +23,6 @@ const LoginPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const auth = getAuth(app);
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: "Login Successful",
@@ -86,3 +85,4 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
+

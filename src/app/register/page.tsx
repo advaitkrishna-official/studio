@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { app } from "@/lib/firebase";
+import { app, auth } from "@/lib/firebase";
 import Link from 'next/link';
 
 const RegisterPage = () => {
@@ -24,7 +24,6 @@ const RegisterPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const auth = getAuth(app);
       await createUserWithEmailAndPassword(auth, email, password);
       toast({
         title: "Registration Successful",
@@ -97,3 +96,4 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
+
