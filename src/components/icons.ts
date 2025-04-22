@@ -1,4 +1,5 @@
 import {ArrowRight, Check, ChevronsUpDown, Circle, Copy, Edit, ExternalLink, File, HelpCircle, Home, Loader2, Mail, MessageSquare, Moon, Plus, PlusCircle, Search, Server, Settings, Share2, Shield, Sun, Trash, User, X, Workflow, BookOpen, GraduationCap, Lightbulb} from 'lucide-react';
+import { Brain } from 'lucide-react';
 
 const Icons = {
   arrowRight: ArrowRight,
@@ -31,6 +32,7 @@ const Icons = {
   bookOpen: BookOpen,
   graduationCap: GraduationCap,
   lightbulb: Lightbulb,
+  brain: Brain,
 };
 
 export {Icons};
