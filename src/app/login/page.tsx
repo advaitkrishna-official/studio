@@ -29,14 +29,13 @@ const LoginPage = () => {
 
       // Determine user type (teacher/student)
       let userType: 'student' | 'teacher' = 'student'; // Default to student
-      if (user.email?.endsWith('@teacher.com')) {
+
+      // Check Firestore for a teacher role
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists() && userDoc.data()?.role === 'teacher') {
         userType = 'teacher';
-      } else {
-        // Check Firestore for a teacher role as a fallback
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists() && userDoc.data()?.role === 'teacher') {
-          userType = 'teacher';
-        }
+      } else if (user.email?.endsWith('@teacher.com')) {
+         userType = 'teacher';
       }
 
       toast({
