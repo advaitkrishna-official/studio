@@ -8,7 +8,7 @@ import {
   User,
   signOut,
 } from 'firebase/auth';
-import {auth, db} from '@/lib/firebase';
+import {auth, db, app} from '@/lib/firebase';
 import {doc, getDoc} from 'firebase/firestore';
 
 interface AuthContextType {
@@ -31,13 +31,16 @@ export const useAuth = () => useContext(AuthContext);
 
 interface AuthProviderProps {
   children: ReactNode;
+  setUser: (user: User | null) => void;
+  setUserType: (userType: 'student' | 'teacher' | null) => void;
+  setUserClass: (userClass: string | null) => void;
 }
 
-export default function AuthProvider({children}: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
+export default function AuthProvider({children, setUser, setUserType, setUserClass}: AuthProviderProps) {
+  const [user, setLocalUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userType, setUserType] = useState<'student' | 'teacher' | null>(null);
-  const [userClass, setUserClass] = useState<string | null>(null);
+  const [userType, setLocalUserType] = useState<'student' | 'teacher' | null>(null);
+  const [userClass, setLocalUserClass] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,16 +50,20 @@ export default function AuthProvider({children}: AuthProviderProps) {
       unsubscribe = () => {};
       setLoading(false);
     } else {
-      const _auth = getAuth(auth);
-      unsubscribe = onAuthStateChanged(_auth, async user => {
+      unsubscribe = onAuthStateChanged(getAuth(app), async user => {
         if (!user) {
+          setLocalUser(null);
+          setLocalUserType(null);
+          setLocalUserClass(null);
           setUser(null);
           setUserType(null);
           setUserClass(null);
           setLoading(false);
           router.push('/login');
         } else {
+          setLocalUser(user);
           setUser(user);
+
           let type: 'student' | 'teacher' = 'student';
           let classVal: string | null = null;
 
@@ -77,19 +84,27 @@ export default function AuthProvider({children}: AuthProviderProps) {
             console.error('Error fetching user role from Firestore:', error);
             type = user.email?.endsWith('@teacher.com') ? 'teacher' : 'student';
           }
+          setLocalUserType(type);
           setUserType(type);
+          setLocalUserClass(classVal);
           setUserClass(classVal);
           setLoading(false);
         }
       });
     }
     return () => unsubscribe();
-  }, [router]);
+  }, [router, setUser, setUserType, setUserClass]);
 
   const signOutFunc = async () => {
     if (auth) {
       try {
-        await signOut(getAuth(auth));
+        await signOut(auth);
+        setLocalUser(null);
+        setLocalUserType(null);
+        setLocalUserClass(null);
+        setUser(null);
+        setUserType(null);
+        setUserClass(null);
         router.push('/login');
       } catch (error) {
         console.error('Error signing out:', error);
@@ -98,10 +113,10 @@ export default function AuthProvider({children}: AuthProviderProps) {
   };
 
   const value: AuthContextType = {
-    user,
+    user: user,
     loading,
-    userType,
-    userClass,
+    userType: userType,
+    userClass: userClass,
     signOut: signOutFunc,
   };
 

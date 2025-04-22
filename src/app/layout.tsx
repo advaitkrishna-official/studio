@@ -4,7 +4,6 @@ import {Geist, Geist_Mono} from 'next/font/google';
 import './globals.css';
 import {useEffect} from 'react';
 import {useRouter} from 'next/navigation';
-import {useAuth} from '@/components/auth-provider';
 import {Metadata} from 'next';
 
 const geistSans = Geist({
@@ -19,6 +18,7 @@ const geistMono = Geist_Mono({
 
 import {getAuth, onAuthStateChanged} from 'firebase/auth';
 import {auth} from '@/lib/firebase';
+import {useAuth} from '@/components/auth-provider';
 
 export default function RootLayout({
   children,
@@ -30,7 +30,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider setUser={(user) => {}} setUserType={(type) => {}} setUserClass={(classVal) => {}}>{children}</AuthProvider>
       </body>
     </html>
   );
@@ -38,9 +38,9 @@ export default function RootLayout({
 
 import {metadata} from './metadata';
 
-function AuthProvider({children}: {children: React.ReactNode}) {
+function AuthProvider({children, setUser, setUserType, setUserClass}: {children: React.ReactNode, setUser: any, setUserType: any, setUserClass: any}) {
   const router = useRouter();
-  const {user, loading, setUser, setUserType, setUserClass} = useAuth();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     const unsubscribe = auth
@@ -74,3 +74,4 @@ function AuthProvider({children}: {children: React.ReactNode}) {
 
   return <>{children}</>;
 }
+
