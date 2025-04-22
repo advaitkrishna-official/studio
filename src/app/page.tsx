@@ -13,8 +13,7 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    const _auth = getAuth(auth);
-    const unsubscribe = onAuthStateChanged(_auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
         router.push('/login');
       }
