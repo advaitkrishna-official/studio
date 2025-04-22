@@ -2,8 +2,19 @@
 
 import { FirebaseApp, initializeApp, getApps } from "firebase/app";
 import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth } from "firebase/auth";
-import { getFirestore, Firestore, collection, doc, setDoc, getDoc } from "firebase/firestore";
+import { getFirestore, Firestore, collection, doc, setDoc, getDoc, DocumentData } from "firebase/firestore";
 import {useEffect, useState} from 'react';
+
+
+interface Student {
+  id: string;
+  email: string;
+  studentNumber: string;
+  class: string;
+  progress: number;
+  role: 'student';
+}
+interface Teacher { id: string, email: string, role: 'teacher' }
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -40,40 +51,71 @@ if (getApps().length === 0) {
   }
 }
 
-// Function to create a new user document in Firestore
-async function createUserDocument(userId: string, email: string, studentNumber: string, role: string, classVal: string) {
+
+async function createStudentDocument(student: Student) {
   try {
-    const userDocRef = doc(db, 'users', userId);
-    await setDoc(userDocRef, {
-      email: email,
-      studentNumber: studentNumber,
-      role: role,
-      class: classVal,
-      progress: 0, // Initialize progress
-      lastMessage: '', // Initialize last message
-    });
-    console.log(`User document created for user ${userId}`);
+    const studentDocRef = doc(db, 'students', student.id);
+    await setDoc(studentDocRef, student);
+    console.log(`Student document created for student ${student.id}`);
+  } catch (error: any) {
+    console.error("Error creating student document:", error.message);
+  }
+}
+
+async function createTeacherDocument(teacher: Teacher) {
+  try {
+      const teacherDocRef = doc(db, 'teachers', teacher.id);
+      await setDoc(teacherDocRef, teacher);
+      console.log(`Teacher document created for teacher ${teacher.id}`);
+  } catch (error: any) {
+      console.error("Error creating teacher document:", error.message);
+  }
+}
+
+async function getStudentData(userId: string) {
+  try {
+    const studentDocRef = doc(db, 'students', userId);
+    const docSnap = await getDoc(studentDocRef);
+    if (docSnap.exists()) {
+        return docSnap.data() as Student;
+    } else {
+        console.log("No such student document!");
+        return null;
+    }
   } catch (error: any) {
     console.error("Error creating user document:", error.message);
   }
 }
 
-// Function to get user data from Firestore
-async function getUserData(userId: string) {
-    try {
-        const userDocRef = doc(db, 'users', userId);
-        const docSnap = await getDoc(userDocRef);
-        if (docSnap.exists()) {
-            return docSnap.data();
-        } else {
-            console.log("No such document!");
-            return null;
-        }
-    } catch (error: any) {
-        console.error("Error getting user document:", error.message);
-        return null;
+// Helper function to get document data with type checking
+async function getDocumentData<T>(docRef: any): Promise<T | null> {
+  try {
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as T;
+    } else {
+      console.log("No such document!");
+      return null;
     }
+  } catch (error: any) {
+    console.error("Error fetching document:", error.message);
+    return null;
+  }
 }
 
-export { app, auth, db, createUserDocument, getUserData };
+// Function to get user data from Firestore
+async function getUserData(userId: string) {
+  const studentData = await getStudentData(userId)
+  if (studentData) return studentData
+  try {
+    const teacherDocRef = doc(db, 'teachers', userId);
+    const teacherData = await getDocumentData<Teacher>(teacherDocRef);
+    return teacherData;
+  } catch (error: any) {
+    return null;
+  }
+}
+
+export { app, auth, db, createStudentDocument, createTeacherDocument, getUserData };
+
 
