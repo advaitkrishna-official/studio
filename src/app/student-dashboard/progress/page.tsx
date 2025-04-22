@@ -1,19 +1,29 @@
 'use client';
 
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {
-  BarChart,
-  Bar,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Dot,
 } from 'recharts';
 import {useAuth} from '@/components/auth-provider';
 import {useState, useEffect} from 'react';
 import {getGrades} from '@/lib/firebase';
+import {CheckCircle, Edit, ListChecks} from 'lucide-react';
+import {Progress} from '@/components/ui/progress';
+import {cn} from '@/lib/utils';
 
 const ProgressPage = () => {
   const {user} = useAuth();
@@ -40,14 +50,51 @@ const ProgressPage = () => {
     fetchGrades();
   }, [user]);
 
-  // Transform grades data for recharts
-  const chartData = grades.map(grade => ({
-    name: grade.taskName,
-    score: grade.score,
-  }));
+  const averageMCQScore = 82;
+  const averageEssayScore = 75;
+  const averageLongAnswerScore = 88;
+  const courseCompletion = 70;
+
+  // Mock data for the line chart
+  const data = [
+    {testDate: '80', MCQ: 45, Essay: 30, LongAnswer: 35},
+    {testDate: '40', MCQ: 80, Essay: 50, LongAnswer: 30},
+    {testDate: '60', MCQ: 40, Essay: 50, LongAnswer: 70},
+    {testDate: '70', MCQ: 30, Essay: 80, LongAnswer: 60},
+  ];
 
   return (
     <div className="container mx-auto py-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average MCQ Score</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{averageMCQScore}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average Essay Score</CardTitle>
+            <Edit className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{averageEssayScore}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average Long Answer</CardTitle>
+            <ListChecks className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{averageLongAnswerScore}</div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card className="max-w-5xl mx-auto">
         <CardHeader>
           <CardTitle>Progress Tracker</CardTitle>
@@ -58,24 +105,42 @@ const ProgressPage = () => {
           {error && <p className="text-red-500">{error}</p>}
           {!loading && grades.length === 0 && <p>No progress data available.</p>}
           {!loading && grades.length > 0 && (
-            <ResponsiveContainer width="100%" height={400} className="chart-labels">
-              <BarChart
-                data={chartData}
-                margin={{
-                  top: 10,
-                  right: 30,
-                  left: 20,
-                  bottom: 5,
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="score" fill="#8884d8" />
-              </BarChart>
-            </ResponsiveContainer>
+            <>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="testDate" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="MCQ"
+                    stroke="hsl(var(--chart-1))"
+                    strokeWidth={2}
+                    dot={<Dot r={5} />}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="Essay"
+                    stroke="hsl(var(--chart-2))"
+                    strokeWidth={2}
+                    dot={<Dot r={5} />}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="LongAnswer"
+                    stroke="hsl(var(--chart-3))"
+                    strokeWidth={2}
+                    dot={<Dot r={5} />}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="mb-4">
+                Course Completion
+                <Progress value={courseCompletion} className="mt-2" />
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
