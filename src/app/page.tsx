@@ -14,19 +14,21 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    if (auth) {
-      const _auth = getAuth(auth);
-      const unsubscribe = onAuthStateChanged(_auth, (user) => {
-        setIsLoggedIn(!!user);
-        if (!user) {
-          router.push('/login');
-        }
-      });
+    if (typeof window !== 'undefined') {
+      if (auth) {
+        const _auth = getAuth(auth);
+        const unsubscribe = onAuthStateChanged(_auth, (user) => {
+          setIsLoggedIn(!!user);
+          if (!user) {
+            router.push('/login');
+          }
+        });
 
-      return () => unsubscribe();
-    } else {
-      console.error("Firebase Auth is not initialized.");
-      router.push('/login');
+        return () => unsubscribe();
+      } else {
+        console.error("Firebase Auth is not initialized.");
+        router.push('/login');
+      }
     }
   }, [router]);
 
