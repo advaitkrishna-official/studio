@@ -38,7 +38,7 @@ const LessonPlannerPage = () => {
   const [lessonPlanItems, setLessonPlanItems] = useState<LessonPlanItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, userClass } = useAuth();
   const { toast } = useToast();
     const searchParams = useSearchParams();
     const classId = searchParams.get('class');
@@ -53,7 +53,7 @@ const LessonPlannerPage = () => {
         Learning Objectives: ${learningObjectives}
         Topics to be covered: ${topics}
         Timeframe: From ${startDate} to ${endDate}
-        Class: ${classId}
+        Class: ${userClass}
 
         Generate a detailed and editable lesson plan in JSON format with the following structure:
 
@@ -140,7 +140,7 @@ const LessonPlannerPage = () => {
         lessonPlan: lessonPlanItems,
         dateCreated: new Date(),
         status: "Draft",
-          classId: classId, 
+          classId: userClass, 
       });
       toast({
         title: "Lesson Plan Saved",

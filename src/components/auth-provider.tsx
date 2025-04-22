@@ -17,9 +17,9 @@ interface AuthContextType {
   userType: 'student' | 'teacher' | null;
   userClass: string | null;
   signOut: () => void;
-    setUser: (user: User | null) => void;
-    setUserType: (type: 'student' | 'teacher' | null) => void;
-    setUserClass: (userClass: string | null) => void;
+  setUser: (user: User | null) => void;
+  setUserType: (type: 'student' | 'teacher' | null) => void;
+  setUserClass: (userClass: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -28,9 +28,9 @@ const AuthContext = createContext<AuthContextType>({
   userType: null,
   userClass: null,
   signOut: () => {},
-    setUser: (user: User | null) => {},
-    setUserType: (type: 'student' | 'teacher' | null) => {},
-    setUserClass: (userClass: string | null) => {},
+  setUser: (user: User | null) => {},
+  setUserType: (type: 'student' | 'teacher' | null) => {},
+  setUserClass: (userClass: string | null) => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -102,9 +102,9 @@ export default function AuthProvider({children}: AuthProviderProps) {
     userType,
     userClass,
     signOut: signOutFunc,
-      setUser,
-      setUserType,
-      setUserClass,
+    setUser,
+    setUserType,
+    setUserClass,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

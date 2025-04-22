@@ -12,7 +12,7 @@ const OverviewPage = () => {
   const [overview, setOverview] = useState<GenerateOverviewOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, userClass } = useAuth();
     const searchParams = useSearchParams();
     const classId = searchParams.get('class');
 
@@ -28,7 +28,7 @@ const OverviewPage = () => {
 
         // Fetch student data from Firestore, filtered by class
         const studentsCollection = collection(db, "users");
-        const q = query(studentsCollection, where("class", "==", classId)); // Filter by class
+        const q = query(studentsCollection, where("class", "==", userClass)); // Filter by class
         const studentsSnapshot = await getDocs(q);
         const studentsData = studentsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -49,7 +49,7 @@ const OverviewPage = () => {
     };
 
     fetchOverview();
-  }, [user, classId]);
+  }, [user, userClass]);
 
   return (
     <div className="container mx-auto py-8">

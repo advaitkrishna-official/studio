@@ -18,7 +18,7 @@ const StudentManagerPage = () => {
   const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, userClass } = useAuth();
   const { toast } = useToast();
     const searchParams = useSearchParams();
     const classId = searchParams.get('class');
@@ -36,7 +36,7 @@ const StudentManagerPage = () => {
 
         // Fetch student data from Firestore, filtered by class
         const studentsCollection = collection(db, "users");
-        const q = query(studentsCollection, where("class", "==", classId));
+        const q = query(studentsCollection, where("class", "==", userClass));
         const studentsSnapshot = await getDocs(q);
         const studentsData = studentsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -52,7 +52,7 @@ const StudentManagerPage = () => {
     };
 
     fetchStudents();
-  }, [user, classId]);
+  }, [user, userClass]);
 
   const handleUpdateProgress = async (studentId: string, newProgress: number) => {
     try {
