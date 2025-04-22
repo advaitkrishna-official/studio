@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogHeader, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useSearchParams } from "next/navigation";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const StudentManagerPage = () => {
   const [students, setStudents] = useState<any[]>([]);
@@ -20,8 +20,8 @@ const StudentManagerPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user, userClass } = useAuth();
   const { toast } = useToast();
-    const searchParams = useSearchParams();
-    const classId = searchParams.get('class');
+  const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
+  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
 
 
   useEffect(() => {
@@ -34,9 +34,9 @@ const StudentManagerPage = () => {
           return;
         }
 
-        // Fetch student data from Firestore, filtered by class
+        // Fetch student data from Firestore, filtered by selected class
         const studentsCollection = collection(db, "users");
-        const q = query(studentsCollection, where("class", "==", userClass));
+        const q = query(studentsCollection, where("class", "==", selectedClass));
         const studentsSnapshot = await getDocs(q);
         const studentsData = studentsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -52,7 +52,7 @@ const StudentManagerPage = () => {
     };
 
     fetchStudents();
-  }, [user, userClass]);
+  }, [user, selectedClass]);
 
   const handleUpdateProgress = async (studentId: string, newProgress: number) => {
     try {
@@ -120,6 +120,21 @@ const StudentManagerPage = () => {
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-4">Student Manager</h1>
       <p>Manage your students' profiles and track their progress.</p>
+
+       {/* Class Selection Dropdown */}
+       <div className="grid gap-2 mb-4">
+            <label htmlFor="class">Select Class</label>
+            <Select onValueChange={setSelectedClass} defaultValue={userClass}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a class" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map((cls) => (
+                  <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
       {isLoading && <p>Loading students...</p>}
       {error && <p className="text-red-500">{error}</p>}

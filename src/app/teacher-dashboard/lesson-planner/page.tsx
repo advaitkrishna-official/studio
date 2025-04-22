@@ -12,7 +12,7 @@ import { collection, addDoc } from "firebase/firestore";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { useSearchParams } from "next/navigation";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface LessonPlanItem {
   week: number;
@@ -40,8 +40,8 @@ const LessonPlannerPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user, userClass } = useAuth();
   const { toast } = useToast();
-    const searchParams = useSearchParams();
-    const classId = searchParams.get('class');
+  const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
+  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
 
   const handleGenerateLessonPlan = async () => {
     setIsLoading(true);
@@ -53,7 +53,7 @@ const LessonPlannerPage = () => {
         Learning Objectives: ${learningObjectives}
         Topics to be covered: ${topics}
         Timeframe: From ${startDate} to ${endDate}
-        Class: ${userClass}
+        Class: ${selectedClass}
 
         Generate a detailed and editable lesson plan in JSON format with the following structure:
 
@@ -140,7 +140,7 @@ const LessonPlannerPage = () => {
         lessonPlan: lessonPlanItems,
         dateCreated: new Date(),
         status: "Draft",
-          classId: userClass, 
+        classId: selectedClass,
       });
       toast({
         title: "Lesson Plan Saved",
@@ -172,6 +172,22 @@ const LessonPlannerPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
+
+          {/* Class Selection Dropdown */}
+          <div className="grid gap-2">
+            <label htmlFor="class">Select Class</label>
+            <Select onValueChange={setSelectedClass} defaultValue={userClass}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a class" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map((cls) => (
+                  <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid gap-2">
             <Label htmlFor="subject">Subject</Label>
             <Input id="subject" placeholder="Enter subject..." value={subject} onChange={(e) => setSubject(e.target.value)} />

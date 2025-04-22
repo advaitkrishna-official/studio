@@ -6,15 +6,15 @@ import { generateOverview, GenerateOverviewOutput } from "@/ai/flows/generate-ov
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { useSearchParams } from "next/navigation";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const OverviewPage = () => {
   const [overview, setOverview] = useState<GenerateOverviewOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, userClass } = useAuth();
-    const searchParams = useSearchParams();
-    const classId = searchParams.get('class');
+  const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
+  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
 
   useEffect(() => {
     const fetchOverview = async () => {
@@ -26,9 +26,9 @@ const OverviewPage = () => {
           return;
         }
 
-        // Fetch student data from Firestore, filtered by class
+        // Fetch student data from Firestore, filtered by selected class
         const studentsCollection = collection(db, "users");
-        const q = query(studentsCollection, where("class", "==", userClass)); // Filter by class
+        const q = query(studentsCollection, where("class", "==", selectedClass)); // Filter by selected class
         const studentsSnapshot = await getDocs(q);
         const studentsData = studentsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -49,7 +49,7 @@ const OverviewPage = () => {
     };
 
     fetchOverview();
-  }, [user, userClass]);
+  }, [user, selectedClass]);
 
   return (
     <div className="container mx-auto py-8">
@@ -61,6 +61,22 @@ const OverviewPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
+
+          {/* Class Selection Dropdown */}
+          <div className="grid gap-2">
+            <label htmlFor="class">Select Class</label>
+            <Select onValueChange={setSelectedClass} defaultValue={userClass}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a class" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map((cls) => (
+                  <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {isLoading && <p>Loading overview...</p>}
           {error && <p className="text-red-500">{error}</p>}
           {overview && (
