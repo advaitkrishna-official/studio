@@ -67,15 +67,17 @@ const TeacherDashboardPage = () => {
           </CardContent>
         </Card>
 
-        {/* AI-Powered Lesson Planner */}
-        <Card>
+         {/* AI-Powered Lesson Planner */}
+         <Card>
           <CardHeader>
             <CardTitle>AI-Powered Lesson Planner</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Add lesson planning features here */}
-            <p>Input Goals → Auto-Generate Lesson Plans</p>
-            <p>Edit, Save, Reuse Templates</p>
+            <Link href="/teacher-dashboard/lesson-planner">
+              <Button variant="secondary">
+                View Details <Icons.arrowRight className="ml-2" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -121,4 +123,3 @@ const TeacherDashboardPage = () => {
 };
 
 export default TeacherDashboardPage;
-
