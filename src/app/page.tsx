@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,15 +11,24 @@ import { auth } from "@/lib/firebase";
 
 export default function Home() {
   const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.push('/login');
-      }
-    });
+    let _auth;
+    if (auth) {
+      _auth = getAuth(auth);
+      const unsubscribe = onAuthStateChanged(_auth, (user) => {
+        setIsLoggedIn(!!user);
+        if (!user) {
+          router.push('/login');
+        }
+      });
 
-    return () => unsubscribe();
+      return () => unsubscribe();
+    } else {
+      console.error("Firebase Auth is not initialized.");
+      router.push('/login');
+    }
   }, [router]);
 
   return (
@@ -133,4 +142,3 @@ export default function Home() {
     </div>
   );
 }
-

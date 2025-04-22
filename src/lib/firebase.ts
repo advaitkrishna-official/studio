@@ -1,8 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAuth, initializeAuth,  indexedDBLocalPersistence } from "firebase/auth";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { getAuth, initializeAuth, indexedDBLocalPersistence } from "firebase/auth";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -15,16 +13,28 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+let app;
+
+try {
+  app = initializeApp(firebaseConfig);
+} catch (error: any) {
+  console.error("Firebase initialization error:", error.message);
+}
 
 // Initialize Firebase Authentication and persist the user's session
 let auth;
 if (typeof window !== 'undefined') {
-  auth = initializeAuth(app, {
-    persistence: indexedDBLocalPersistence
-  });
+  try {
+    auth = initializeAuth(app, {
+      persistence: indexedDBLocalPersistence,
+    });
+  } catch (error: any) {
+    console.error("Firebase Auth initialization error:", error.message);
+  }
 } else {
-  auth = getAuth(app);
+  if (app) {
+    auth = getAuth(app);
+  }
 }
 
 export { app, auth };
