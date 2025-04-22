@@ -1,46 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { useAuth } from "@/components/auth-provider"; // Import the AuthContext
 
 export default function Home() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(true); // Add a loading state
+  const { user, loading, userType } = useAuth();
 
   useEffect(() => {
-    const initFirebase = async () => {
-      if (typeof window !== 'undefined') {
-        try {
-          const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setIsLoggedIn(!!user);
-            setLoading(false); // Set loading to false once auth state is determined
-            if (!user) {
-              router.push('/login');
-            }
-          });
-
-          return () => unsubscribe();
-        } catch (error) {
-          console.error("Error initializing Firebase Auth:", error);
-          setLoading(false); // Ensure loading is set to false even on error
-          router.push('/login');
-        }
-      } else {
-        setLoading(false); // Also set loading to false if not in a browser environment
+    if (!loading) {
+      if (!user) {
+        router.push('/login');
+      } else if (userType === 'teacher') {
+        router.push('/teacher-dashboard');
       }
-    };
+    }
+  }, [user, loading, userType, router]);
 
-    initFirebase();
-  }, [router]);
-
-  // While loading, you can display a loading indicator or a blank page
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -164,4 +145,3 @@ export default function Home() {
     </div>
   );
 }
-

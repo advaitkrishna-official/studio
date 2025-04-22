@@ -1,4 +1,4 @@
-"use client";
+;"use client";
 
 import { useState } from "react";
 import { useRouter } from 'next/navigation';
@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
-import { app, auth } from "@/lib/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
 import Link from 'next/link';
+import { getDoc, doc } from "firebase/firestore";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -23,12 +24,32 @@ const LoginPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Determine user type (teacher/student)
+      let userType: 'student' | 'teacher' = 'student'; // Default to student
+      if (user.email?.endsWith('@teacher.com')) {
+        userType = 'teacher';
+      } else {
+        // Check Firestore for a teacher role as a fallback
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists() && userDoc.data()?.role === 'teacher') {
+          userType = 'teacher';
+        }
+      }
+
       toast({
         title: "Login Successful",
         description: "You have successfully logged in.",
       });
-      router.push('/');
+
+      // Redirect based on user type
+      if (userType === 'teacher') {
+        router.push('/teacher-dashboard'); // Redirect to teacher dashboard
+      } else {
+        router.push('/'); // Redirect to student dashboard
+      }
     } catch (e: any) {
       setError(e.message || "An error occurred during login.");
       toast({
@@ -85,4 +106,3 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
-

@@ -1,4 +1,4 @@
-"use client";
+;"use client";
 
 import { useState } from "react";
 import { useRouter } from 'next/navigation';
@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { app, auth } from "@/lib/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
 import Link from 'next/link';
+import { doc, setDoc } from "firebase/firestore";
 
 const RegisterPage = () => {
   const [email, setEmail] = useState("");
@@ -24,12 +25,26 @@ const RegisterPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      toast({
-        title: "Registration Successful",
-        description: "You have successfully registered. Please log in.",
-      });
-      router.push('/login');
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      if (user) {
+        // Determine user type (teacher/student) based on email
+        const isTeacher = email.endsWith('@teacher.com');
+
+        // Create a user document in Firestore
+        await setDoc(doc(db, "users", user.uid), {
+          email: email,
+          studentNumber: studentNumber,
+          role: isTeacher ? "teacher" : "student",
+        });
+
+        toast({
+          title: "Registration Successful",
+          description: "You have successfully registered. Please log in.",
+        });
+        router.push('/login');
+      }
     } catch (e: any) {
       setError(e.message || "An error occurred during registration.");
       toast({
@@ -96,4 +111,3 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
-
