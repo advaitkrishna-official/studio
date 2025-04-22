@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import Link from 'next/link';
-import { doc, setDoc, getDocs, collection } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const RegisterPage = () => {
@@ -21,24 +21,8 @@ const RegisterPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const [classes, setClasses] = useState<string[]>([]);
+  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
   const [selectedClass, setSelectedClass] = useState("");
-
-  useEffect(() => {
-    const fetchClasses = async () => {
-      try {
-        // const classesCollection = collection(db, "classes");
-        // const classesSnapshot = await getDocs(classesCollection);
-        // const classesData = classesSnapshot.docs.map(doc => doc.id); // Use doc.id to get the class name
-        // setClasses(classesData);
-        setClasses(["Grade 8", "Grade 6", "Grade 4"]); // Setting static class options
-      } catch (e: any) {
-        setError(e.message || "An error occurred while fetching classes.");
-      }
-    };
-
-    fetchClasses();
-  }, []);
 
   const handleSubmit = async () => {
     setIsLoading(true);

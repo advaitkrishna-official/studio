@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from "@/components/auth-provider";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Link from "next/link";
@@ -13,6 +13,8 @@ import {app} from "@/lib/firebase";
 const TeacherDashboardPage = () => {
   const { user, loading, userType } = useAuth();
   const router = useRouter();
+    const searchParams = useSearchParams();
+    const classId = searchParams.get('class');
 
   useEffect(() => {
     if (!loading) {
@@ -48,7 +50,7 @@ const TeacherDashboardPage = () => {
             <CardDescription>View student performance overview.</CardDescription>
           </CardHeader>
           <CardContent>
-           <Link href="/teacher-dashboard/overview">
+           <Link href={`/teacher-dashboard/overview?class=${classId}`}>
               <Button variant="secondary">
                 View Details <Icons.arrowRight className="ml-2" />
               </Button>
@@ -63,7 +65,7 @@ const TeacherDashboardPage = () => {
             <CardDescription>Manage student profiles and track progress.</CardDescription>
           </CardHeader>
           <CardContent>
-           <Link href="/teacher-dashboard/student-manager">
+           <Link href={`/teacher-dashboard/student-manager?class=${classId}`}>
               <Button variant="secondary">
                 View Details <Icons.arrowRight className="ml-2" />
               </Button>
@@ -77,7 +79,7 @@ const TeacherDashboardPage = () => {
             <CardTitle>AI-Powered Lesson Planner</CardTitle>
           </CardHeader>
           <CardContent>
-            <Link href="/teacher-dashboard/lesson-planner">
+            <Link href={`/teacher-dashboard/lesson-planner?class=${classId}`}>
               <Button variant="secondary">
                 View Details <Icons.arrowRight className="ml-2" />
               </Button>

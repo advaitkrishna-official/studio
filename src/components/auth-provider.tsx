@@ -17,6 +17,9 @@ interface AuthContextType {
   userType: 'student' | 'teacher' | null;
   userClass: string | null;
   signOut: () => void;
+    setUser: (user: User | null) => void;
+    setUserType: (type: 'student' | 'teacher' | null) => void;
+    setUserClass: (userClass: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -25,86 +28,67 @@ const AuthContext = createContext<AuthContextType>({
   userType: null,
   userClass: null,
   signOut: () => {},
+    setUser: (user: User | null) => {},
+    setUserType: (type: 'student' | 'teacher' | null) => {},
+    setUserClass: (userClass: string | null) => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
 
 interface AuthProviderProps {
   children: ReactNode;
-  setUser: (user: User | null) => void;
-  setUserType: (userType: 'student' | 'teacher' | null) => void;
-  setUserClass: (userClass: string | null) => void;
 }
 
-export default function AuthProvider({children, setUser, setUserType, setUserClass}: AuthProviderProps) {
-  const [user, setLocalUser] = useState<User | null>(null);
+export default function AuthProvider({children}: AuthProviderProps) {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userType, setLocalUserType] = useState<'student' | 'teacher' | null>(null);
-  const [userClass, setLocalUserClass] = useState<string | null>(null);
+  const [userType, setUserType] = useState<'student' | 'teacher' | null>(null);
+  const [userClass, setUserClass] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    let unsubscribe: () => void;
+    const unsubscribe = auth ? onAuthStateChanged(auth, async user => {
+      if (!user) {
+        setUser(null);
+        setUserType(null);
+        setUserClass(null);
+        setLoading(false);
+        router.push('/login');
+      } else {
+        setUser(user);
 
-    if (!auth) {
-      unsubscribe = () => {};
-      setLoading(false);
-    } else {
-      unsubscribe = onAuthStateChanged(getAuth(app), async user => {
-        if (!user) {
-          setLocalUser(null);
-          setLocalUserType(null);
-          setLocalUserClass(null);
-          setUser(null);
-          setUserType(null);
-          setUserClass(null);
-          setLoading(false);
-          router.push('/login');
-        } else {
-          setLocalUser(user);
-          setUser(user);
+        let type: 'student' | 'teacher' = 'student';
+        let classVal: string | null = null;
 
-          let type: 'student' | 'teacher' = 'student';
-          let classVal: string | null = null;
-
-          try {
-            if (db) {
-              const userDoc = await getDoc(doc(db, 'users', user.uid));
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                if (userData?.role === 'teacher') {
-                  type = 'teacher';
-                }
-                classVal = userData?.class || null;
-              } else if (user.email?.endsWith('@teacher.com')) {
+        try {
+          if (db) {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              if (userData?.role === 'teacher') {
                 type = 'teacher';
               }
+              classVal = userData?.class || null;
+            } else if (user.email?.endsWith('@teacher.com')) {
+              type = 'teacher';
             }
-          } catch (error) {
-            console.error('Error fetching user role from Firestore:', error);
-            type = user.email?.endsWith('@teacher.com') ? 'teacher' : 'student';
           }
-          setLocalUserType(type);
-          setUserType(type);
-          setLocalUserClass(classVal);
-          setUserClass(classVal);
-          setLoading(false);
+        } catch (error) {
+          console.error('Error fetching user role from Firestore:', error);
+          type = user.email?.endsWith('@teacher.com') ? 'teacher' : 'student';
         }
-      });
-    }
+        setUserType(type);
+        setUserClass(classVal)
+        setLoading(false);
+      }
+    }) : () => {};
     return () => unsubscribe();
-  }, [router, setUser, setUserType, setUserClass]);
+  }, [router]);
 
   const signOutFunc = async () => {
     if (auth) {
       try {
         await signOut(auth);
-        setLocalUser(null);
-        setLocalUserType(null);
-        setLocalUserClass(null);
-        setUser(null);
-        setUserType(null);
-        setUserClass(null);
         router.push('/login');
       } catch (error) {
         console.error('Error signing out:', error);
@@ -113,11 +97,14 @@ export default function AuthProvider({children, setUser, setUserType, setUserCla
   };
 
   const value: AuthContextType = {
-    user: user,
+    user,
     loading,
-    userType: userType,
-    userClass: userClass,
+    userType,
+    userClass,
     signOut: signOutFunc,
+      setUser,
+      setUserType,
+      setUserClass,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

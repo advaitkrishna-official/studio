@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -151,5 +151,3 @@ const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints }) 
 };
 
 export default LongAnswerPage;
-
-    
