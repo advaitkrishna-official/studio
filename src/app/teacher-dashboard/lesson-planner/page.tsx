@@ -16,15 +16,23 @@ const LessonPlannerPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Implement AI-powered lesson plan generation here
-      // For now, just simulate a response
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      setLessonPlan("This is a sample AI generated lesson plan.");
+      // Replace with actual AI-powered lesson plan generation
+      const aiGeneratedPlan = await generateAiLessonPlan(goals);
+      setLessonPlan(aiGeneratedPlan);
     } catch (e: any) {
       setError(e.message || "An error occurred while generating the lesson plan.");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const generateAiLessonPlan = async (goals: string) => {
+    // Simulate AI lesson plan generation (replace with actual AI call)
+    return new Promise<string>((resolve) => {
+      setTimeout(() => {
+        resolve(`AI Generated Lesson Plan:\nBased on the goals: ${goals}\n\n- Step 1: ...\n- Step 2: ...\n- Step 3: ...`);
+      }, 1000); // Simulate AI processing time
+    });
   };
 
   return (
@@ -68,3 +76,4 @@ const LessonPlannerPage = () => {
 };
 
 export default LessonPlannerPage;
+
