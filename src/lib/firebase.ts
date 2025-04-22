@@ -26,16 +26,15 @@ try {
 
 // Initialize Firebase Authentication and persist the user's session
 let auth;
-try {
-  if (typeof window !== 'undefined') {
+
+if (typeof window !== 'undefined') {
+  try {
     auth = initializeAuth(app, {
       persistence: indexedDBLocalPersistence,
     });
-  } else {
-    auth = getAuth(app);
+  } catch (error: any) {
+    console.error("Firebase Auth initialization error:", error);
   }
-} catch (error: any) {
-  console.error("Firebase Auth initialization error:", error);
 }
 
 const db = getFirestore(app); // Initialize Firestore
