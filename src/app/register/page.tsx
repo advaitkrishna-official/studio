@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { app } from "@/lib/firebase";
 import Link from 'next/link';
 
-const LoginPage = () => {
+const RegisterPage = () => {
   const [email, setEmail] = useState("");
+  const [studentNumber, setStudentNumber] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,17 +25,17 @@ const LoginPage = () => {
     setError(null);
     try {
       const auth = getAuth(app);
-      await signInWithEmailAndPassword(auth, email, password);
+      await createUserWithEmailAndPassword(auth, email, password);
       toast({
-        title: "Login Successful",
-        description: "You have successfully logged in.",
+        title: "Registration Successful",
+        description: "You have successfully registered. Please log in.",
       });
-      router.push('/');
+      router.push('/login');
     } catch (e: any) {
-      setError(e.message || "An error occurred during login.");
+      setError(e.message || "An error occurred during registration.");
       toast({
         variant: "destructive",
-        title: "Login Failed",
+        title: "Registration Failed",
         description: e.message || "Invalid credentials. Please try again.",
       });
     } finally {
@@ -46,9 +47,9 @@ const LoginPage = () => {
     <div className="container mx-auto py-8">
       <Card className="max-w-3xl mx-auto">
         <CardHeader>
-          <CardTitle>Login</CardTitle>
+          <CardTitle>Register</CardTitle>
           <CardDescription>
-            Enter your email and password to access your account.
+            Enter your details to create an account.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -63,6 +64,16 @@ const LoginPage = () => {
             />
           </div>
           <div className="grid gap-2">
+            <Label htmlFor="studentNumber">Student Number</Label>
+            <Input
+              id="studentNumber"
+              placeholder="Enter your student number..."
+              type="text"
+              value={studentNumber}
+              onChange={(e) => setStudentNumber(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
@@ -73,11 +84,11 @@ const LoginPage = () => {
             />
           </div>
           <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? "Logging In..." : "Login"}
+            {isLoading ? "Registering..." : "Register"}
           </Button>
           {error && <p className="text-red-500">{error}</p>}
           <p className="text-sm text-muted-foreground">
-            Don't have an account? <Link href="/register" className="text-primary">Register</Link>
+            Already have an account? <Link href="/login" className="text-primary">Login</Link>
           </p>
         </CardContent>
       </Card>
@@ -85,4 +96,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default RegisterPage;
