@@ -63,6 +63,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => unsubscribe();
   }, [router]);
 
+  useEffect(() => {
+    console.log({
+      user,
+      loading,
+      userType,
+    });
+  }, [user, loading, userType]);
   const value: AuthContextType = {
     user,
     loading,
