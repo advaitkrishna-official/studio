@@ -7,26 +7,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { generateLongAnswerQuestions } from "@/ai/flows/generate-long-answer-questions";
-import { generateLongAnswerQuestions as generateLongAnswerQuestionsFlow } from "@/ai/flows/generate-long-answer-questions";
 import { db } from "@/lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 
-
-// Define the structure for a task in the Gantt chart
-interface GanttTask {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  progress: number;
-  dependencies?: string[];
-}
-
-// Define the expected output from the AI model
-interface AiLessonPlannerFlowOutput {
-  tasks: GanttTask[];
+// Define the structure for a lesson plan item
+interface LessonPlanItem {
+  week: number;
+  topic: string;
+  activities: string;
+  resources: string[];
+  assessment: string;
 }
 
 const LessonPlannerPage = () => {
@@ -36,7 +28,7 @@ const LessonPlannerPage = () => {
   const [topics, setTopics] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [lessonPlan, setLessonPlan] = useState<string>("");
+  const [lessonPlanItems, setLessonPlanItems] = useState<LessonPlanItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
@@ -55,16 +47,66 @@ const LessonPlannerPage = () => {
         Start Date: ${startDate}
         End Date: ${endDate}
         
-        Generate a lesson plan with daily or weekly breakdowns, suggested teaching methods,
-        resource recommendations, and checkpoints.
+        Generate a structured lesson plan with daily or weekly breakdowns, suggested teaching methods,
+        resource recommendations (including PDFs, videos, flashcards, AI-generated MCQs),
+        and checkpoints. The plan should be in JSON format with the following structure:
+
+        {
+          "lessonTitle": "Title",
+          "learningObjectives": ["Objective 1", "Objective 2"],
+          "lessonPlan": [
+            {
+              "week": 1,
+              "topic": "Topic 1",
+              "activities": "Description of Activities",
+              "resources": ["PDF Link", "Video Link"],
+              "assessment": "Mini-quiz"
+            },
+            {
+              "week": 2,
+              "topic": "Topic 2",
+              "activities": "Description of Activities",
+              "resources": ["Flashcard Set", "MCQ Set"],
+              "assessment": "Review session"
+            }
+          ]
+        }
       `;
 
       // Replace with actual AI-powered lesson plan generation
       const aiGeneratedPlan = await generateLongAnswerQuestions({ topic: prompt, numQuestions: 5 });
 
-      setLessonPlan(aiGeneratedPlan?.questions?.join('\n') || "Failed to generate lesson plan.");
+      if (aiGeneratedPlan?.questions) {
+        try {
+          // Attempt to parse the AI-generated plan as JSON
+          const lessonPlan = JSON.parse(aiGeneratedPlan.questions.join('\n'));
+
+          // Check that the parsed data has the expected structure
+          if (lessonPlan && lessonPlan.lessonPlan && Array.isArray(lessonPlan.lessonPlan)) {
+            // Map the AI-generated data to the LessonPlanItem interface
+            const lessonItems: LessonPlanItem[] = lessonPlan.lessonPlan.map((item: any) => ({
+              week: item.week || 0,
+              topic: item.topic || "",
+              activities: item.activities || "",
+              resources: item.resources || [],
+              assessment: item.assessment || ""
+            }));
+            setLessonPlanItems(lessonItems);
+          } else {
+            setError("Failed to parse AI generated lesson plan.");
+            setLessonPlanItems([]);
+          }
+        } catch (parseError: any) {
+          setError(`Failed to parse JSON: ${parseError.message}`);
+          setLessonPlanItems([]);
+        }
+      } else {
+        setError("Failed to generate lesson plan.");
+        setLessonPlanItems([]);
+      }
     } catch (e: any) {
       setError(e.message || "An error occurred while generating the lesson plan.");
+      setLessonPlanItems([]);
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +127,7 @@ const LessonPlannerPage = () => {
         topics,
         startDate,
         endDate,
-        lessonPlan,
+        lessonPlan: lessonPlanItems,
         dateCreated: new Date(),
         status: "Draft",
       });
@@ -102,7 +144,6 @@ const LessonPlannerPage = () => {
       });
     }
   };
-
 
   return (
     <div className="container mx-auto py-8">
@@ -172,20 +213,19 @@ const LessonPlannerPage = () => {
             {isLoading ? "Generating Lesson Plan..." : "Generate Lesson Plan"}
           </Button>
           {error && <p className="text-red-500">{error}</p>}
-          {lessonPlan && (
+          {lessonPlanItems.length > 0 && (
             <div className="grid gap-2">
               <Label htmlFor="lessonPlan">Lesson Plan</Label>
               <div>
-                {/* Text-based representation of the lesson plan */}
-                <Textarea
-                  id="lessonPlan"
-                  readOnly
-                  value={lessonPlan}
-                  className="resize-none min-h-[300px]"  // Make the textarea bigger
-                />
-                {/* Placeholder for Gantt chart */}
-                {/* <p>Lesson Plan Graph (Placeholder)</p>
-                <p>Due to the complexity of generating interactive charts, a basic graph cannot be displayed. Further assistance may be needed</p> */}
+                {lessonPlanItems.map((item, index) => (
+                  <div key={index} className="mb-4 border p-4 rounded">
+                    <h3 className="text-xl font-bold">Week {item.week}</h3>
+                    <p><strong>Topic:</strong> {item.topic}</p>
+                    <p><strong>Activities:</strong> {item.activities}</p>
+                    <p><strong>Resources:</strong> {item.resources.join(', ')}</p>
+                    <p><strong>Assessment:</strong> {item.assessment}</p>
+                  </div>
+                ))}
                 <Button onClick={handleSaveLessonPlan}>Save Lesson Plan</Button>
               </div>
             </div>
