@@ -15,14 +15,15 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if (auth) {
-        let _auth;
-        try {
-          _auth = getAuth(auth);
-        } catch (error) {
-          console.error("Error initializing Firebase Auth:", error);
-          return;
-        }
+      let _auth;
+      try {
+        _auth = auth ? getAuth(auth) : null; // Initialize auth here
+      } catch (error) {
+        console.error("Error initializing Firebase Auth:", error);
+        return;
+      }
+
+      if (_auth) {
         const unsubscribe = onAuthStateChanged(_auth, (user) => {
           setIsLoggedIn(!!user);
           if (!user) {
@@ -153,3 +154,4 @@ export default function Home() {
     </div>
   );
 }
+
