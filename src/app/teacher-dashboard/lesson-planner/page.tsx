@@ -11,6 +11,7 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/hooks/use-toast";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface LessonPlanItem {
   week: number;
@@ -150,6 +151,12 @@ const LessonPlannerPage = () => {
     }
   };
 
+  // Prepare data for the chart
+  const chartData = lessonPlanItems.map(item => ({
+    name: `Week ${item.week}`,
+    Activities: item.activities.length, // Example: Number of activities
+  }));
+
   return (
     <div className="container mx-auto py-8">
       <Card className="max-w-3xl mx-auto">
@@ -195,6 +202,18 @@ const LessonPlannerPage = () => {
                 <h2 className="text-xl font-bold">{lessonTitle}</h2>
                 <p><strong>Teaching Methods:</strong> {teachingMethods}</p>
                 <p><strong>Intended Outcomes:</strong> {intendedOutcomes}</p>
+
+                 <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="Activities" fill="#8884d8" />
+                  </BarChart>
+                </ResponsiveContainer>
+
                 {lessonPlanItems.map((item, index) => (
                   <div key={index} className="mb-4 border p-4 rounded">
                     <h3 className="text-lg font-semibold">Week {item.week}</h3>
