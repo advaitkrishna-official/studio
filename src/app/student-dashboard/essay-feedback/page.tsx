@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -31,8 +30,17 @@ const EssayFeedbackPage = () => {
       if (user) {
         await saveGrade(user.uid, `Essay on ${topic}`, 0, result.feedback); // Score is set to 0 as AI only provides feedback
       }
+        toast({
+          title: "Essay Feedback Generated",
+          description: "The essay feedback has been generated.",
+        });
     } catch (e: any) {
       setError(e.message || "An error occurred while generating feedback.");
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to generate essay feedback. Please try again.",
+        });
     } finally {
       setIsLoading(false);
     }

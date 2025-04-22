@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from "react";
@@ -11,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { checkLongAnswer } from "@/ai/flows/check-long-answer";
 import { useAuth } from "@/components/auth-provider";
 import { saveGrade } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 
 const LongAnswerPage = () => {
   const [topic, setTopic] = useState("");
@@ -19,6 +19,7 @@ const LongAnswerPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   return (
     <div className="container mx-auto py-8">
@@ -53,8 +54,21 @@ const LongAnswerPage = () => {
                setIsLoading(true);
                setError(null);
                generateLongAnswerQuestions({ topic, numQuestions })
-                 .then(result => setQuestions(result))
-                 .catch(e => setError(e.message || "An error occurred while generating questions."))
+                 .then(result => {
+                   setQuestions(result);
+                   toast({
+                     title: "Long Answer Questions Generated",
+                     description: "The long answer questions have been generated.",
+                   });
+                 })
+                 .catch(e => {
+                   setError(e.message || "An error occurred while generating questions.");
+                   toast({
+                     variant: "destructive",
+                     title: "Error",
+                     description: "Failed to generate long answer questions. Please try again.",
+                   });
+                 })
                  .finally(() => setIsLoading(false));
           }} disabled={isLoading}>
             {isLoading ? "Generating Questions..." : "Generate Questions"}
@@ -71,7 +85,7 @@ const LongAnswerPage = () => {
           </p>
           <div className="grid gap-4 mt-4">
             {questions.questions.map((question, index) => (
-              <LongAnswerCard key={index} question={question} keyPoints={questions.keyPoints ? questions.keyPoints[index] || "" : ""} topic={topic} user={user}/>
+              <LongAnswerCard key={index} question={question} keyPoints={questions.keyPoints ? questions.keyPoints[index] || "" : ""} topic={topic} user={user} toast={toast}/>
             ))}
           </div>
         </div>
@@ -85,9 +99,10 @@ interface LongAnswerCardProps {
   keyPoints: string;
   topic: string;
   user: any;
+  toast: any;
 }
 
-const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints, topic, user }) => {
+const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints, topic, user, toast }) => {
   const [studentAnswer, setStudentAnswer] = useState("");
   const [solution, setSolution] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -109,8 +124,17 @@ const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints, to
         const score = result.isCorrect ? 100 : 0; // Assign score based on correctness
         await saveGrade(user.uid, `Long Answer on ${topic}: ${question}`, score, result.feedback);
       }
+      toast({
+        title: "Long Answer Checked",
+        description: "Your long answer has been checked.",
+      });
     } catch (e: any) {
       setError(e.message || "An error occurred while checking the answer.");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to check long answer. Please try again.",
+      });
     } finally {
       setCheckingAnswer(false);
     }

@@ -11,6 +11,7 @@ import { CheckCircle, Circle } from "lucide-react";
 import { generateMcqExplanation } from "@/ai/flows/generate-mcq-explanation";
 import { useAuth } from "@/components/auth-provider";
 import { saveGrade } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 
 const MCQPage = () => {
   const [topic, setTopic] = useState("");
@@ -23,6 +24,7 @@ const MCQPage = () => {
   const [explanations, setExplanations] = useState<string[]>([]); // New state for explanations
   const { user } = useAuth();
   const [quizScore, setQuizScore] = useState(0);
+  const { toast } = useToast();
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -34,8 +36,17 @@ const MCQPage = () => {
       setShowAnswers(false);
       setExplanations(Array(result?.questions?.length || 0).fill("")); // Initialize explanations
       setQuizScore(0); // Reset quiz score
+        toast({
+          title: "MCQs Generated",
+          description: "The MCQs have been generated.",
+        });
     } catch (e: any) {
       setError(e.message || "An error occurred while generating MCQs.");
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to generate MCQs. Please try again.",
+        });
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +92,13 @@ const MCQPage = () => {
       // Save the grade to Firebase
       if (user) {
         const scorePercentage = (correctCount / mcq.questions.length) * 100;
-        await saveGrade(user.uid, `MCQ Quiz on ${topic}`, scorePercentage, `You got ${correctCount} out of ${mcq.questions.length} correct.`);
+        const description = `You got ${correctCount} out of ${mcq.questions.length} correct.`;
+        await saveGrade(user.uid, `MCQ Quiz on ${topic}`, scorePercentage, description);
+
+          toast({
+            title: "Quiz Submitted",
+            description: description,
+          });
       }
     }
   };
