@@ -16,6 +16,13 @@ const FlashcardPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [studentHistory, setStudentHistory] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Placeholder for fetching student history
+    // Replace with actual logic to fetch and display history
+    setStudentHistory(["Generated 10 flashcards on Biology", "Generated 5 flashcards on Chemistry"]);
+  }, []);
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -43,6 +50,14 @@ const FlashcardPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
+           <div>
+              <Label>Student History</Label>
+              <ul>
+                {studentHistory.map((history, index) => (
+                  <li key={index}>{history}</li>
+                ))}
+              </ul>
+            </div>
           <div className="grid gap-2">
             <Label htmlFor="topic">Topic</Label>
             <Input
