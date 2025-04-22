@@ -2,7 +2,7 @@
 
 import { FirebaseApp, initializeApp, getApps } from "firebase/app";
 import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth } from "firebase/auth";
-import { getFirestore, Firestore, collection, doc, setDoc } from "firebase/firestore"; // Import getFirestore and other functions
+import { getFirestore, Firestore, collection, doc, setDoc, getDoc } from "firebase/firestore";
 import {useEffect, useState} from 'react';
 
 // Your web app's Firebase configuration
@@ -40,38 +40,40 @@ if (getApps().length === 0) {
   }
 }
 
-// Mock data for seeding
-const mockStudents = [
-  { email: 'student1@example.com', studentNumber: '1001', class: 'Grade 8', progress: 75 },
-  { email: 'student2@example.com', studentNumber: '1002', class: 'Grade 6', progress: 50 },
-  { email: 'student3@example.com', studentNumber: '1003', class: 'Grade 4', progress: 90 },
-];
-
-// Function to seed the database
-async function seedDatabase() {
-  if (!db) {
-    console.error("Firestore not initialized");
-    return;
-  }
-
+// Function to create a new user document in Firestore
+async function createUserDocument(userId: string, email: string, studentNumber: string, role: string, classVal: string) {
   try {
-    const studentsCollection = collection(db, 'users');
-    for (const student of mockStudents) {
-      const studentDocRef = doc(studentsCollection); // Create a new document with a unique ID
-      await setDoc(studentDocRef, {
-        ...student,
-        role: 'student', // Add role field
-      });
-      console.log(`Added student with email: ${student.email}`);
-    }
-    console.log("Database seeded successfully!");
+    const userDocRef = doc(db, 'users', userId);
+    await setDoc(userDocRef, {
+      email: email,
+      studentNumber: studentNumber,
+      role: role,
+      class: classVal,
+      progress: 0, // Initialize progress
+      lastMessage: '', // Initialize last message
+    });
+    console.log(`User document created for user ${userId}`);
   } catch (error: any) {
-    console.error("Error seeding database:", error.message);
+    console.error("Error creating user document:", error.message);
   }
 }
 
-// Call the seedDatabase function (you might want to trigger this from a button in your UI for testing)
-seedDatabase();
+// Function to get user data from Firestore
+async function getUserData(userId: string) {
+    try {
+        const userDocRef = doc(db, 'users', userId);
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+            return docSnap.data();
+        } else {
+            console.log("No such document!");
+            return null;
+        }
+    } catch (error: any) {
+        console.error("Error getting user document:", error.message);
+        return null;
+    }
+}
 
-export { app, auth, db, seedDatabase };
+export { app, auth, db, createUserDocument, getUserData };
 

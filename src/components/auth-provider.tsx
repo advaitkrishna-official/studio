@@ -1,6 +1,6 @@
 'use client';
 
-import {useState, useEffect, createContext, useContext, ReactNode} from 'react';
+import {useState, useEffect, createContext, useContext, ReactNode, useCallback} from 'react';
 import {useRouter} from 'next/navigation';
 import {
   getAuth,
@@ -8,7 +8,7 @@ import {
   User,
   signOut,
 } from 'firebase/auth';
-import {auth, db, app} from '@/lib/firebase';
+import {auth, db, getUserData} from '@/lib/firebase';
 import {doc, getDoc} from 'firebase/firestore';
 
 interface AuthContextType {
@@ -17,9 +17,6 @@ interface AuthContextType {
   userType: 'student' | 'teacher' | null;
   userClass: string | null;
   signOut: () => void;
-  setUser: (user: User | null) => void;
-  setUserType: (type: 'student' | 'teacher' | null) => void;
-  setUserClass: (userClass: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -28,9 +25,6 @@ const AuthContext = createContext<AuthContextType>({
   userType: null,
   userClass: null,
   signOut: () => {},
-  setUser: (user: User | null) => {},
-  setUserType: (type: 'student' | 'teacher' | null) => {},
-  setUserClass: (userClass: string | null) => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -46,6 +40,25 @@ export default function AuthProvider({children}: AuthProviderProps) {
   const [userClass, setUserClass] = useState<string | null>(null);
   const router = useRouter();
 
+
+  const fetchUserData = useCallback(async (user: User) => {
+    try {
+      const userData = await getUserData(user.uid);
+      if (userData) {
+        setUserType(userData.role);
+        setUserClass(userData.class);
+      } else {
+        setUserType(user.email?.endsWith('@teacher.com') ? 'teacher' : 'student');
+        setUserClass(null);
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setUserType(user.email?.endsWith('@teacher.com') ? 'teacher' : 'student');
+      setUserClass(null);
+    }
+  }, []);
+
+
   useEffect(() => {
     const unsubscribe = auth ? onAuthStateChanged(auth, async user => {
       if (!user) {
@@ -56,34 +69,12 @@ export default function AuthProvider({children}: AuthProviderProps) {
         router.push('/login');
       } else {
         setUser(user);
-
-        let type: 'student' | 'teacher' = 'student';
-        let classVal: string | null = null;
-
-        try {
-          if (db) {
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              if (userData?.role === 'teacher') {
-                type = 'teacher';
-              }
-              classVal = userData?.class || null;
-            } else if (user.email?.endsWith('@teacher.com')) {
-              type = 'teacher';
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching user role from Firestore:', error);
-          type = user.email?.endsWith('@teacher.com') ? 'teacher' : 'student';
-        }
-        setUserType(type);
-        setUserClass(classVal)
+        await fetchUserData(user);
         setLoading(false);
       }
     }) : () => {};
     return () => unsubscribe();
-  }, [router]);
+  }, [router, fetchUserData]);
 
   const signOutFunc = async () => {
     if (auth) {
@@ -102,9 +93,6 @@ export default function AuthProvider({children}: AuthProviderProps) {
     userType,
     userClass,
     signOut: signOutFunc,
-    setUser,
-    setUserType,
-    setUserClass,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

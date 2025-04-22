@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, getUserData } from "@/lib/firebase";
 import Link from 'next/link';
 import { getDoc, doc } from "firebase/firestore";
 
@@ -45,32 +45,30 @@ const LoginPage = () => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Determine user type (teacher/student)
-      let userType: 'student' | 'teacher' = 'student'; // Default to student
-      let userClass: string | null = null;
+      if (user) {
+        // Retrieve user data from Firestore
+        const userData = await getUserData(user.uid);
 
-      // Check Firestore for a teacher role
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        if (userData?.role === 'teacher') {
-          userType = 'teacher';
+        if (userData) {
+          toast({
+            title: "Login Successful",
+            description: "You have successfully logged in.",
+          });
+
+          // Redirect based on user type and class
+          if (userData.role === 'teacher') {
+            router.push(`/teacher-dashboard?class=${userData.class}`); // Redirect to teacher dashboard with class
+          } else {
+            router.push('/'); // Redirect to student dashboard
+          }
+        } else {
+          setError("Failed to retrieve user data.");
+          toast({
+            variant: "destructive",
+            title: "Login Failed",
+            description: "Failed to retrieve user data. Please try again.",
+          });
         }
-        userClass = userData?.class || null;
-      } else if (user.email?.endsWith('@teacher.com')) {
-         userType = 'teacher';
-      }
-
-      toast({
-        title: "Login Successful",
-        description: "You have successfully logged in.",
-      });
-
-      // Redirect based on user type and class
-      if (userType === 'teacher') {
-        router.push(`/teacher-dashboard?class=${userClass}`); // Redirect to teacher dashboard with class
-      } else {
-        router.push('/'); // Redirect to student dashboard
       }
     } catch (e: any) {
       setError(e.message || "An error occurred during login.");
@@ -128,3 +126,4 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
+
