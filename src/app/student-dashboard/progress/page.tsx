@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,61 +22,41 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-
-const defaultData = [
-  {
-    name: "Week 1",
-    correct: 0,
-    incorrect: 0,
-  },
-  {
-    name: "Week 2",
-    correct: 0,
-    incorrect: 0,
-  },
-  {
-    name: "Week 3",
-    correct: 0,
-    incorrect: 0,
-  },
-  {
-    name: "Week 4",
-    correct: 0,
-    incorrect: 0,
-  },
-  {
-    name: "Week 5",
-    correct: 0,
-    incorrect: 0,
-  },
-  {
-    name: "Week 6",
-    correct: 0,
-    incorrect: 0,
-  },
-  {
-    name: "Week 7",
-    correct: 0,
-    incorrect: 0,
-  },
-  {
-    name: "Week 8",
-    correct: 0,
-    incorrect: 0,
-  },
-  {
-    name: "Week 9",
-    correct: 0,
-    incorrect: 0,
-  },
-  {
-    name: "Week 10",
-    correct: 0,
-    incorrect: 0,
-  },
-];
+import { useAuth } from "@/components/auth-provider";
+import { useState, useEffect } from "react";
+import { getGrades } from "@/lib/firebase";
 
 const ProgressPage = () => {
+  const { user } = useAuth();
+  const [grades, setGrades] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchGrades = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        if (user) {
+          const gradesData = await getGrades(user.uid);
+          setGrades(gradesData);
+        }
+      } catch (e: any) {
+        setError(e.message || "An error occurred while fetching grades.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGrades();
+  }, [user]);
+
+  // Transform grades data for recharts
+  const chartData = grades.map((grade) => ({
+    name: grade.taskName,
+    score: grade.score,
+  }));
+
   return (
     <div className="container mx-auto py-8">
       <Card className="max-w-5xl mx-auto">
@@ -86,9 +67,13 @@ const ProgressPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {loading && <p>Loading progress...</p>}
+          {error && <p className="text-red-500">{error}</p>}
+          {!loading && grades.length === 0 && <p>No progress data available.</p>}
+          {!loading && grades.length > 0 && (
             <ResponsiveContainer width="100%" height={400}>
               <AreaChart
-                data={defaultData}
+                data={chartData}
                 margin={{
                   top: 10,
                   right: 30,
@@ -98,12 +83,12 @@ const ProgressPage = () => {
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
-                <YAxis />
+                <YAxis domain={[0, 100]} />
                 <Tooltip />
-                <Area type="monotone" dataKey="correct" stroke="#82ca9d" fill="#82ca9d" name="Correct Answers" />
-                <Area type="monotone" dataKey="incorrect" stroke="#e48080" fill="#e48080" name="Incorrect Answers" />
+                <Area type="monotone" dataKey="score" stroke="#82ca9d" fill="#82ca9d" name="Score" />
               </AreaChart>
             </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
     </div>

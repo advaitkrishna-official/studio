@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from "react";
@@ -8,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { generateLongAnswerQuestions, GenerateLongAnswerQuestionsOutput } from "@/ai/flows/generate-long-answer-questions";
 import { Textarea } from "@/components/ui/textarea";
 import { checkLongAnswer } from "@/ai/flows/check-long-answer";
+import { useAuth } from "@/components/auth-provider";
+import { saveGrade } from "@/lib/firebase";
 
 const LongAnswerPage = () => {
   const [topic, setTopic] = useState("");
@@ -15,6 +18,7 @@ const LongAnswerPage = () => {
   const [questions, setQuestions] = useState<GenerateLongAnswerQuestionsOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   return (
     <div className="container mx-auto py-8">
@@ -67,7 +71,7 @@ const LongAnswerPage = () => {
           </p>
           <div className="grid gap-4 mt-4">
             {questions.questions.map((question, index) => (
-              <LongAnswerCard key={index} question={question} keyPoints={questions.keyPoints ? questions.keyPoints[index] || "" : ""} />
+              <LongAnswerCard key={index} question={question} keyPoints={questions.keyPoints ? questions.keyPoints[index] || "" : ""} topic={topic} user={user}/>
             ))}
           </div>
         </div>
@@ -79,9 +83,11 @@ const LongAnswerPage = () => {
 interface LongAnswerCardProps {
   question: string;
   keyPoints: string;
+  topic: string;
+  user: any;
 }
 
-const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints }) => {
+const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints, topic, user }) => {
   const [studentAnswer, setStudentAnswer] = useState("");
   const [solution, setSolution] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -97,6 +103,12 @@ const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints }) 
       setSolution(result.correctAnswer);
       setFeedback(result.feedback);
       setIsCorrect(result.isCorrect);
+
+      // Save grade and feedback
+      if (user) {
+        const score = result.isCorrect ? 100 : 0; // Assign score based on correctness
+        await saveGrade(user.uid, `Long Answer on ${topic}: ${question}`, score, result.feedback);
+      }
     } catch (e: any) {
       setError(e.message || "An error occurred while checking the answer.");
     } finally {

@@ -2,7 +2,7 @@
 
 import { FirebaseApp, initializeApp, getApps } from "firebase/app";
 import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth } from "firebase/auth";
-import { getFirestore, Firestore, collection, doc, setDoc, getDoc, DocumentData } from "firebase/firestore";
+import { getFirestore, Firestore, collection, doc, setDoc, getDoc, DocumentData, addDoc, query, where, getDocs } from "firebase/firestore";
 import {useEffect, useState} from 'react';
 
 
@@ -125,4 +125,37 @@ async function getUserData(userId: string) {
   }
 }
 
-export { app, auth, db, getUserData, createUserDocument };
+// Function to save a grade for a student
+async function saveGrade(studentId: string, taskName: string, score: number, feedback: string) {
+  try {
+    const gradesCollection = collection(db, 'users', studentId, 'grades');
+    await addDoc(gradesCollection, {
+      taskName: taskName,
+      score: score,
+      feedback: feedback,
+      timestamp: new Date(),
+    });
+    console.log(`Grade saved for student ${studentId} on task ${taskName}`);
+  } catch (error: any) {
+    console.error("Error saving grade:", error.message);
+  }
+}
+
+// Function to retrieve grades for a student
+async function getGrades(studentId: string) {
+  try {
+    const gradesCollection = collection(db, 'users', studentId, 'grades');
+		const q = query(gradesCollection);
+    const gradesSnapshot = await getDocs(q);
+    const gradesData = gradesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    return gradesData;
+  } catch (error: any) {
+    console.error("Error fetching grades:", error.message);
+    return [];
+  }
+}
+
+export { app, auth, db, getUserData, createUserDocument, saveGrade, getGrades };

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -7,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { provideEssayFeedback } from "@/ai/flows/provide-essay-feedback";
 import { useToast } from "@/hooks/use-toast";
 import { Copy } from "lucide-react";
+import { useAuth } from "@/components/auth-provider";
+import { saveGrade } from "@/lib/firebase";
 
 const EssayFeedbackPage = () => {
   const [essay, setEssay] = useState("");
@@ -15,6 +18,7 @@ const EssayFeedbackPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+	const { user } = useAuth();
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -22,6 +26,11 @@ const EssayFeedbackPage = () => {
     try {
       const result = await provideEssayFeedback({ essay, topic });
       setFeedback(result.feedback);
+
+      // Save feedback to Firebase
+      if (user) {
+        await saveGrade(user.uid, `Essay on ${topic}`, 0, result.feedback); // Score is set to 0 as AI only provides feedback
+      }
     } catch (e: any) {
       setError(e.message || "An error occurred while generating feedback.");
     } finally {

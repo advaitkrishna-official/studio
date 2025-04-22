@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,8 @@ import { generateMCQ, GenerateMCQOutput } from "@/ai/flows/generate-mcq";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CheckCircle, Circle } from "lucide-react";
 import { generateMcqExplanation } from "@/ai/flows/generate-mcq-explanation";
+import { useAuth } from "@/components/auth-provider";
+import { saveGrade } from "@/lib/firebase";
 
 const MCQPage = () => {
   const [topic, setTopic] = useState("");
@@ -19,6 +21,8 @@ const MCQPage = () => {
   const [answers, setAnswers] = useState<string[]>([]);
   const [showAnswers, setShowAnswers] = useState(false);
   const [explanations, setExplanations] = useState<string[]>([]); // New state for explanations
+  const { user } = useAuth();
+  const [quizScore, setQuizScore] = useState(0);
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -29,6 +33,7 @@ const MCQPage = () => {
       setAnswers(Array(result?.questions?.length || 0).fill(""));
       setShowAnswers(false);
       setExplanations(Array(result?.questions?.length || 0).fill("")); // Initialize explanations
+      setQuizScore(0); // Reset quiz score
     } catch (e: any) {
       setError(e.message || "An error occurred while generating MCQs.");
     } finally {
@@ -44,8 +49,18 @@ const MCQPage = () => {
 
   const handleSubmitQuiz = async () => {
     setShowAnswers(true);
-    // Generate explanations for each question
+    let correctCount = 0;
+
+    // Calculate the quiz score
     if (mcq && mcq.questions) {
+      for (let i = 0; i < mcq.questions.length; i++) {
+        if (answers[i] === mcq.questions[i].correctAnswer) {
+          correctCount++;
+        }
+      }
+      setQuizScore(correctCount);
+
+      // Generate explanations for each question
       const newExplanations = await Promise.all(
         mcq.questions.map(async (q) => {
           try {
@@ -62,6 +77,12 @@ const MCQPage = () => {
         })
       );
       setExplanations(newExplanations);
+
+      // Save the grade to Firebase
+      if (user) {
+        const scorePercentage = (correctCount / mcq.questions.length) * 100;
+        await saveGrade(user.uid, `MCQ Quiz on ${topic}`, scorePercentage, `You got ${correctCount} out of ${mcq.questions.length} correct.`);
+      }
     }
   };
 
@@ -107,6 +128,11 @@ const MCQPage = () => {
           <p className="text-sm text-muted-foreground">
             Here are your AI generated MCQs on the topic of {topic}
           </p>
+          {showAnswers && (
+            <p className="text-sm text-muted-foreground">
+              Your Score: {quizScore} out of {mcq.questions.length}
+            </p>
+          )}
           <div className="grid gap-4 mt-4">
             {mcq.questions.map((q, index) => (
               <Card key={index}>
@@ -156,6 +182,3 @@ const MCQPage = () => {
 };
 
 export default MCQPage;
-
-
-    
