@@ -5,9 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { generateLongAnswerQuestions } from "@/ai/flows/generate-long-answer-questions";
 import { generateLongAnswerQuestions as generateLongAnswerQuestionsFlow } from "@/ai/flows/generate-long-answer-questions";
-import { Input } from "@/components/ui/input";
+import { db } from "@/lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
+import { useAuth } from "@/components/auth-provider";
+import { useToast } from "@/hooks/use-toast";
 
 
 // Define the structure for a task in the Gantt chart
@@ -26,48 +30,76 @@ interface AiLessonPlannerFlowOutput {
 }
 
 const LessonPlannerPage = () => {
-  const [topic, setTopic] = useState("");
+  const [subject, setSubject] = useState("");
+  const [gradeLevel, setGradeLevel] = useState("");
+  const [learningObjectives, setLearningObjectives] = useState("");
+  const [topics, setTopics] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [goals, setGoals] = useState("");
   const [lessonPlan, setLessonPlan] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const handleGenerateLessonPlan = async () => {
     setIsLoading(true);
     setError(null);
     try {
+      // Call the AI model here to generate lesson plan based on input parameters
+      const prompt = `
+        Subject: ${subject}
+        Grade Level: ${gradeLevel}
+        Learning Objectives: ${learningObjectives}
+        Topics to be covered: ${topics}
+        Start Date: ${startDate}
+        End Date: ${endDate}
+        
+        Generate a lesson plan with daily or weekly breakdowns, suggested teaching methods,
+        resource recommendations, and checkpoints.
+      `;
+
       // Replace with actual AI-powered lesson plan generation
-      // This function should call the AI model and format the output
-      // to match the GanttTask structure
+      const aiGeneratedPlan = await generateLongAnswerQuestions({ topic: prompt, numQuestions: 5 });
 
-      // Simulate AI lesson plan generation (replace with actual AI call)
-      const aiGeneratedPlan = await new Promise((resolve, reject) => {
-        setTimeout(() => {
-          // Reject if any input is missing
-          if (!topic || !startDate || !endDate || !goals) {
-            reject(new Error("Please fill in all fields."));
-            return;
-          }
-
-          // Basic lesson plan simulation based on topic
-          const mockTasks = [
-            `Day 1: Introduction to ${topic}`,
-            `Day 2: Deep Dive into ${topic}`,
-            `Day 3: Practical Applications of ${topic}`,
-            `Day 4: Review and Q&A on ${topic}`,
-            `Day 5: Assessment of ${topic}`
-          ];
-          resolve({ tasks: mockTasks.join('\n') });
-        }, 1000); // Simulate AI processing time
-      });
-
-      setLessonPlan(aiGeneratedPlan.tasks as string);
+      setLessonPlan(aiGeneratedPlan?.questions?.join('\n') || "Failed to generate lesson plan.");
     } catch (e: any) {
       setError(e.message || "An error occurred while generating the lesson plan.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveLessonPlan = async () => {
+    if (!user) {
+      setError("User not logged in.");
+      return;
+    }
+
+    try {
+      const lessonPlansCollection = collection(db, `teachers/${user.uid}/lessonPlans`);
+      await addDoc(lessonPlansCollection, {
+        subject,
+        gradeLevel,
+        learningObjectives,
+        topics,
+        startDate,
+        endDate,
+        lessonPlan,
+        dateCreated: new Date(),
+        status: "Draft",
+      });
+      toast({
+        title: "Lesson Plan Saved",
+        description: "Your lesson plan has been saved successfully.",
+      });
+    } catch (e: any) {
+      setError(e.message || "An error occurred while saving the lesson plan.");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save lesson plan.",
+      });
     }
   };
 
@@ -83,12 +115,39 @@ const LessonPlannerPage = () => {
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="topic">Topic</Label>
+            <Label htmlFor="subject">Subject</Label>
             <Input
-              id="topic"
-              placeholder="Enter lesson topic..."
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
+              id="subject"
+              placeholder="Enter subject..."
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="gradeLevel">Grade Level</Label>
+            <Input
+              id="gradeLevel"
+              placeholder="Enter grade level..."
+              value={gradeLevel}
+              onChange={(e) => setGradeLevel(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="learningObjectives">Learning Objectives</Label>
+            <Textarea
+              id="learningObjectives"
+              placeholder="Enter learning objectives..."
+              value={learningObjectives}
+              onChange={(e) => setLearningObjectives(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="topics">Topics to be Covered</Label>
+            <Textarea
+              id="topics"
+              placeholder="Enter topics to be covered..."
+              value={topics}
+              onChange={(e) => setTopics(e.target.value)}
             />
           </div>
           <div className="grid gap-2">
@@ -109,15 +168,6 @@ const LessonPlannerPage = () => {
               onChange={(e) => setEndDate(e.target.value)}
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="goals">Goals</Label>
-            <Textarea
-              id="goals"
-              placeholder="Enter your lesson goals..."
-              value={goals}
-              onChange={(e) => setGoals(e.target.value)}
-            />
-          </div>
           <Button onClick={handleGenerateLessonPlan} disabled={isLoading}>
             {isLoading ? "Generating Lesson Plan..." : "Generate Lesson Plan"}
           </Button>
@@ -126,16 +176,17 @@ const LessonPlannerPage = () => {
             <div className="grid gap-2">
               <Label htmlFor="lessonPlan">Lesson Plan</Label>
               <div>
-                 {/* Text-based representation of the lesson plan */}
-                 <Textarea
-                    id="lessonPlan"
-                    readOnly
-                    value={lessonPlan}
-                    className="resize-none"
-                  />
+                {/* Text-based representation of the lesson plan */}
+                <Textarea
+                  id="lessonPlan"
+                  readOnly
+                  value={lessonPlan}
+                  className="resize-none"
+                />
                 {/* Placeholder for Gantt chart */}
                 {/* <p>Lesson Plan Graph (Placeholder)</p>
                 <p>Due to the complexity of generating interactive charts, a basic graph cannot be displayed. Further assistance may be needed</p> */}
+                <Button onClick={handleSaveLessonPlan}>Save Lesson Plan</Button>
               </div>
             </div>
           )}
@@ -146,4 +197,3 @@ const LessonPlannerPage = () => {
 };
 
 export default LessonPlannerPage;
-
