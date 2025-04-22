@@ -181,7 +181,7 @@ const LessonPlannerPage = () => {
                   id="lessonPlan"
                   readOnly
                   value={lessonPlan}
-                  className="resize-none"
+                  className="resize-none min-h-[300px]"  // Make the textarea bigger
                 />
                 {/* Placeholder for Gantt chart */}
                 {/* <p>Lesson Plan Graph (Placeholder)</p>
