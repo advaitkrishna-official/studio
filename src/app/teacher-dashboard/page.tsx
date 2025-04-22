@@ -1,18 +1,18 @@
 'use client';
 
 import { useAuth } from "@/components/auth-provider";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
+import { getAuth } from "firebase/auth";
+import {app} from "@/lib/firebase";
 
 const TeacherDashboardPage = () => {
   const { user, loading, userType } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const classId = searchParams.get('class');
 
   useEffect(() => {
     if (!loading) {
@@ -24,14 +24,8 @@ const TeacherDashboardPage = () => {
       if (userType !== 'teacher') {
         router.push('/'); // Redirect non-teachers
       }
-
-      if (!classId) {
-        // Handle the case where the class is not specified for a teacher
-        // You might want to display an error or redirect to a class selection page
-        console.warn("Class not specified for teacher.");
-      }
     }
-  }, [user, loading, userType, router, classId]);
+  }, [user, loading, userType, router]);
 
   if (loading) {
     return (
@@ -45,16 +39,16 @@ const TeacherDashboardPage = () => {
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-4">Teacher Dashboard</h1>
       <p>Welcome, Teacher {user?.email}!</p>
-      {classId && <p>Class: {classId}</p>} 
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Overview Panel */}
         <Card>
           <CardHeader>
             <CardTitle>Overview</CardTitle>
+            <CardDescription>View student performance overview.</CardDescription>
           </CardHeader>
           <CardContent>
-           <Link href={`/teacher-dashboard/overview?class=${classId}`}>
+           <Link href="/teacher-dashboard/overview">
               <Button variant="secondary">
                 View Details <Icons.arrowRight className="ml-2" />
               </Button>
@@ -66,9 +60,10 @@ const TeacherDashboardPage = () => {
         <Card>
           <CardHeader>
             <CardTitle>Student Manager</CardTitle>
+            <CardDescription>Manage student profiles and track progress.</CardDescription>
           </CardHeader>
           <CardContent>
-           <Link href={`/teacher-dashboard/student-manager?class=${classId}`}>
+           <Link href="/teacher-dashboard/student-manager">
               <Button variant="secondary">
                 View Details <Icons.arrowRight className="ml-2" />
               </Button>
@@ -82,7 +77,7 @@ const TeacherDashboardPage = () => {
             <CardTitle>AI-Powered Lesson Planner</CardTitle>
           </CardHeader>
           <CardContent>
-            <Link href={`/teacher-dashboard/lesson-planner?class=${classId}`}>
+            <Link href="/teacher-dashboard/lesson-planner">
               <Button variant="secondary">
                 View Details <Icons.arrowRight className="ml-2" />
               </Button>
