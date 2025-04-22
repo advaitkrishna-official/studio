@@ -12,12 +12,12 @@ import {
   ChartStyle,
 } from "@/components/ui/chart";
 import {
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  AreaChart,
+  LineChart,
+  Line,
   ResponsiveContainer,
   Legend,
 } from "recharts";
@@ -71,7 +71,7 @@ const ProgressPage = () => {
           {!loading && grades.length === 0 && <p>No progress data available.</p>}
           {!loading && grades.length > 0 && (
             <ResponsiveContainer width="100%" height={400} className="chart-labels">
-              <AreaChart
+              <LineChart
                 data={chartData}
                 margin={{
                   top: 10,
@@ -84,8 +84,8 @@ const ProgressPage = () => {
                 <XAxis dataKey="name" />
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
-                <Area type="monotone" dataKey="score" stroke="#82ca9d" fill="#82ca9d" name="Score" />
-              </AreaChart>
+                <Line type="monotone" dataKey="score" stroke="#82ca9d" strokeWidth={2} name="Score" />
+              </LineChart>
             </ResponsiveContainer>
           )}
         </CardContent>
