@@ -109,6 +109,7 @@ const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints, to
   const [isCorrect, setIsCorrect] = useState(false);
   const [checkingAnswer, setCheckingAnswer] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [score, setScore] = useState<number | null>(null); // Add score state
 
   const handleCheckAnswer = async (studentAnswer: string) => {
     setCheckingAnswer(true);
@@ -119,10 +120,13 @@ const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints, to
       setFeedback(result.feedback);
       setIsCorrect(result.isCorrect);
 
+      // Determine the score based on the result
+      const newScore = result.isCorrect ? 100 : 0;
+      setScore(newScore);
+
       // Save grade and feedback
       if (user) {
-        const score = result.isCorrect ? 100 : 0; // Assign score based on correctness
-        await saveGrade(user.uid, `Long Answer on ${topic}: ${question}`, score, result.feedback);
+        await saveGrade(user.uid, `Long Answer on ${topic}: ${question}`, newScore, result.feedback);
       }
       toast({
         title: "Long Answer Checked",
@@ -178,6 +182,13 @@ const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints, to
           <div className="mt-4">
             <h3 className="text-xl font-bold tracking-tight">Feedback</h3>
             <p className="mt-2">{feedback}</p>
+          </div>
+        )}
+
+        {score !== null && (
+          <div className="mt-4">
+            <h3 className="text-xl font-bold tracking-tight">Score</h3>
+            <p className="mt-2">Your score: {score}%</p>
           </div>
         )}
            {error && <p className="text-red-500">{error}</p>}
