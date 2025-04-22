@@ -1,5 +1,3 @@
-"use client";
-
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -59,10 +57,11 @@ const TeacherDashboardPage = () => {
             <CardTitle>Student Manager</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Add student management features here */}
-            <p>View/Manage Student Profiles</p>
-            <p>Track Progress</p>
-            <p>Send Announcements/Messages</p>
+           <Link href="/teacher-dashboard/student-manager">
+              <Button variant="secondary">
+                View Details <Icons.arrowRight className="ml-2" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -120,6 +119,3 @@ const TeacherDashboardPage = () => {
 };
 
 export default TeacherDashboardPage;
-
-
-    
