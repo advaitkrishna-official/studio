@@ -1,4 +1,4 @@
-;"use client";
+"use client";
 
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
