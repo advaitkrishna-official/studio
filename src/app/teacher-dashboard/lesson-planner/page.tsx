@@ -5,10 +5,26 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { generateLongAnswerQuestions } from "@/ai/flows/generate-long-answer-questions";
+
+// Define the structure for a task in the Gantt chart
+interface GanttTask {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  progress: number;
+  dependencies?: string[];
+}
+
+// Define the expected output from the AI model
+interface AiLessonPlannerFlowOutput {
+  tasks: GanttTask[];
+}
 
 const LessonPlannerPage = () => {
   const [goals, setGoals] = useState("");
-  const [lessonPlan, setLessonPlan] = useState("");
+  const [lessonPlan, setLessonPlan] = useState<GanttTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,9 +32,61 @@ const LessonPlannerPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Replace with actual AI-powered lesson plan generation
-      const aiGeneratedPlan = await generateAiLessonPlan(goals);
-      setLessonPlan(aiGeneratedPlan);
+      //  Replace with actual AI-powered lesson plan generation
+      //  This function should call the AI model and format the output
+      //  to match the GanttTask structure
+      // const aiGeneratedPlan: AiLessonPlannerFlowOutput = await generateAiLessonPlan(goals);
+      // setLessonPlan(aiGeneratedPlan.tasks);
+
+      // Simulate AI lesson plan generation (replace with actual AI call)
+      const aiGeneratedPlan: AiLessonPlannerFlowOutput = await new Promise((resolve) => {
+        setTimeout(() => {
+          const mockTasks: GanttTask[] = [
+            {
+              id: "1",
+              name: "Define Learning Objectives",
+              startDate: "2024-01-01",
+              endDate: "2024-01-02",
+              progress: 100,
+            },
+            {
+              id: "2",
+              name: "Research and Gather Resources",
+              startDate: "2024-01-03",
+              endDate: "2024-01-05",
+              progress: 80,
+              dependencies: ["1"],
+            },
+            {
+              id: "3",
+              name: "Create Lesson Content",
+              startDate: "2024-01-06",
+              endDate: "2024-01-10",
+              progress: 60,
+              dependencies: ["2"],
+            },
+            {
+              id: "4",
+              name: "Prepare Assessment Materials",
+              startDate: "2024-01-11",
+              endDate: "2024-01-12",
+              progress: 40,
+              dependencies: ["3"],
+            },
+            {
+              id: "5",
+              name: "Review and Finalize Plan",
+              startDate: "2024-01-13",
+              endDate: "2024-01-14",
+              progress: 20,
+              dependencies: ["4"],
+            },
+          ];
+          resolve({ tasks: mockTasks });
+        }, 1000); // Simulate AI processing time
+      });
+
+      setLessonPlan(aiGeneratedPlan.tasks);
     } catch (e: any) {
       setError(e.message || "An error occurred while generating the lesson plan.");
     } finally {
@@ -26,14 +94,57 @@ const LessonPlannerPage = () => {
     }
   };
 
+  // Placeholder function for AI lesson plan generation
   const generateAiLessonPlan = async (goals: string) => {
     // Simulate AI lesson plan generation (replace with actual AI call)
-    return new Promise<string>((resolve) => {
+    return new Promise<AiLessonPlannerFlowOutput>((resolve) => {
       setTimeout(() => {
-        resolve(`AI Generated Lesson Plan:\nBased on the goals: ${goals}\n\n- Step 1: ...\n- Step 2: ...\n- Step 3: ...`);
+        const mockTasks: GanttTask[] = [
+          {
+            id: "1",
+            name: "Define Learning Objectives",
+            startDate: "2024-01-01",
+            endDate: "2024-01-02",
+            progress: 100,
+          },
+          {
+            id: "2",
+            name: "Research and Gather Resources",
+            startDate: "2024-01-03",
+            endDate: "2024-01-05",
+            progress: 80,
+            dependencies: ["1"],
+          },
+          {
+            id: "3",
+            name: "Create Lesson Content",
+            startDate: "2024-01-06",
+            endDate: "2024-01-10",
+            progress: 60,
+            dependencies: ["2"],
+          },
+          {
+            id: "4",
+            name: "Prepare Assessment Materials",
+            startDate: "2024-01-11",
+            endDate: "2024-01-12",
+            progress: 40,
+            dependencies: ["3"],
+          },
+          {
+            id: "5",
+            name: "Review and Finalize Plan",
+            startDate: "2024-01-13",
+            endDate: "2024-01-14",
+            progress: 20,
+            dependencies: ["4"],
+          },
+        ];
+        resolve({ tasks: mockTasks });
       }, 1000); // Simulate AI processing time
     });
   };
+
 
   return (
     <div className="container mx-auto py-8">
@@ -61,12 +172,7 @@ const LessonPlannerPage = () => {
           {lessonPlan && (
             <div className="grid gap-2">
               <Label htmlFor="lessonPlan">Lesson Plan</Label>
-              <Textarea
-                id="lessonPlan"
-                readOnly
-                value={lessonPlan}
-                className="resize-none"
-              />
+               {/* Gantt chart component will be rendered here */}
             </div>
           )}
         </CardContent>
@@ -76,4 +182,3 @@ const LessonPlannerPage = () => {
 };
 
 export default LessonPlannerPage;
-
