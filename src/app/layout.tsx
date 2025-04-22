@@ -30,7 +30,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider setUser={(user) => {}} setUserType={(type) => {}} setUserClass={(classVal) => {}}>{children}</AuthProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
@@ -38,9 +38,9 @@ export default function RootLayout({
 
 import {metadata} from './metadata';
 
-function AuthProvider({children, setUser, setUserType, setUserClass}: {children: React.ReactNode, setUser: any, setUserType: any, setUserClass: any}) {
+function AuthProvider({children}: {children: React.ReactNode}) {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, setUser, setUserType, setUserClass } = useAuth();
 
   useEffect(() => {
     const unsubscribe = auth
@@ -74,4 +74,3 @@ function AuthProvider({children, setUser, setUserType, setUserClass}: {children:
 
   return <>{children}</>;
 }
-
