@@ -3,7 +3,9 @@
 import {Geist, Geist_Mono} from 'next/font/google';
 import '@/app/globals.css';
 import AuthProvider from '@/components/auth-provider';
-import {useEffect} from 'react';
+import {Metadata} from 'next';
+import { metadata } from './metadata';
+import { useEffect } from 'react';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
