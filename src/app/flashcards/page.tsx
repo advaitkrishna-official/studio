@@ -9,6 +9,7 @@ import { generateFlashcards, GenerateFlashcardsOutput } from "@/ai/flows/generat
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import React from "react";
 
 const FlashcardPage = () => {
   const [topic, setTopic] = useState("");
