@@ -112,7 +112,7 @@ const AnimatedFlashcard: React.FC<AnimatedFlashcardProps> = ({ front, back }) =>
 
   return (
     <Button variant={"secondary"} className="w-full h-48 relative" onClick={handleClick}>
-      <CardContent style={{pointerEvents: "none"}}>
+      <CardContent style={{pointerEvents: "none"} as React.CSSProperties}>
         <p className="text-xl font-bold">{isFlipped ? back : front}</p>
       </CardContent>
     </Button>
