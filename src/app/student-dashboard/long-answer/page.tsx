@@ -9,8 +9,9 @@ import { generateLongAnswerQuestions, GenerateLongAnswerQuestionsOutput } from "
 import { Textarea } from "@/components/ui/textarea";
 import { checkLongAnswer } from "@/ai/flows/check-long-answer";
 import { useAuth } from "@/components/auth-provider";
-import { saveGrade } from "@/lib/firebase";
+import { saveGrade, getGrades } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from 'react';
 
 const LongAnswerPage = () => {
   const [topic, setTopic] = useState("");
@@ -20,6 +21,19 @@ const LongAnswerPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const [totalScore, setTotalScore] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (user) {
+            getGrades(user.uid).then(grades => {
+                const sum = grades.reduce((acc, grade) => acc + grade.score, 0);
+                setTotalScore(sum);
+            }).catch(e => {
+                console.error("Error fetching grades:", e);
+                setError(e.message || "An error occurred while fetching grades.");
+            });
+        }
+    }, [user]);
 
   return (
     <div className="container mx-auto py-8">
@@ -83,6 +97,12 @@ const LongAnswerPage = () => {
           <p className="text-sm text-muted-foreground">
             Here are your AI generated long answer questions on the topic of {topic}
           </p>
+            {totalScore !== null && (
+                <div className="mt-4">
+                    <h3 className="text-xl font-bold tracking-tight">Total Score</h3>
+                    <p className="mt-2">Your total score: {totalScore}%</p>
+                </div>
+            )}
           <div className="grid gap-4 mt-4">
             {questions.questions.map((question, index) => (
               <LongAnswerCard key={index} question={question} keyPoints={questions.keyPoints ? questions.keyPoints[index] || "" : ""} topic={topic} user={user} toast={toast}/>

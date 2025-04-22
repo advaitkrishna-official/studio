@@ -8,7 +8,8 @@ import { provideEssayFeedback } from "@/ai/flows/provide-essay-feedback";
 import { useToast } from "@/hooks/use-toast";
 import { Copy } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
-import { saveGrade } from "@/lib/firebase";
+import { saveGrade, getGrades } from "@/lib/firebase";
+import { useEffect } from 'react';
 
 const EssayFeedbackPage = () => {
   const [essay, setEssay] = useState("");
@@ -18,6 +19,19 @@ const EssayFeedbackPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 	const { user } = useAuth();
+    const [totalScore, setTotalScore] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (user) {
+            getGrades(user.uid).then(grades => {
+                const sum = grades.reduce((acc, grade) => acc + grade.score, 0);
+                setTotalScore(sum);
+            }).catch(e => {
+                console.error("Error fetching grades:", e);
+                setError(e.message || "An error occurred while fetching grades.");
+            });
+        }
+    }, [user]);
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -116,6 +130,12 @@ const EssayFeedbackPage = () => {
               </div>
             </div>
           )}
+            {totalScore !== null && (
+                <div className="mt-4">
+                    <h3 className="text-xl font-bold tracking-tight">Total Score</h3>
+                    <p className="mt-2">Your total score: {totalScore}%</p>
+                </div>
+            )}
         </CardContent>
       </Card>
     </div>

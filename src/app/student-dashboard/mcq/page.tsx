@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CheckCircle, Circle } from "lucide-react";
 import { generateMcqExplanation } from "@/ai/flows/generate-mcq-explanation";
 import { useAuth } from "@/components/auth-provider";
-import { saveGrade } from "@/lib/firebase";
+import { saveGrade, getGrades } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 
 const MCQPage = () => {
@@ -25,6 +25,19 @@ const MCQPage = () => {
   const { user } = useAuth();
   const [quizScore, setQuizScore] = useState(0);
   const { toast } = useToast();
+    const [totalScore, setTotalScore] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (user) {
+            getGrades(user.uid).then(grades => {
+                const sum = grades.reduce((acc, grade) => acc + grade.score, 0);
+                setTotalScore(sum);
+            }).catch(e => {
+                console.error("Error fetching grades:", e);
+                setError(e.message || "An error occurred while fetching grades.");
+            });
+        }
+    }, [user]);
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -145,6 +158,12 @@ const MCQPage = () => {
           <p className="text-sm text-muted-foreground">
             Here are your AI generated MCQs on the topic of {topic}
           </p>
+            {totalScore !== null && (
+                <div className="mt-4">
+                    <h3 className="text-xl font-bold tracking-tight">Total Score</h3>
+                    <p className="mt-2">Your total score: {totalScore}%</p>
+                </div>
+            )}
           {showAnswers && (
             <p className="text-sm text-muted-foreground">
               Your Score: {quizScore} out of {mcq.questions.length}

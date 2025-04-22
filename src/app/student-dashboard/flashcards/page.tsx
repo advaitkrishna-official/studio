@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import React from "react";
+import {useAuth} from "@/components/auth-provider";
+import {getGrades} from "@/lib/firebase";
 
 const FlashcardPage = () => {
   const [topic, setTopic] = useState("");
@@ -20,6 +22,20 @@ const FlashcardPage = () => {
   const [progress, setProgress] = useState(0);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
+    const { user } = useAuth();
+    const [totalScore, setTotalScore] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (user) {
+            getGrades(user.uid).then(grades => {
+                const sum = grades.reduce((acc, grade) => acc + grade.score, 0);
+                setTotalScore(sum);
+            }).catch(e => {
+                console.error("Error fetching grades:", e);
+                setError(e.message || "An error occurred while fetching grades.");
+            });
+        }
+    }, [user]);
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -89,6 +105,12 @@ const FlashcardPage = () => {
           {error && <p className="text-red-500">{error}</p>}
         </CardContent>
       </Card>
+            {totalScore !== null && (
+                <div className="mt-4 max-w-3xl mx-auto">
+                    <h3 className="text-xl font-bold tracking-tight">Total Score</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">Your total score: {totalScore}%</p>
+                </div>
+            )}
 
       {flashcards && flashcards.flashcards && (
         <div className="mt-8 max-w-3xl mx-auto">
