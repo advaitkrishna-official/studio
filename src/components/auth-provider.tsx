@@ -2,7 +2,7 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -34,46 +34,45 @@ export default function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
 
   useEffect(() => {
-    let unsubscribe: () => void = () => { }; // Initialize with an empty function
-    if (auth) {
-      unsubscribe = onAuthStateChanged(auth, async user => {
-        if (user) {
+    let unsubscribe: () => void;
+    if (!auth) {
+      unsubscribe = () => {};
+    } else {
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          setUser(null);
+          setUserType(null);
+          setUserClass(null);
+          router.push("/login");
+        } else {
           setUser(user);
-          let type: 'student' | 'teacher' = 'student';
+          let type: "student" | "teacher" = "student";
           let classVal: string | null = null;
 
           try {
             if (!db) {
               return;
             }
-
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            const userDoc = await getDoc(doc(db, "users", user.uid));
             if (userDoc.exists()) {
               const userData = userDoc.data();
-              if (userData?.role === 'teacher') {
-                type = 'teacher';
+              if (userData?.role === "teacher") {
+                type = "teacher";
               }
               classVal = userData?.class || null;
-            } else if (user.email?.endsWith('@teacher.com')) {
-              type = 'teacher';
+            } else if (user.email?.endsWith("@teacher.com")) {
+              type = "teacher";
             }
           } catch (error) {
-            console.error('Error fetching user role from Firestore:', error);
-            type = user.email?.endsWith('@teacher.com') ? 'teacher' : 'student';
+            console.error("Error fetching user role from Firestore:", error);
+            type = user.email?.endsWith("@teacher.com") ? "teacher" : "student";
           }
-
           setUserType(type);
           setUserClass(classVal);
-        } else {
-          setUser(null);
-          setUserType(null);
-          setUserClass(null);
-          router.push('/login');
         }
         setLoading(false);
       });
     }
-
     return () => unsubscribe();
   }, [router]);
 

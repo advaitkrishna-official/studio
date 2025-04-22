@@ -24,6 +24,24 @@ const LoginPage = () => {
     setIsLoading(true);
     setError(null);
     try {
+      if (!auth) {
+          setError("Authentication is not properly initialized.");
+          toast({
+            variant: "destructive",
+            title: "Authentication Error",
+            description: "Authentication is not properly initialized.",
+          });
+          return
+        }
+        if (!db) {
+          setError("Database is not properly initialized.");
+          toast({
+            variant: "destructive",
+            title: "Database Error",
+            description: "Database is not properly initialized.",
+          });
+          return;
+        }
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 

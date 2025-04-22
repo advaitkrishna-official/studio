@@ -2,7 +2,7 @@
 
 // Import the functions you need from the SDKs you need
 import { FirebaseApp, initializeApp } from "firebase/app";
-import { getAuth, initializeAuth, indexedDBLocalPersistence } from "firebase/auth";
+import { initializeAuth, indexedDBLocalPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore"; // Import getFirestore
 
 // Your web app's Firebase configuration
