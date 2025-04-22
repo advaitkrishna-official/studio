@@ -12,13 +12,15 @@ import { collection, addDoc } from "firebase/firestore";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 
-// Define the structure for a lesson plan item
 interface LessonPlanItem {
   week: number;
   topic: string;
   activities: string;
   resources: string[];
   assessment: string;
+  teachingMethods: string;
+  intendedOutcomes: string;
+  notes?: string;
 }
 
 const LessonPlannerPage = () => {
@@ -28,6 +30,9 @@ const LessonPlannerPage = () => {
   const [topics, setTopics] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [lessonTitle, setLessonTitle] = useState("");
+  const [teachingMethods, setTeachingMethods] = useState("");
+  const [intendedOutcomes, setIntendedOutcomes] = useState("");
   const [lessonPlanItems, setLessonPlanItems] = useState<LessonPlanItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,59 +43,56 @@ const LessonPlannerPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Call the AI model here to generate lesson plan based on input parameters
       const prompt = `
         Subject: ${subject}
         Grade Level: ${gradeLevel}
         Learning Objectives: ${learningObjectives}
         Topics to be covered: ${topics}
-        Start Date: ${startDate}
-        End Date: ${endDate}
-        
-        Generate a structured lesson plan with daily or weekly breakdowns, suggested teaching methods,
-        resource recommendations (including PDFs, videos, flashcards, AI-generated MCQs),
-        and checkpoints. The plan should be in JSON format with the following structure:
+        Timeframe: From ${startDate} to ${endDate}
+
+        Generate a detailed and editable lesson plan in JSON format with the following structure:
 
         {
           "lessonTitle": "Title",
           "learningObjectives": ["Objective 1", "Objective 2"],
+          "teachingMethods": "Suggested methods (e.g., group work, visual aids)",
+          "intendedOutcomes": "Expected student outcomes",
           "lessonPlan": [
             {
               "week": 1,
-              "topic": "Topic 1",
-              "activities": "Description of Activities",
-              "resources": ["PDF Link", "Video Link"],
-              "assessment": "Mini-quiz"
-            },
-            {
-              "week": 2,
-              "topic": "Topic 2",
-              "activities": "Description of Activities",
-              "resources": ["Flashcard Set", "MCQ Set"],
-              "assessment": "Review session"
+              "topic": "Topic Name",
+              "activities": "Activities description",
+              "resources": ["PDF link", "Flashcards"],
+              "assessment": "Mini-quiz or review",
+              "teachingMethods": "Visual aids, MCQs",
+              "intendedOutcomes": "Students should understand X",
+              "notes": "Optional teacher notes"
             }
           ]
         }
       `;
 
-      // Replace with actual AI-powered lesson plan generation
       const aiGeneratedPlan = await generateLongAnswerQuestions({ topic: prompt, numQuestions: 1 });
 
       if (aiGeneratedPlan?.questions) {
         try {
-          // Attempt to parse the AI-generated plan as JSON
           const lessonPlan = JSON.parse(aiGeneratedPlan.questions[0]);
 
-          // Check that the parsed data has the expected structure
           if (lessonPlan && lessonPlan.lessonPlan && Array.isArray(lessonPlan.lessonPlan)) {
-            // Map the AI-generated data to the LessonPlanItem interface
             const lessonItems: LessonPlanItem[] = lessonPlan.lessonPlan.map((item: any) => ({
               week: item.week || 0,
               topic: item.topic || "",
               activities: item.activities || "",
               resources: item.resources || [],
-              assessment: item.assessment || ""
+              assessment: item.assessment || "",
+              teachingMethods: item.teachingMethods || "",
+              intendedOutcomes: item.intendedOutcomes || "",
+              notes: item.notes || ""
             }));
+
+            setLessonTitle(lessonPlan.lessonTitle || "");
+            setTeachingMethods(lessonPlan.teachingMethods || "");
+            setIntendedOutcomes(lessonPlan.intendedOutcomes || "");
             setLessonPlanItems(lessonItems);
           } else {
             setError("Failed to parse AI generated lesson plan: Incorrect format.");
@@ -127,6 +129,9 @@ const LessonPlannerPage = () => {
         topics,
         startDate,
         endDate,
+        lessonTitle,
+        teachingMethods,
+        intendedOutcomes,
         lessonPlan: lessonPlanItems,
         dateCreated: new Date(),
         status: "Draft",
@@ -157,57 +162,27 @@ const LessonPlannerPage = () => {
         <CardContent className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="subject">Subject</Label>
-            <Input
-              id="subject"
-              placeholder="Enter subject..."
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-            />
+            <Input id="subject" placeholder="Enter subject..." value={subject} onChange={(e) => setSubject(e.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="gradeLevel">Grade Level</Label>
-            <Input
-              id="gradeLevel"
-              placeholder="Enter grade level..."
-              value={gradeLevel}
-              onChange={(e) => setGradeLevel(e.target.value)}
-            />
+            <Input id="gradeLevel" placeholder="Enter grade level..." value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="learningObjectives">Learning Objectives</Label>
-            <Textarea
-              id="learningObjectives"
-              placeholder="Enter learning objectives..."
-              value={learningObjectives}
-              onChange={(e) => setLearningObjectives(e.target.value)}
-            />
+            <Textarea id="learningObjectives" placeholder="Enter learning objectives..." value={learningObjectives} onChange={(e) => setLearningObjectives(e.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="topics">Topics to be Covered</Label>
-            <Textarea
-              id="topics"
-              placeholder="Enter topics to be covered..."
-              value={topics}
-              onChange={(e) => setTopics(e.target.value)}
-            />
+            <Textarea id="topics" placeholder="Enter topics to be covered..." value={topics} onChange={(e) => setTopics(e.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="startDate">Start Date</Label>
-            <Input
-              id="startDate"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
+            <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="endDate">End Date</Label>
-            <Input
-              id="endDate"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
+            <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
           <Button onClick={handleGenerateLessonPlan} disabled={isLoading}>
             {isLoading ? "Generating Lesson Plan..." : "Generate Lesson Plan"}
@@ -215,15 +190,21 @@ const LessonPlannerPage = () => {
           {error && <p className="text-red-500">{error}</p>}
           {lessonPlanItems.length > 0 && (
             <div className="grid gap-2">
-              <Label htmlFor="lessonPlan">Lesson Plan</Label>
+              <Label htmlFor="lessonPlan">Generated Lesson Plan</Label>
               <div>
+                <h2 className="text-xl font-bold">{lessonTitle}</h2>
+                <p><strong>Teaching Methods:</strong> {teachingMethods}</p>
+                <p><strong>Intended Outcomes:</strong> {intendedOutcomes}</p>
                 {lessonPlanItems.map((item, index) => (
                   <div key={index} className="mb-4 border p-4 rounded">
-                    <h3 className="text-xl font-bold">Week {item.week}</h3>
+                    <h3 className="text-lg font-semibold">Week {item.week}</h3>
                     <p><strong>Topic:</strong> {item.topic}</p>
                     <p><strong>Activities:</strong> {item.activities}</p>
+                    <p><strong>Teaching Methods:</strong> {item.teachingMethods}</p>
+                    <p><strong>Intended Outcomes:</strong> {item.intendedOutcomes}</p>
                     <p><strong>Resources:</strong> {item.resources.join(', ')}</p>
                     <p><strong>Assessment:</strong> {item.assessment}</p>
+                    <p><strong>Notes:</strong> {item.notes}</p>
                   </div>
                 ))}
                 <Button onClick={handleSaveLessonPlan}>Save Lesson Plan</Button>
