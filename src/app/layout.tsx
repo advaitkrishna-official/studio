@@ -1,9 +1,11 @@
 'use client';
 
-// src/app/layout.tsx
-import type {Metadata} from 'next';
 import {Geist, Geist_Mono} from 'next/font/google';
 import './globals.css';
+import {useEffect} from 'react';
+import {useRouter} from 'next/navigation';
+import {useAuth} from '@/components/auth-provider';
+import {Metadata} from 'next';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,7 +17,8 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-import ClientSideAuthProvider from '@/components/auth-provider';
+import {getAuth, onAuthStateChanged} from 'firebase/auth';
+import {auth} from '@/lib/firebase';
 
 export default function RootLayout({
   children,
@@ -27,8 +30,47 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ClientSideAuthProvider>{children}</ClientSideAuthProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
+}
+
+import {metadata} from './metadata';
+
+function AuthProvider({children}: {children: React.ReactNode}) {
+  const router = useRouter();
+  const {user, loading, setUser, setUserType, setUserClass} = useAuth();
+
+  useEffect(() => {
+    const unsubscribe = auth
+      ? onAuthStateChanged(auth, async user => {
+          if (user) {
+            setUser(user);
+            let type: 'student' | 'teacher' = 'student';
+            let classVal: string | null = null;
+
+            try {
+              if (user.email?.endsWith('@teacher.com')) {
+                type = 'teacher';
+              }
+              setUserType(type);
+              setUserClass(classVal);
+            } catch (error) {
+              console.error('Error fetching user role from Firestore:', error);
+              setUserType(user.email?.endsWith('@teacher.com') ? 'teacher' : 'student');
+            }
+          } else {
+            setUser(null);
+            setUserType(null);
+            setUserClass(null);
+            router.push('/login');
+          }
+        })
+      : () => {};
+
+    return () => unsubscribe();
+  }, [router, setUser, setUserType, setUserClass]);
+
+  return <>{children}</>;
 }
