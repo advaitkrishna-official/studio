@@ -4,15 +4,21 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogHeader, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 const StudentManagerPage = () => {
   const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -43,6 +49,68 @@ const StudentManagerPage = () => {
     fetchStudents();
   }, [user]);
 
+  const handleUpdateProgress = async (studentId: string, newProgress: number) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const studentDocRef = doc(db, "users", studentId);
+      await updateDoc(studentDocRef, { progress: newProgress });
+
+      setStudents(prevStudents =>
+        prevStudents.map(student =>
+          student.id === studentId ? { ...student, progress: newProgress } : student
+        )
+      );
+
+      toast({
+        title: "Progress Updated",
+        description: "Student progress updated successfully.",
+      });
+    } catch (e: any) {
+      setError(e.message || "An error occurred while updating progress.");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: e.message || "Failed to update student progress.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendMessage = async (studentId: string, message: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // In a real application, you would send the message using a messaging service
+      // For this example, we'll just update the student's profile with the message
+
+      const studentDocRef = doc(db, "users", studentId);
+      await updateDoc(studentDocRef, { lastMessage: message });
+
+      setStudents(prevStudents =>
+        prevStudents.map(student =>
+          student.id === studentId ? { ...student, lastMessage: message } : student
+        )
+      );
+
+      toast({
+        title: "Message Sent",
+        description: "Message sent to student successfully.",
+      });
+    } catch (e: any) {
+      setError(e.message || "An error occurred while sending the message.");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: e.message || "Failed to send message to student.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-4">Student Manager</h1>
@@ -60,17 +128,127 @@ const StudentManagerPage = () => {
             </CardHeader>
             <CardContent>
               <p>
-                {/* Add student specific information here */}
-                Progress: {/* Placeholder for progress tracking */}
+                Progress: {student.progress || 0}
               </p>
-              <Button variant="secondary">
-                Send Message <Icons.messageSquare className="ml-2" />
-              </Button>
+              <EditProgressDialog
+                studentId={student.id}
+                currentProgress={student.progress || 0}
+                onUpdateProgress={handleUpdateProgress}
+              />
+              <SendMessageDialog
+                studentId={student.id}
+                onSendMessage={handleSendMessage}
+              />
+              {student.lastMessage && (
+                <p className="mt-2">Last Message: {student.lastMessage}</p>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
     </div>
+  );
+};
+
+interface EditProgressDialogProps {
+  studentId: string;
+  currentProgress: number;
+  onUpdateProgress: (studentId: string, newProgress: number) => void;
+}
+
+const EditProgressDialog: React.FC<EditProgressDialogProps> = ({ studentId, currentProgress, onUpdateProgress }) => {
+  const [progress, setProgress] = useState(currentProgress);
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="secondary">
+          Edit Progress <Icons.edit className="ml-2" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Student Progress</DialogTitle>
+          <DialogDescription>
+            Update the student's progress.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="progress" className="text-right">
+              Progress
+            </Label>
+            <Input
+              type="number"
+              id="progress"
+              value={progress.toString()}
+              onChange={(e) => setProgress(Number(e.target.value))}
+              className="col-span-3"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="secondary">
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button type="button" onClick={() => onUpdateProgress(studentId, progress)}>
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+interface SendMessageDialogProps {
+  studentId: string;
+  onSendMessage: (studentId: string, message: string) => void;
+}
+
+const SendMessageDialog: React.FC<SendMessageDialogProps> = ({ studentId, onSendMessage }) => {
+  const [message, setMessage] = useState("");
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="secondary">
+          Send Message <Icons.messageSquare className="ml-2" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Send Message to Student</DialogTitle>
+          <DialogDescription>
+            Send a message to the student.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="message" className="text-right">
+              Message
+            </Label>
+            <Textarea
+              id="message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="secondary">
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button type="button" onClick={() => onSendMessage(studentId, message)}>
+            Send
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
