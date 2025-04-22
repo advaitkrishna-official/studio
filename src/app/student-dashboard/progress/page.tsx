@@ -1,32 +1,22 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {
-  Chart,
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  useChart,
-  ChartStyle,
-} from "@/components/ui/chart";
-import {
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  LineChart,
-  Line,
-  ResponsiveContainer,
   Legend,
-} from "recharts";
-import { useAuth } from "@/components/auth-provider";
-import { useState, useEffect } from "react";
-import { getGrades } from "@/lib/firebase";
+  ResponsiveContainer,
+} from 'recharts';
+import {useAuth} from '@/components/auth-provider';
+import {useState, useEffect} from 'react';
+import {getGrades} from '@/lib/firebase';
 
 const ProgressPage = () => {
-  const { user } = useAuth();
+  const {user} = useAuth();
   const [grades, setGrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +31,7 @@ const ProgressPage = () => {
           setGrades(gradesData);
         }
       } catch (e: any) {
-        setError(e.message || "An error occurred while fetching grades.");
+        setError(e.message || 'An error occurred while fetching grades.');
       } finally {
         setLoading(false);
       }
@@ -51,7 +41,7 @@ const ProgressPage = () => {
   }, [user]);
 
   // Transform grades data for recharts
-  const chartData = grades.map((grade) => ({
+  const chartData = grades.map(grade => ({
     name: grade.taskName,
     score: grade.score,
   }));
@@ -61,9 +51,7 @@ const ProgressPage = () => {
       <Card className="max-w-5xl mx-auto">
         <CardHeader>
           <CardTitle>Progress Tracker</CardTitle>
-          <CardDescription>
-            Visually track your progress through different topics.
-          </CardDescription>
+          <CardDescription>Visually track your progress through different topics.</CardDescription>
         </CardHeader>
         <CardContent>
           {loading && <p>Loading progress...</p>}
@@ -71,21 +59,22 @@ const ProgressPage = () => {
           {!loading && grades.length === 0 && <p>No progress data available.</p>}
           {!loading && grades.length > 0 && (
             <ResponsiveContainer width="100%" height={400} className="chart-labels">
-              <LineChart
+              <BarChart
                 data={chartData}
                 margin={{
                   top: 10,
                   right: 30,
-                  left: 0,
-                  bottom: 0,
+                  left: 20,
+                  bottom: 5,
                 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
-                <Line type="monotone" dataKey="score" stroke="#82ca9d" strokeWidth={2} name="Score" />
-              </LineChart>
+                <Legend />
+                <Bar dataKey="score" fill="#8884d8" />
+              </BarChart>
             </ResponsiveContainer>
           )}
         </CardContent>
