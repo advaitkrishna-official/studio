@@ -14,7 +14,7 @@ interface Student {
   progress: number;
   role: 'student';
 }
-interface Teacher { id: string, email: string, role: 'teacher' }
+interface Teacher { id: string, email: string, role: 'teacher', class: string }
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -52,29 +52,38 @@ if (getApps().length === 0) {
 }
 
 
-async function createStudentDocument(student: Student) {
-  try {
-    const studentDocRef = doc(db, 'students', student.id);
-    await setDoc(studentDocRef, student);
-    console.log(`Student document created for student ${student.id}`);
-  } catch (error: any) {
-    console.error("Error creating student document:", error.message);
-  }
-}
+async function createUserDocument(userId: string, email: string, studentNumber: string, role: "teacher" | "student", selectedClass: string) {
+    try {
+        const userDocRef = doc(db, 'users', userId);
+        let userData: Student | Teacher;
 
-async function createTeacherDocument(teacher: Teacher) {
-  try {
-      const teacherDocRef = doc(db, 'teachers', teacher.id);
-      await setDoc(teacherDocRef, teacher);
-      console.log(`Teacher document created for teacher ${teacher.id}`);
-  } catch (error: any) {
-      console.error("Error creating teacher document:", error.message);
-  }
+        if (role === "teacher") {
+            userData = {
+                id: userId,
+                email: email,
+                role: "teacher",
+                class: selectedClass,
+            } as Teacher;
+        } else {
+            userData = {
+                id: userId,
+                email: email,
+                studentNumber: studentNumber,
+                class: selectedClass,
+                progress: 0,
+                role: "student",
+            } as Student;
+        }
+        await setDoc(userDocRef, userData);
+        console.log(`User document created for user ${userId} with role ${role}`);
+    } catch (error: any) {
+        console.error("Error creating user document:", error.message);
+    }
 }
 
 async function getStudentData(userId: string) {
   try {
-    const studentDocRef = doc(db, 'students', userId);
+    const studentDocRef = doc(db, 'users', userId);
     const docSnap = await getDoc(studentDocRef);
     if (docSnap.exists()) {
         return docSnap.data() as Student;
@@ -108,7 +117,7 @@ async function getUserData(userId: string) {
   const studentData = await getStudentData(userId)
   if (studentData) return studentData
   try {
-    const teacherDocRef = doc(db, 'teachers', userId);
+    const teacherDocRef = doc(db, 'users', userId);
     const teacherData = await getDocumentData<Teacher>(teacherDocRef);
     return teacherData;
   } catch (error: any) {
@@ -116,6 +125,4 @@ async function getUserData(userId: string) {
   }
 }
 
-export { app, auth, db, createStudentDocument, createTeacherDocument, getUserData };
-
-
+export { app, auth, db, getUserData, createUserDocument };
