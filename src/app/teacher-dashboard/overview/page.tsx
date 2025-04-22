@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,6 +15,7 @@ const OverviewPage = () => {
   const { user, userClass } = useAuth();
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
+  const [cachedStudentData, setCachedStudentData] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchOverview = async () => {
@@ -28,12 +29,16 @@ const OverviewPage = () => {
 
         // Fetch student data from Firestore, filtered by selected class
         const studentsCollection = collection(db, "users");
-        const q = query(studentsCollection, where("class", "==", selectedClass)); // Filter by selected class
+        const q = query(studentsCollection, where("class", "==", selectedClass));
         const studentsSnapshot = await getDocs(q);
         const studentsData = studentsSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         }));
+
+        // Cache student data
+        localStorage.setItem('studentData', JSON.stringify(studentsData));
+        setCachedStudentData(studentsData); // Also set it to state for immediate use
 
         const studentDataString = JSON.stringify(studentsData);
         const result = await generateOverview({
@@ -43,6 +48,25 @@ const OverviewPage = () => {
         setOverview(result);
       } catch (e: any) {
         setError(e.message || "An error occurred while generating the overview.");
+        // If offline, try to use cached data
+        const cachedData = localStorage.getItem('studentData');
+        if (cachedData) {
+          try {
+            const studentsData = JSON.parse(cachedData);
+            setCachedStudentData(studentsData);
+            const studentDataString = JSON.stringify(studentsData);
+            const result = await generateOverview({
+              teacherId: user.uid,
+              studentData: studentDataString,
+            });
+            setOverview(result);
+            setError("Offline mode: Using cached student data.");
+          } catch (parseError: any) {
+            setError(`Error parsing cached data: ${parseError.message}`);
+          }
+        } else {
+          setError("Offline mode: No cached student data available.");
+        }
       } finally {
         setIsLoading(false);
       }

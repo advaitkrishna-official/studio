@@ -22,7 +22,7 @@ const StudentManagerPage = () => {
   const { toast } = useToast();
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
-
+  const [cachedStudentData, setCachedStudentData] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -43,9 +43,27 @@ const StudentManagerPage = () => {
           ...doc.data(),
         }));
 
+        // Cache student data
+        localStorage.setItem('studentData', JSON.stringify(studentsData));
+        setCachedStudentData(studentsData); // Also set it to state for immediate use
+
         setStudents(studentsData);
       } catch (e: any) {
         setError(e.message || "An error occurred while fetching students.");
+        // If offline, try to use cached data
+        const cachedData = localStorage.getItem('studentData');
+        if (cachedData) {
+          try {
+            const studentsData = JSON.parse(cachedData);
+            setCachedStudentData(studentsData);
+            setStudents(studentsData);
+            setError("Offline mode: Using cached student data.");
+          } catch (parseError: any) {
+            setError(`Error parsing cached data: ${parseError.message}`);
+          }
+        } else {
+          setError("Offline mode: No cached student data available.");
+        }
       } finally {
         setIsLoading(false);
       }
@@ -66,6 +84,12 @@ const StudentManagerPage = () => {
           student.id === studentId ? { ...student, progress: newProgress } : student
         )
       );
+
+      // Update cached data as well
+      const updatedStudentData = students.map(student =>
+        student.id === studentId ? { ...student, progress: newProgress } : student
+      );
+      localStorage.setItem('studentData', JSON.stringify(updatedStudentData));
 
       toast({
         title: "Progress Updated",
@@ -99,6 +123,12 @@ const StudentManagerPage = () => {
           student.id === studentId ? { ...student, lastMessage: message } : student
         )
       );
+
+      // Update cached data as well
+      const updatedStudentData = students.map(student =>
+        student.id === studentId ? { ...student, lastMessage: message } : student
+      );
+      localStorage.setItem('studentData', JSON.stringify(updatedStudentData));
 
       toast({
         title: "Message Sent",
