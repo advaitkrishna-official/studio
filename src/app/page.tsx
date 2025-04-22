@@ -12,6 +12,7 @@ import { auth } from "@/lib/firebase";
 export default function Home() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true); // Add a loading state
 
   useEffect(() => {
     const initFirebase = async () => {
@@ -19,6 +20,7 @@ export default function Home() {
         try {
           const unsubscribe = onAuthStateChanged(auth, (user) => {
             setIsLoggedIn(!!user);
+            setLoading(false); // Set loading to false once auth state is determined
             if (!user) {
               router.push('/login');
             }
@@ -27,13 +29,25 @@ export default function Home() {
           return () => unsubscribe();
         } catch (error) {
           console.error("Error initializing Firebase Auth:", error);
+          setLoading(false); // Ensure loading is set to false even on error
           router.push('/login');
         }
+      } else {
+        setLoading(false); // Also set loading to false if not in a browser environment
       }
     };
 
     initFirebase();
   }, [router]);
+
+  // While loading, you can display a loading indicator or a blank page
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -150,3 +164,4 @@ export default function Home() {
     </div>
   );
 }
+
