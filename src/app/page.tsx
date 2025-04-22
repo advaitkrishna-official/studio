@@ -6,37 +6,41 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 
 export default function Home() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      let _auth;
-      try {
-        _auth = auth ? getAuth(auth) : null; // Initialize auth here
-      } catch (error) {
-        console.error("Error initializing Firebase Auth:", error);
-        return;
-      }
+    const initFirebase = async () => {
+      if (typeof window !== 'undefined') {
+        try {
+          const firebase = await import('@/lib/firebase');
+          const { getAuth, onAuthStateChanged } = await import('firebase/auth');
+          const auth = firebase.auth;
 
-      if (_auth) {
-        const unsubscribe = onAuthStateChanged(_auth, (user) => {
-          setIsLoggedIn(!!user);
-          if (!user) {
+          if (auth) {
+            const _auth = getAuth(auth);
+            const unsubscribe = onAuthStateChanged(_auth, (user) => {
+              setIsLoggedIn(!!user);
+              if (!user) {
+                router.push('/login');
+              }
+            });
+
+            return () => unsubscribe();
+          } else {
+            console.error("Firebase Auth is not initialized.");
             router.push('/login');
           }
-        });
-
-        return () => unsubscribe();
-      } else {
-        console.error("Firebase Auth is not initialized.");
-        router.push('/login');
+        } catch (error) {
+          console.error("Error initializing Firebase Auth:", error);
+          router.push('/login');
+        }
       }
-    }
+    };
+
+    initFirebase();
   }, [router]);
 
   return (
@@ -154,4 +158,3 @@ export default function Home() {
     </div>
   );
 }
-
