@@ -50,9 +50,22 @@ const ProgressPage = () => {
     fetchGrades();
   }, [user]);
 
-  const averageMCQScore = 82;
-  const averageEssayScore = 75;
-  const averageLongAnswerScore = 88;
+  // Calculate average scores
+  const calculateAverageScore = (taskName: string) => {
+    const taskGrades = grades.filter((grade: any) =>
+      grade.taskName.includes(taskName)
+    );
+    if (taskGrades.length === 0) return 0;
+    const totalScore = taskGrades.reduce(
+      (sum: number, grade: any) => sum + grade.score,
+      0
+    );
+    return totalScore / taskGrades.length;
+  };
+
+  const averageMCQScore = calculateAverageScore('MCQ');
+  const averageEssayScore = calculateAverageScore('Essay');
+  const averageLongAnswerScore = calculateAverageScore('Long Answer');
   const courseCompletion = 70;
 
   // Mock data for the line chart
@@ -72,7 +85,7 @@ const ProgressPage = () => {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{averageMCQScore}</div>
+            <div className="text-2xl font-bold">{averageMCQScore.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -81,7 +94,7 @@ const ProgressPage = () => {
             <Edit className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{averageEssayScore}</div>
+            <div className="text-2xl font-bold">{averageEssayScore.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -90,7 +103,7 @@ const ProgressPage = () => {
             <ListChecks className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{averageLongAnswerScore}</div>
+            <div className="text-2xl font-bold">{averageLongAnswerScore.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>
