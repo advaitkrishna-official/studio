@@ -3,6 +3,7 @@
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const TeacherDashboardPage = () => {
   const { user, loading, userType } = useAuth();
@@ -12,7 +13,10 @@ const TeacherDashboardPage = () => {
     if (!loading) {
       if (!user) {
         router.push('/login');
-      } else if (userType !== 'teacher') {
+        return;
+      }
+
+      if (userType !== 'teacher') {
         router.push('/'); // Redirect non-teachers
       }
     }
@@ -30,10 +34,85 @@ const TeacherDashboardPage = () => {
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-4">Teacher Dashboard</h1>
       <p>Welcome, Teacher {user?.email}!</p>
-      {/* Add Teacher Features Here */}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Overview Panel */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Add overview statistics here */}
+            <p>Total Students: [Number]</p>
+            <p>Recent Activity: [Latest Activity]</p>
+            <p>Performance Summary: [Average Scores]</p>
+          </CardContent>
+        </Card>
+
+        {/* Student Manager */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Student Manager</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Add student management features here */}
+            <p>View/Manage Student Profiles</p>
+            <p>Track Progress</p>
+            <p>Send Announcements/Messages</p>
+          </CardContent>
+        </Card>
+
+        {/* AI-Powered Lesson Planner */}
+        <Card>
+          <CardHeader>
+            <CardTitle>AI-Powered Lesson Planner</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Add lesson planning features here */}
+            <p>Input Goals → Auto-Generate Lesson Plans</p>
+            <p>Edit, Save, Reuse Templates</p>
+          </CardContent>
+        </Card>
+
+        {/* Quiz Builder */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Quiz Builder</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Add quiz building features here */}
+            <p>Create &amp; Assign MCQs using AI</p>
+            <p>Auto-Grading + Analytics</p>
+          </CardContent>
+        </Card>
+
+        {/* Content Repository */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Content Repository</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Add content repository features here */}
+            <p>Upload/Share PDFs, Videos, Slides</p>
+            <p>Tag by Subject/Grade</p>
+          </CardContent>
+        </Card>
+
+        {/* Class Calendar */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Class Calendar</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Add class calendar features here */}
+            <p>Schedule Classes &amp; Assignments</p>
+            <p>Sync with Student Dashboards</p>
+            <p>Push Notifications</p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
 
 export default TeacherDashboardPage;
-
