@@ -34,38 +34,45 @@ export default function AuthProvider({children}: AuthProviderProps) {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async user => {
-      if (user) {
-        setUser(user);
-        let type: 'student' | 'teacher' = 'student';
-        let classVal: string | null = null;
+    let unsubscribe: () => void = () => {}; // Initialize with an empty function
+    if (auth) {
+      unsubscribe = onAuthStateChanged(auth, async user => {
+        if (user) {
+          setUser(user);
+          let type: 'student' | 'teacher' = 'student';
+          let classVal: string | null = null;
 
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            if (userData?.role === 'teacher') {
+          try {
+            if (!db) {
+                return;
+            }
+
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              if (userData?.role === 'teacher') {
+                type = 'teacher';
+              }
+              classVal = userData?.class || null;
+            } else if (user.email?.endsWith('@teacher.com')) {
               type = 'teacher';
             }
-            classVal = userData?.class || null;
-          } else if (user.email?.endsWith('@teacher.com')) {
-            type = 'teacher';
+          } catch (error) {
+            console.error('Error fetching user role from Firestore:', error);
+            type = user.email?.endsWith('@teacher.com') ? 'teacher' : 'student';
           }
-        } catch (error) {
-          console.error('Error fetching user role from Firestore:', error);
-          type = user.email?.endsWith('@teacher.com') ? 'teacher' : 'student';
-        }
 
-        setUserType(type);
-        setUserClass(classVal);
-      } else {
-        setUser(null);
-        setUserType(null);
-        setUserClass(null);
-        router.push('/login');
-      }
-      setLoading(false);
-    });
+          setUserType(type);
+          setUserClass(classVal);
+        } else {
+          setUser(null);
+          setUserType(null);
+          setUserClass(null);
+          router.push('/login');
+        }
+        setLoading(false);
+      });
+    }
 
     return () => unsubscribe();
   }, [router]);

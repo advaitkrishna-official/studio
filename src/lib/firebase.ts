@@ -1,7 +1,7 @@
 'use client';
 
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
+import { FirebaseApp, initializeApp } from "firebase/app";
 import { getAuth, initializeAuth, indexedDBLocalPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore"; // Import getFirestore
 
@@ -16,27 +16,31 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app;
+let app: FirebaseApp | undefined = undefined;
 
 try {
   app = initializeApp(firebaseConfig);
 } catch (error: any) {
-  console.error("Firebase initialization error:", error.message);
+  console.error("Firebase initialization error:", error);
 }
 
 // Initialize Firebase Authentication and persist the user's session
-let auth;
+let auth: import("firebase/auth").Auth | undefined;
 
 if (typeof window !== 'undefined' && app) {
   try {
     auth = initializeAuth(app, {
       persistence: indexedDBLocalPersistence,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Firebase Auth initialization error:", error);
   }
 }
 
-const db = getFirestore(app); // Initialize Firestore
+// Initialize Firestore only if app is initialized
+let db: import("firebase/firestore").Firestore | undefined;
+if (app) {
+  db = getFirestore(app);
+}
 
-export { app, auth, db };
+export { app , auth, db };
