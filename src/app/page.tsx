@@ -14,9 +14,8 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    let _auth;
     if (auth) {
-      _auth = getAuth(auth);
+      const _auth = getAuth(auth);
       const unsubscribe = onAuthStateChanged(_auth, (user) => {
         setIsLoggedIn(!!user);
         if (!user) {
@@ -57,6 +56,7 @@ export default function Home() {
                   Get Started <Icons.arrowRight className="ml-2" />
                 </Button>
               </Link>
+              {/* Previous scores here */}
             </CardContent>
           </Card>
 
@@ -71,6 +71,7 @@ export default function Home() {
                   Get Started <Icons.arrowRight className="ml-2" />
                 </Button>
               </Link>
+               {/* Previous scores here */}
             </CardContent>
           </Card>
 
@@ -85,6 +86,7 @@ export default function Home() {
                   Get Started <Icons.arrowRight className="ml-2" />
                 </Button>
               </Link>
+               {/* Previous scores here */}
             </CardContent>
           </Card>
 
@@ -99,6 +101,7 @@ export default function Home() {
                   Get Started <Icons.arrowRight className="ml-2" />
                 </Button>
               </Link>
+               {/* Previous feedback here */}
             </CardContent>
           </Card>
 
