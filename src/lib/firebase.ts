@@ -27,7 +27,7 @@ try {
 // Initialize Firebase Authentication and persist the user's session
 let auth;
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && app) {
   try {
     auth = initializeAuth(app, {
       persistence: indexedDBLocalPersistence,
