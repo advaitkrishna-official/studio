@@ -3,7 +3,10 @@
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Icons } from "@/components/icons";
 
 const TeacherDashboardPage = () => {
   const { user, loading, userType } = useAuth();
@@ -42,10 +45,11 @@ const TeacherDashboardPage = () => {
             <CardTitle>Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Add overview statistics here */}
-            <p>Total Students: [Number]</p>
-            <p>Recent Activity: [Latest Activity]</p>
-            <p>Performance Summary: [Average Scores]</p>
+           <Link href="/teacher-dashboard/overview">
+              <Button variant="secondary">
+                View Details <Icons.arrowRight className="ml-2" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
