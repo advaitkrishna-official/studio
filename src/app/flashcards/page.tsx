@@ -74,7 +74,12 @@ const FlashcardPage = () => {
               type="number"
               placeholder="Number of flashcards to generate"
               value={numCards.toString()}
-              onChange={(e) => setNumCards(parseInt(e.target.value))}
+              onChange={(e) => {
+                const parsedValue = parseInt(e.target.value);
+                if (!isNaN(parsedValue)) {
+                  setNumCards(parsedValue);
+                }
+              }}
             />
           </div>
           <Button onClick={handleSubmit} disabled={isLoading}>
@@ -87,7 +92,7 @@ const FlashcardPage = () => {
         </CardContent>
       </Card>
 
-      {flashcards && (
+      {flashcards && flashcards.flashcards && (
         <div className="mt-8 max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold tracking-tight">Generated Flashcards</h2>
           <p className="text-sm text-muted-foreground">
@@ -135,3 +140,5 @@ const AnimatedFlashcard: React.FC<AnimatedFlashcardProps> = ({ front, back }) =>
 };
 
 export default FlashcardPage;
+
+    

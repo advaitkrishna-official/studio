@@ -59,7 +59,7 @@ const LongAnswerPage = () => {
         </CardContent>
       </Card>
 
-      {questions && (
+      {questions && questions.questions && (
         <div className="mt-8 max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold tracking-tight">Generated Questions</h2>
           <p className="text-sm text-muted-foreground">
@@ -67,7 +67,7 @@ const LongAnswerPage = () => {
           </p>
           <div className="grid gap-4 mt-4">
             {questions.questions.map((question, index) => (
-              <LongAnswerCard key={index} question={question} keyPoints={questions.keyPoints[index] || ""} />
+              <LongAnswerCard key={index} question={question} keyPoints={questions.keyPoints ? questions.keyPoints[index] || "" : ""} />
             ))}
           </div>
         </div>
@@ -151,3 +151,5 @@ const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints }) 
 };
 
 export default LongAnswerPage;
+
+    

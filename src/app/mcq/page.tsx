@@ -26,9 +26,9 @@ const MCQPage = () => {
     try {
       const result = await generateMCQ({ topic, numQuestions });
       setMcq(result);
-      setAnswers(Array(result.questions.length).fill(""));
+      setAnswers(Array(result?.questions?.length || 0).fill(""));
       setShowAnswers(false);
-      setExplanations(Array(result.questions.length).fill("")); // Initialize explanations
+      setExplanations(Array(result?.questions?.length || 0).fill("")); // Initialize explanations
     } catch (e: any) {
       setError(e.message || "An error occurred while generating MCQs.");
     } finally {
@@ -45,7 +45,7 @@ const MCQPage = () => {
   const handleSubmitQuiz = async () => {
     setShowAnswers(true);
     // Generate explanations for each question
-    if (mcq) {
+    if (mcq && mcq.questions) {
       const newExplanations = await Promise.all(
         mcq.questions.map(async (q) => {
           try {
@@ -101,7 +101,7 @@ const MCQPage = () => {
         </CardContent>
       </Card>
 
-      {mcq && (
+      {mcq && mcq.questions && (
         <div className="mt-8 max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold tracking-tight">Generated MCQs</h2>
           <p className="text-sm text-muted-foreground">
@@ -156,3 +156,6 @@ const MCQPage = () => {
 };
 
 export default MCQPage;
+
+
+    

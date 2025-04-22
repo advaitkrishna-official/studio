@@ -22,56 +22,56 @@ import {
   Legend,
 } from "recharts";
 
-const data = [
+const defaultData = [
   {
     name: "Week 1",
-    correct: 40,
-    incorrect: 10,
+    correct: 0,
+    incorrect: 0,
   },
   {
     name: "Week 2",
-    correct: 30,
-    incorrect: 20,
+    correct: 0,
+    incorrect: 0,
   },
   {
     name: "Week 3",
-    correct: 20,
-    incorrect: 30,
+    correct: 0,
+    incorrect: 0,
   },
   {
     name: "Week 4",
-    correct: 27,
-    incorrect: 18,
+    correct: 0,
+    incorrect: 0,
   },
   {
     name: "Week 5",
-    correct: 18,
-    incorrect: 22,
+    correct: 0,
+    incorrect: 0,
   },
   {
     name: "Week 6",
-    correct: 23,
-    incorrect: 17,
+    correct: 0,
+    incorrect: 0,
   },
   {
     name: "Week 7",
-    correct: 34,
-    incorrect: 6,
+    correct: 0,
+    incorrect: 0,
   },
   {
     name: "Week 8",
-    correct: 40,
+    correct: 0,
     incorrect: 0,
   },
   {
     name: "Week 9",
-    correct: 20,
-    incorrect: 10,
+    correct: 0,
+    incorrect: 0,
   },
   {
     name: "Week 10",
-    correct: 30,
-    incorrect: 5,
+    correct: 0,
+    incorrect: 0,
   },
 ];
 
@@ -88,7 +88,7 @@ const ProgressPage = () => {
         <CardContent>
             <ResponsiveContainer width="100%" height={400}>
               <AreaChart
-                data={data}
+                data={defaultData}
                 margin={{
                   top: 10,
                   right: 30,
@@ -111,3 +111,5 @@ const ProgressPage = () => {
 };
 
 export default ProgressPage;
+
+    
