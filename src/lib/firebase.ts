@@ -71,6 +71,7 @@ async function seedDatabase() {
 }
 
 // Call the seedDatabase function (you might want to trigger this from a button in your UI for testing)
-//seedDatabase();
+seedDatabase();
 
 export { app, auth, db, seedDatabase };
+
