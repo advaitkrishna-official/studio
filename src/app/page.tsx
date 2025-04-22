@@ -7,14 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { app } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    const auth = getAuth(app);
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const _auth = getAuth(auth);
+    const unsubscribe = onAuthStateChanged(_auth, (user) => {
       if (!user) {
         router.push('/login');
       }
@@ -134,3 +134,4 @@ export default function Home() {
     </div>
   );
 }
+
