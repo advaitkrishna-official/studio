@@ -27,10 +27,11 @@ const RegisterPage = () => {
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const classesCollection = collection(db, "classes");
-        const classesSnapshot = await getDocs(classesCollection);
-        const classesData = classesSnapshot.docs.map(doc => doc.id); // Use doc.id to get the class name
-        setClasses(classesData);
+        // const classesCollection = collection(db, "classes");
+        // const classesSnapshot = await getDocs(classesCollection);
+        // const classesData = classesSnapshot.docs.map(doc => doc.id); // Use doc.id to get the class name
+        // setClasses(classesData);
+        setClasses(["Grade 8", "Grade 6", "Grade 4"]); // Setting static class options
       } catch (e: any) {
         setError(e.message || "An error occurred while fetching classes.");
       }
