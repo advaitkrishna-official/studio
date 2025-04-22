@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateOverview, GenerateOverviewOutput } from "@/ai/flows/generate-overview";
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 const OverviewPage = () => {
   const [overview, setOverview] = useState<GenerateOverviewOutput | null>(null);
@@ -75,68 +77,118 @@ const OverviewPage = () => {
     fetchOverview();
   }, [user, selectedClass]);
 
+  const avgPerformance = overview?.performanceSummary ? parseFloat(overview.performanceSummary.match(/(\d+(\.\d+)?)%/)?.[1] || "0") : 0;
+  const totalStudents = overview?.totalStudents || 0;
+
   return (
     <div className="container mx-auto py-8">
-      <Card className="max-w-3xl mx-auto">
-        <CardHeader>
-          <CardTitle>Overview</CardTitle>
-          <CardDescription>
-            Here is an overview of your students' performance.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-3xl font-bold">Overview</h1>
+        <Select onValueChange={setSelectedClass} defaultValue={userClass}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select Class" />
+          </SelectTrigger>
+          <SelectContent>
+            {classes.map((cls) => (
+              <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-          {/* Class Selection Dropdown */}
-          <div className="grid gap-2">
-            <label htmlFor="class">Select Class</label>
-            <Select onValueChange={setSelectedClass} defaultValue={userClass}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a class" />
-              </SelectTrigger>
-              <SelectContent>
-                {classes.map((cls) => (
-                  <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center space-y-2 p-6">
+            <Avatar className="h-16 w-16">
+              <AvatarImage src="https://picsum.photos/seed/picsum/200/200" alt="Total Students" />
+              <AvatarFallback>TS</AvatarFallback>
+            </Avatar>
+            <div className="text-2xl font-bold">{totalStudents}</div>
+            <div className="text-muted-foreground">Total Students</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center space-y-2 p-6">
+            <div className="text-2xl font-bold">{avgPerformance}%</div>
+            <div className="text-muted-foreground">Avg Performance</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center space-y-2 p-6">
+            <div className="text-2xl font-bold">75%</div>
+            <div className="text-muted-foreground">Active Engagement</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activities</CardTitle>
+          </CardHeader>
+          <CardContent className="list-disc pl-5">
+            {isLoading && <p>Loading recent activities...</p>}
+            {error && <p className="text-red-500">{error}</p>}
+            {overview && overview.recentActivities.length > 0 ? (
+              <ul>
+                {overview.recentActivities.map((activity, index) => (
+                  <li key={index}>{activity}</li>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
+              </ul>
+            ) : (
+              !isLoading && <p>No recent activities.</p>
+            )}
+          </CardContent>
+        </Card>
 
-          {isLoading && <p>Loading overview...</p>}
-          {error && <p className="text-red-500">{error}</p>}
-          {overview && (
-            <>
-              <div className="grid gap-2">
-                <h3 className="text-xl font-bold tracking-tight">Total Students</h3>
-                <p>{overview.totalStudents}</p>
-              </div>
-              <div className="grid gap-2">
-                <h3 className="text-xl font-bold tracking-tight">Recent Activities</h3>
-                <ul>
-                  {overview.recentActivities.map((activity, index) => (
-                    <li key={index}>{activity}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="grid gap-2">
-                <h3 className="text-xl font-bold tracking-tight">Performance Summary</h3>
-                <p>{overview.performanceSummary}</p>
-              </div>
-               <div className="grid gap-2">
-                <h3 className="text-xl font-bold tracking-tight">AI Insights</h3>
-                <p>{overview.insights}</p>
-              </div>
-              <div className="grid gap-2">
-                <h3 className="text-xl font-bold tracking-tight">Suggested Activities</h3>
-                <ul>
-                  {overview.suggestedActivities.map((activity, index) => (
-                    <li key={index}>{activity}</li>
-                  ))}
-                </ul>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center justify-center">
+            {overview && (
+              <>
+                <div className="text-4xl font-bold">{avgPerformance}%</div>
+                <p className="text-green-500">+8% from last week</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>AI Insights</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {overview ? (
+              <p>{overview.insights}</p>
+            ) : (
+              <p>No AI insights available.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Suggested Activities</CardTitle>
+          </CardHeader>
+          <CardContent className="list-disc pl-5">
+            {overview && overview.suggestedActivities.length > 0 ? (
+              <ul>
+                {overview.suggestedActivities.map((activity, index) => (
+                  <li key={index}>{activity}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>No suggested activities available.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
