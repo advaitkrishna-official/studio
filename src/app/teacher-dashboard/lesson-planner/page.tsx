@@ -74,12 +74,12 @@ const LessonPlannerPage = () => {
       `;
 
       // Replace with actual AI-powered lesson plan generation
-      const aiGeneratedPlan = await generateLongAnswerQuestions({ topic: prompt, numQuestions: 5 });
+      const aiGeneratedPlan = await generateLongAnswerQuestions({ topic: prompt, numQuestions: 1 });
 
       if (aiGeneratedPlan?.questions) {
         try {
           // Attempt to parse the AI-generated plan as JSON
-          const lessonPlan = JSON.parse(aiGeneratedPlan.questions.join('\n'));
+          const lessonPlan = JSON.parse(aiGeneratedPlan.questions[0]);
 
           // Check that the parsed data has the expected structure
           if (lessonPlan && lessonPlan.lessonPlan && Array.isArray(lessonPlan.lessonPlan)) {
@@ -93,7 +93,7 @@ const LessonPlannerPage = () => {
             }));
             setLessonPlanItems(lessonItems);
           } else {
-            setError("Failed to parse AI generated lesson plan.");
+            setError("Failed to parse AI generated lesson plan: Incorrect format.");
             setLessonPlanItems([]);
           }
         } catch (parseError: any) {
