@@ -1,6 +1,4 @@
-
-```typescript
-"use client";
+'use client';
 
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -104,4 +102,3 @@ export default function StudentDashboard() {
     </div>
   );
 }
-```
