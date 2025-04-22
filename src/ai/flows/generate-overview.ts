@@ -21,7 +21,8 @@ const GenerateOverviewOutputSchema = z.object({
   totalStudents: z.number().describe('The total number of students.'),
   recentActivities: z.array(z.string()).describe('A list of recent activities.'),
   performanceSummary: z.string().describe('A summary of the student performance.'),
-  insights: z.string().describe('AI-generated insights about the data.')
+  insights: z.string().describe('AI-generated insights about the data.'),
+  suggestedActivities: z.array(z.string()).describe('A list of suggested activities.')
 });
 export type GenerateOverviewOutput = z.infer<typeof GenerateOverviewOutputSchema>;
 
@@ -42,7 +43,8 @@ const prompt = ai.definePrompt({
       totalStudents: z.number().describe('The total number of students.'),
       recentActivities: z.array(z.string()).describe('A list of recent activities.'),
       performanceSummary: z.string().describe('A summary of the student performance.'),
-      insights: z.string().describe('AI-generated insights about the data.')
+      insights: z.string().describe('AI-generated insights about the data.'),
+      suggestedActivities: z.array(z.string()).describe('A list of suggested activities.')
     }),
   },
   prompt: `You are an AI assistant designed to provide an overview of student data for teachers.
@@ -52,6 +54,27 @@ You will be given the teacher ID and student data, and you will provide:
 2.  A list of recent activities.
 3.  A summary of the student performance.
 4.  AI-generated insights about the data.
+5.  A list of suggested activities for the teacher to implement.
+
+Here is some sample student data:
+[
+    {
+        "id": "student1",
+        "email": "student1@example.com",
+        "studentNumber": "1001",
+        "class": "Grade 8",
+        "progress": 75,
+        "role": "student"
+    },
+    {
+        "id": "student2",
+        "email": "student2@example.com",
+        "studentNumber": "1002",
+        "class": "Grade 8",
+        "progress": 50,
+        "role": "student"
+    }
+]
 
 Teacher ID: {{{teacherId}}}
 Student Data: {{{studentData}}}

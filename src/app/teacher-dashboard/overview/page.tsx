@@ -101,6 +101,14 @@ const OverviewPage = () => {
                 <h3 className="text-xl font-bold tracking-tight">AI Insights</h3>
                 <p>{overview.insights}</p>
               </div>
+              <div className="grid gap-2">
+                <h3 className="text-xl font-bold tracking-tight">Suggested Activities</h3>
+                <ul>
+                  {overview.suggestedActivities.map((activity, index) => (
+                    <li key={index}>{activity}</li>
+                  ))}
+                </ul>
+              </div>
             </>
           )}
         </CardContent>
