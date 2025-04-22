@@ -1,12 +1,13 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
 import { useAuth } from "@/components/auth-provider"; // Import the AuthContext
+import { getAuth } from "firebase/auth";
 
 export default function Home() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function Home() {
       if (!user) {
         router.push('/login');
       } else if (userType === 'teacher') {
-        router.push('/teacher-dashboard');
+        router.push(`/teacher-dashboard?class=${user?.class}`);
       }
     }
   }, [user, loading, userType, router]);
