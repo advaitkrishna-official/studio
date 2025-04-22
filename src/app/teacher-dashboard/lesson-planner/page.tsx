@@ -172,7 +172,12 @@ const LessonPlannerPage = () => {
           {lessonPlan && (
             <div className="grid gap-2">
               <Label htmlFor="lessonPlan">Lesson Plan</Label>
-               {/* Gantt chart component will be rendered here */}
+              {/* Gantt chart component will be rendered here */}
+              <div>
+                {/* Placeholder for Gantt chart */}
+                <p>Lesson Plan Graph (Placeholder)</p>
+                <p>Due to the complexity of generating interactive charts, a basic graph cannot be displayed. Further assistance may be needed</p>
+              </div>
             </div>
           )}
         </CardContent>
