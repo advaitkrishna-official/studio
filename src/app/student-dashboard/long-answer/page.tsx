@@ -23,17 +23,17 @@ const LongAnswerPage = () => {
   const { toast } = useToast();
   const [totalScore, setTotalScore] = useState<number | null>(null);
 
-    useEffect(() => {
-        if (user) {
-            getGrades(user.uid).then(grades => {
-                const sum = grades.reduce((acc, grade) => acc + grade.score, 0);
-                setTotalScore(sum);
-            }).catch(e => {
-                console.error("Error fetching grades:", e);
-                setError(e.message || "An error occurred while fetching grades.");
-            });
-        }
-    }, [user]);
+  useEffect(() => {
+    if (user) {
+      getGrades(user.uid).then(grades => {
+        const sum = grades.reduce((acc, grade) => acc + grade.score, 0);
+        setTotalScore(sum);
+      }).catch(e => {
+        console.error("Error fetching grades:", e);
+        setError(e.message || "An error occurred while fetching grades.");
+      });
+    }
+  }, [user]);
 
   return (
     <div className="container mx-auto py-8">
@@ -65,25 +65,25 @@ const LongAnswerPage = () => {
             />
           </div>
           <Button onClick={() => {
-               setIsLoading(true);
-               setError(null);
-               generateLongAnswerQuestions({ topic, numQuestions })
-                 .then(result => {
-                   setQuestions(result);
-                   toast({
-                     title: "Long Answer Questions Generated",
-                     description: "The long answer questions have been generated.",
-                   });
-                 })
-                 .catch(e => {
-                   setError(e.message || "An error occurred while generating questions.");
-                   toast({
-                     variant: "destructive",
-                     title: "Error",
-                     description: "Failed to generate long answer questions. Please try again.",
-                   });
-                 })
-                 .finally(() => setIsLoading(false));
+            setIsLoading(true);
+            setError(null);
+            generateLongAnswerQuestions({ topic, numQuestions })
+              .then(result => {
+                setQuestions(result);
+                toast({
+                  title: "Long Answer Questions Generated",
+                  description: "The long answer questions have been generated.",
+                });
+              })
+              .catch(e => {
+                setError(e.message || "An error occurred while generating questions.");
+                toast({
+                  variant: "destructive",
+                  title: "Error",
+                  description: "Failed to generate long answer questions. Please try again.",
+                });
+              })
+              .finally(() => setIsLoading(false));
           }} disabled={isLoading}>
             {isLoading ? "Generating Questions..." : "Generate Questions"}
           </Button>
@@ -97,15 +97,15 @@ const LongAnswerPage = () => {
           <p className="text-sm text-muted-foreground">
             Here are your AI generated long answer questions on the topic of {topic}
           </p>
-            {totalScore !== null && (
-                <div className="mt-4">
-                    <h3 className="text-xl font-bold tracking-tight">Total Score</h3>
-                    <p className="mt-2">Your total score: {totalScore}%</p>
-                </div>
-            )}
+          {totalScore !== null && (
+            <div className="mt-4">
+              <h3 className="text-xl font-bold tracking-tight">Total Score</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Your total score: {totalScore}%</p>
+            </div>
+          )}
           <div className="grid gap-4 mt-4">
             {questions.questions.map((question, index) => (
-              <LongAnswerCard key={index} question={question} keyPoints={questions.keyPoints ? questions.keyPoints[index] || "" : ""} topic={topic} user={user} toast={toast}/>
+              <LongAnswerCard key={index} question={question} keyPoints={questions.keyPoints ? questions.keyPoints[index] || "" : ""} topic={topic} user={user} toast={toast} />
             ))}
           </div>
         </div>
@@ -205,13 +205,13 @@ const LongAnswerCard: React.FC<LongAnswerCardProps> = ({ question, keyPoints, to
           </div>
         )}
 
-        {score !== null && (
+        {/*{score !== null && (
           <div className="mt-4">
             <h3 className="text-xl font-bold tracking-tight">Score</h3>
-            <p className="mt-2">Your score: {score}%</p>
+            <p className="mt-2 text-sm text-muted-foreground">Your score: {score}%</p>
           </div>
-        )}
-           {error && <p className="text-red-500">{error}</p>}
+        )}*/}
+        {error && <p className="text-red-500">{error}</p>}
       </CardContent>
     </Card>
   );
