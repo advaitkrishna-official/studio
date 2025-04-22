@@ -128,12 +128,18 @@ async function getUserData(userId: string) {
 // Function to save a grade for a student
 async function saveGrade(studentId: string, taskName: string, score: number, feedback: string) {
   try {
+        const studentData = await getStudentData(studentId);
+        const studentClass = studentData?.class;
+
     const gradesCollection = collection(db, 'users', studentId, 'grades');
     await addDoc(gradesCollection, {
       taskName: taskName,
       score: score,
       feedback: feedback,
       timestamp: new Date(),
+      ...(studentClass && {
+        class: studentClass,
+      })
     });
     console.log(`Grade saved for student ${studentId} on task ${taskName}`);
   } catch (error: any) {
