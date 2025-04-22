@@ -2,6 +2,7 @@
 import type {Metadata} from 'next';
 import {Geist, Geist_Mono} from 'next/font/google';
 import './globals.css';
+import ClientSideAuthProvider from '@/components/auth-provider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -33,11 +34,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-import dynamic from 'next/dynamic';
-
-const ClientSideAuthProvider = dynamic(
-  () => import('@/components/auth-provider').then(mod => mod.default),
-  {ssr: false}
-);
-

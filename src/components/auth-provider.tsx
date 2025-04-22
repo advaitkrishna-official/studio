@@ -2,7 +2,7 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -38,7 +38,8 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     if (!auth) {
       unsubscribe = () => {};
     } else {
-      unsubscribe = onAuthStateChanged(auth, async (user) => {
+      const _auth = getAuth(auth);
+      unsubscribe = onAuthStateChanged(_auth, async (user) => {
         if (!user) {
           setUser(null);
           setUserType(null);
