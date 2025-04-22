@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
@@ -135,3 +135,5 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
+
+    
