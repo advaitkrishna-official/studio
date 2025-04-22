@@ -39,10 +39,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUserType('teacher');
         } else {
           // Check Firestore for a teacher role as a fallback
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists() && userDoc.data()?.role === 'teacher') {
-            setUserType('teacher');
-          } else {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists() && userDoc.data()?.role === 'teacher') {
+              setUserType('teacher');
+            } else {
+              setUserType('student');
+            }
+          } catch (error) {
+            console.error("Error fetching user role from Firestore:", error);
+            // If Firestore is unavailable, default to student.
             setUserType('student');
           }
         }
