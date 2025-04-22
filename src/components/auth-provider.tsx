@@ -1,10 +1,10 @@
 'use client';
 
-import {useState, useEffect, createContext, useContext, ReactNode} from 'react';
-import {useRouter} from 'next/navigation';
-import {getAuth, onAuthStateChanged, User} from 'firebase/auth';
-import {auth, db} from '@/lib/firebase';
-import {doc, getDoc} from 'firebase/firestore';
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null | undefined;
@@ -26,7 +26,7 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export default function AuthProvider({children}: AuthProviderProps) {
+export default function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState<'student' | 'teacher' | null>(null);
@@ -34,7 +34,7 @@ export default function AuthProvider({children}: AuthProviderProps) {
   const router = useRouter();
 
   useEffect(() => {
-    let unsubscribe: () => void = () => {}; // Initialize with an empty function
+    let unsubscribe: () => void = () => { }; // Initialize with an empty function
     if (auth) {
       unsubscribe = onAuthStateChanged(auth, async user => {
         if (user) {
@@ -44,7 +44,7 @@ export default function AuthProvider({children}: AuthProviderProps) {
 
           try {
             if (!db) {
-                return;
+              return;
             }
 
             const userDoc = await getDoc(doc(db, 'users', user.uid));
