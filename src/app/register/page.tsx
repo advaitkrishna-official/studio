@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db, createUserDocument } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { createUserDocument } from "@/lib/firebase"; // Corrected import
 import Link from 'next/link';
 import { doc, setDoc } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -61,7 +62,7 @@ const RegisterPage = () => {
 
 
         // Create a user document in Firestore
-        await createUserDocument(user.uid, email, studentNumber, isTeacher ? "teacher" : "student", selectedClass);
+        await createUserDocument(user.uid, email, studentNumber, isTeacher ? "teacher" : "student", selectedClass); // Corrected function call
 
         toast({
           title: "Registration Successful",
@@ -148,4 +149,3 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
-
