@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -86,5 +87,9 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+.chart-labels .recharts-cartesian-axis-tick-value text {
+  fill: hsl(var(--foreground));
 }
 

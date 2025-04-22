@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,7 +70,7 @@ const ProgressPage = () => {
           {error && <p className="text-red-500">{error}</p>}
           {!loading && grades.length === 0 && <p>No progress data available.</p>}
           {!loading && grades.length > 0 && (
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={400} className="chart-labels">
               <AreaChart
                 data={chartData}
                 margin={{
