@@ -2,7 +2,7 @@
 
 // Import the functions you need from the SDKs you need
 import { FirebaseApp, initializeApp } from "firebase/app";
-import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth } from "firebase/auth";
+import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth, getReactNativePersistence } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore"; // Import getFirestore
 import {useEffect, useState} from 'react';
 
@@ -26,8 +26,14 @@ try {
   console.error("Firebase initialization error:", error.code);
 }
 
-// Initialize Firebase Authentication and persist the user's session
-let auth: Auth | undefined;
-let db: Firestore | undefined;
+
+
+let auth: Auth;
+if (app) {
+  auth = initializeAuth(app, {
+    persistence: indexedDBLocalPersistence,
+  });
+}
+const db: Firestore = getFirestore(app);
 
 export { app , auth, db };
