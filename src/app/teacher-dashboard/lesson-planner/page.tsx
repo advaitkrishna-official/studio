@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { generateLongAnswerQuestions } from "@/ai/flows/generate-long-answer-questions";
+import { generateLongAnswerQuestions as generateLongAnswerQuestionsFlow } from "@/ai/flows/generate-long-answer-questions";
+
 
 // Define the structure for a task in the Gantt chart
 interface GanttTask {
