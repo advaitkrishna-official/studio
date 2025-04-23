@@ -8,14 +8,14 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 10%;
-    --foreground: 0 0% 98%;
+    --background: 220 14% 12%;
+    --foreground: 220 50% 98%;
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 39 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 214 91% 65%;
+    --primary-foreground: 222.2 47.4% 11.2%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
@@ -26,21 +26,21 @@ body {
     --destructive-foreground: 210 40% 98%;
     --border: 215.9 18.2% 33.7%;
     --input: 215.9 18.2% 33.7%;
-    --ring: 39 100% 50%;
+    --ring: 214 91% 65%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 10%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 39 100% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-background: 220 14% 12%;
+    --sidebar-foreground: 220 50% 98%;
+    --sidebar-primary: 214 91% 65%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
     --sidebar-accent: 39 100% 50%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 39 100% 50%;
+    --sidebar-ring: 214 91% 65%;
   }
 
   .dark {
@@ -50,8 +50,8 @@ body {
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 39 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 214 91% 65%;
+    --primary-foreground: 222.2 47.4% 11.2%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
@@ -62,7 +62,7 @@ body {
     --destructive-foreground: 210 40% 98%;
     --border: 215.9 18.2% 33.7%;
     --input: 215.9 18.2% 33.7%;
-    --ring: 39 100% 50%;
+    --ring: 214 91% 65%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -70,12 +70,12 @@ body {
     --chart-5: 340 75% 55%;
     --sidebar-background: 0 0% 10%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 39 100% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-primary: 214 91% 65%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
     --sidebar-accent: 39 100% 50%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 39 100% 50%;
+    --sidebar-ring: 214 91% 65%;
   }
 }
 
@@ -91,5 +91,3 @@ body {
 .chart-labels .recharts-cartesian-axis-tick-value text {
   fill: hsl(var(--foreground));
 }
-
-
