@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from "react";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {Icons} from '@/components/icons';
 import {useAuth} from '@/components/auth-provider';
 import {cn} from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { useEffect, useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function StudentDashboard() {
   const {user} = useAuth();
@@ -19,11 +20,11 @@ export default function StudentDashboard() {
         { name: 'Mathematics', icon: 'Mathematics' },
     ]);
 
-    const [recommendedCourses, setRecommendedCourses] = useState([
-        { title: 'Introduction to Python', instructor: 'Rachel Andringari', lessons: 4, duration: '51 min', image: 'https://picsum.photos/300/200' },
-        { title: 'Online Lessons with Katharina', instructor: 'Katharina', lessons: 6, duration: '8 lin', image: 'https://picsum.photos/301/200' },
-        { title: 'Introduction to Pract-1s Totaing', instructor: 'Joalna Radkart', lessons: 4, duration: '5 min', image: 'https://picsum.photos/302/200' },
-        { title: 'Online Laxext', instructor: 'Lee Huang-Lian', lessons: 4, duration: '30 min', image: 'https://picsum.photos/303/200' },
+  const [recommendedCourses, setRecommendedCourses] = useState([
+    { title: 'Introduction to Python', instructor: 'Rachel Andringari', lessons: 4, duration: '51 min', image: 'https://picsum.photos/300/200', youtubeLink: 'https://www.youtube.com/embed/N4mEzFDjQtA' },
+    { title: 'Online Lessons with Katharina', instructor: 'Katharina', lessons: 6, duration: '8 lin', image: 'https://picsum.photos/301/200', youtubeLink: 'https://www.youtube.com/embed/VNlcrsRowlo' },
+    { title: 'Introduction to Pract-1s Totaing', instructor: 'Joalna Radkart', lessons: 4, duration: '5 min', image: 'https://picsum.photos/302/200', youtubeLink: 'https://www.youtube.com/embed/jtsIJNbNHfg' },
+    { title: 'Online Laxext', instructor: 'Lee Huang-Lian', lessons: 4, duration: '30 min', image: 'https://picsum.photos/303/200', youtubeLink: 'https://www.youtube.com/embed/H-dQ3zR1GDU' },
     ]);
 
   return (
@@ -79,6 +80,21 @@ export default function StudentDashboard() {
                                 <p className="text-sm text-muted-foreground">
                                     {course.lessons} lessons, {course.duration}
                                 </p>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="secondary">Watch Video</Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px]">
+                                  <iframe
+                                    width="100%"
+                                    height="315"
+                                    src={course.youtubeLink}
+                                    title="YouTube video player"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                  ></iframe>
+                                </DialogContent>
+                              </Dialog>
                             </CardContent>
                         </Card>
                     ))}
@@ -180,4 +196,3 @@ export default function StudentDashboard() {
     </div>
   );
 }
-
