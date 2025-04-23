@@ -20,6 +20,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, Dialog
 import { Textarea } from "@/components/ui/textarea";
 import { generateMCQ } from '@/ai/flows/generate-mcq'; // Import MCQ Generator
 import { Progress } from "@/components/ui/progress"; // Import Progress
+import { X } from "lucide-react";
 
 interface ClassEvent {
   id: string;
@@ -274,7 +275,3 @@ const ClassCalendarPage = () => {
 };
 
 export default ClassCalendarPage;
-
-import { Calendar as CalendarIcon } from "lucide-react"
-import { X } from "lucide-react";
-
