@@ -8,3 +8,4 @@ import '@/ai/flows/generate-mcq-explanation.ts';
 import '@/ai/flows/generate-overview.ts';
 import '@/ai/flows/assign-mcq.ts';
 import '@/ai/flows/generate-lesson-plan.ts';
+import '@/ai/flows/generate-quiz.ts';

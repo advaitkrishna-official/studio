@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -20,11 +20,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/components/auth-provider";
 import { assignMCQ } from "@/ai/flows/assign-mcq";
+import { generateQuiz, GenerateQuizOutput } from '@/ai/flows/generate-quiz';
 
 const QuizBuilderPage = () => {
   const [topic, setTopic] = useState('');
   const [numQuestions, setNumQuestions] = useState(5);
-  const [mcq, setMcq] = useState<GenerateMCQOutput | null>(null);
+  const [difficulty, setDifficulty] = useState("Medium");
+  const [questionType, setQuestionType] = useState("MCQ");
+  const [quiz, setQuiz] = useState<GenerateQuizOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -33,23 +36,22 @@ const QuizBuilderPage = () => {
   const {user, userClass} = useAuth();
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
 
-
   const handleSubmit = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await generateMCQ({ topic, numQuestions });
-      setMcq(result);
+      const result = await generateQuiz({ topic, numQuestions, difficulty, questionType });
+      setQuiz(result);
       toast({
-        title: 'MCQs Generated',
-        description: 'The MCQs have been generated.',
+        title: 'Quiz Generated',
+        description: 'The quiz has been generated.',
       });
     } catch (e: any) {
-      setError(e.message || 'An error occurred while generating MCQs.');
+      setError(e.message || 'An error occurred while generating quiz.');
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to generate MCQs. Please try again.',
+        description: 'Failed to generate quiz. Please try again.',
       });
     } finally {
       setIsLoading(false);
@@ -60,18 +62,18 @@ const QuizBuilderPage = () => {
     setIsAssigning(true);
     setError(null);
     try {
-      if (!mcq) {
-        setError("No MCQs generated to assign.");
+      if (!quiz) {
+        setError("No Quiz generated to assign.");
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Please generate MCQs first.",
+          description: "Please generate Quiz first.",
         });
         return;
       }
 
       if (!selectedClass) {
-        setError("Please select a class to assign the MCQs to.");
+        setError("Please select a class to assign the Quiz to.");
         toast({
           variant: "destructive",
           title: "Error",
@@ -79,27 +81,27 @@ const QuizBuilderPage = () => {
         });
         return;
       }
-      const mcqData = JSON.stringify(mcq);
-      const result = await assignMCQ({ classId: selectedClass, mcqData });
+      const quizData = JSON.stringify(quiz);
+      const result = await assignMCQ({ classId: selectedClass, mcqData: quizData });
       if (result.success) {
         toast({
-          title: "MCQs Assigned",
+          title: "Quiz Assigned",
           description: result.message,
         });
       } else {
-        setError(result.message || "Failed to assign MCQs.");
+        setError(result.message || "Failed to assign Quiz.");
         toast({
           variant: "destructive",
           title: "Error",
-          description: result.message || "Failed to assign MCQs.",
+          description: result.message || "Failed to assign Quiz.",
         });
       }
     } catch (e: any) {
-      setError(e.message || "An error occurred while assigning MCQs.");
+      setError(e.message || "An error occurred while assigning Quiz.");
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to assign MCQs. Please try again.",
+        description: "Failed to assign Quiz. Please try again.",
       });
     } finally {
       setIsAssigning(false);
@@ -112,7 +114,7 @@ const QuizBuilderPage = () => {
         <CardHeader>
           <CardTitle>Quiz Builder</CardTitle>
           <CardDescription>
-            Enter a topic and the number of MCQs to generate.
+            Enter a topic and the number of Quiz to generate.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -126,41 +128,76 @@ const QuizBuilderPage = () => {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="numQuestions">Number of MCQs</Label>
+            <Label htmlFor="numQuestions">Number of Quizs</Label>
             <Input
               id="numQuestions"
               type="number"
-              placeholder="Number of MCQs to generate"
+              placeholder="Number of Quizs to generate"
               value={numQuestions.toString()}
               onChange={e => setNumQuestions(parseInt(e.target.value))}
             />
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="difficulty">Difficulty</Label>
+            <Select onValueChange={setDifficulty} defaultValue={difficulty}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select difficulty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Easy">Easy</SelectItem>
+                <SelectItem value="Medium">Medium</SelectItem>
+                <SelectItem value="Hard">Hard</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="questionType">Question Type</Label>
+            <Select onValueChange={setQuestionType} defaultValue={questionType}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select question type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MCQ">MCQ</SelectItem>
+                <SelectItem value="True/False">True/False</SelectItem>
+                <SelectItem value="Fill in the Blanks">Fill in the Blanks</SelectItem>
+                <SelectItem value="Short Answer">Short Answer</SelectItem>
+                <SelectItem value="Long Answer">Long Answer</SelectItem>
+                <SelectItem value="Matching">Matching</SelectItem>
+                <SelectItem value="Code Output">Code Output</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? 'Generating MCQs...' : 'Generate MCQs'}
+            {isLoading ? 'Generating Quizs...' : 'Generate Quizs'}
           </Button>
           {error && <p className="text-red-500">{error}</p>}
-          {mcq && mcq.questions && (
+          {quiz && quiz.questions && (
             <div className="mt-8">
               <h2 className="text-2xl font-bold tracking-tight">
-                Generated MCQs
+                Generated Quizs
               </h2>
               <p className="text-sm text-muted-foreground">
-                Here are your AI generated MCQs on the topic of {topic}
+                Here are your AI generated Quizs on the topic of {topic}
               </p>
               <div className="grid gap-4 mt-4">
-                {mcq.questions.map((q, index) => (
+                {quiz.questions.map((q, index) => (
                   <Card key={index}>
                     <CardHeader>
                       <CardTitle>Question {index + 1}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <p className="font-bold">{q.question}</p>
-                      <ul>
-                        {q.options.map((option, i) => (
-                          <li key={i}>{option}</li>
-                        ))}
-                      </ul>
-                      <p className="mt-2">Correct Answer: {q.correctAnswer}</p>
+                      {q.options && (
+                        <ul>
+                          {q.options.map((option, i) => (
+                            <li key={i}>{option}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {q.correctAnswer && (
+                        <p className="mt-2">Correct Answer: {q.correctAnswer}</p>
+                      )}
+                      <p className="mt-2">Question Type: {q.questionType}</p>
                     </CardContent>
                   </Card>
                 ))}
@@ -179,7 +216,7 @@ const QuizBuilderPage = () => {
                 </Select>
               </div>
               <Button onClick={handleAssign} disabled={isAssigning || !selectedClass}>
-                {isAssigning ? "Assigning MCQs..." : "Assign MCQs to Class"}
+                {isAssigning ? "Assigning Quizs..." : "Assign Quizs to Class"}
               </Button>
             </div>
           )}
