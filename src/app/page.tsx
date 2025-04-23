@@ -1,13 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from "@/components/auth-provider";
 import { seedInitialData } from "@/lib/firebase";
 
-
-export default function Home() {
+const ClientComponent = () => {
   const router = useRouter();
   const { user, loading, userType } = useAuth();
 
@@ -43,4 +42,8 @@ export default function Home() {
             <p>Redirecting...</p>
         </div>
     );
+}
+
+export default function Home() {
+  return <ClientComponent />;
 }

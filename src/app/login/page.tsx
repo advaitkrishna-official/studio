@@ -10,9 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth, db, getUserData } from "@/lib/firebase";
 import Link from 'next/link';
-import { getDoc, doc } from "firebase/firestore";
+import { useEffect } from "react";
 
-const LoginPage = () => {
+const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -25,23 +25,23 @@ const LoginPage = () => {
     setError(null);
     try {
       if (!auth) {
-          setError("Authentication is not properly initialized.");
-          toast({
-            variant: "destructive",
-            title: "Authentication Error",
-            description: "Authentication is not properly initialized.",
-          });
-          return
-        }
-        if (!db) {
-          setError("Database is not properly initialized.");
-          toast({
-            variant: "destructive",
-            title: "Database Error",
-            description: "Database is not properly initialized.",
-          });
-          return;
-        }
+        setError("Authentication is not properly initialized.");
+        toast({
+          variant: "destructive",
+          title: "Authentication Error",
+          description: "Authentication is not properly initialized.",
+        });
+        return;
+      }
+      if (!db) {
+        setError("Database is not properly initialized.");
+        toast({
+          variant: "destructive",
+          title: "Database Error",
+          description: "Database is not properly initialized.",
+        });
+        return;
+      }
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
@@ -59,7 +59,7 @@ const LoginPage = () => {
           if (userData.role === 'teacher') {
             router.push(`/teacher-dashboard?class=${userData.class}`); // Redirect to teacher dashboard with class
           } else {
-            router.push('/'); // Redirect to student dashboard
+            router.push(`/student-dashboard`); // Redirect to student dashboard
           }
         } else {
           setError("Failed to retrieve user data.");
@@ -125,5 +125,16 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+const LoginPage = () => {
+  return (
+    <ClientComponent />
+  )
+}
 
+const ClientComponent = () => {
+  return (
+    <Login />
+  )
+}
+
+export default LoginPage;

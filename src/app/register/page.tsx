@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { doc, setDoc } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const RegisterPage = () => {
+const Register = () => {
   const [email, setEmail] = useState("");
   const [studentNumber, setStudentNumber] = useState("");
   const [password, setPassword] = useState("");
@@ -146,5 +146,17 @@ const RegisterPage = () => {
     </div>
   );
 };
+
+const RegisterPage = () => {
+  return (
+    <ClientComponent />
+  )
+}
+
+const ClientComponent = () => {
+  return (
+    <Register />
+  )
+}
 
 export default RegisterPage;
