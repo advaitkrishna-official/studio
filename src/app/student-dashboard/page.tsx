@@ -1,24 +1,28 @@
 'use client';
 
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Icons } from '@/components/icons';
-import { useAuth } from '@/components/auth-provider';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import {Button} from '@/components/ui/button';
+import {Icons} from '@/components/icons';
+import {useAuth} from '@/components/auth-provider';
+import {cn} from "@/lib/utils";
 
 export default function StudentDashboard() {
-  const { user } = useAuth();
+  const {user} = useAuth();
 
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-6">
-        Welcome to Your Student Dashboard, {user?.displayName || "Student"}!
+        Welcome to Your Student Dashboard, {user?.displayName || 'Student'}!
       </h1>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Flashcard Generator */}
         <Card>
           <CardHeader>
             <CardTitle>Flashcard Generator</CardTitle>
-            <CardDescription>Generate flashcards based on a topic.</CardDescription>
+            <CardDescription>
+              Create flashcards based on a topic.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/student-dashboard/flashcards">
@@ -29,10 +33,13 @@ export default function StudentDashboard() {
           </CardContent>
         </Card>
 
+        {/* MCQ Generator */}
         <Card>
           <CardHeader>
             <CardTitle>MCQ Generator</CardTitle>
-            <CardDescription>Generate Multiple Choice Questions on a topic.</CardDescription>
+            <CardDescription>
+              Generate Multiple Choice Questions on a topic.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/student-dashboard/mcq">
@@ -43,10 +50,13 @@ export default function StudentDashboard() {
           </CardContent>
         </Card>
 
+        {/* Long Answer Question Generator */}
         <Card>
           <CardHeader>
             <CardTitle>Long Answer Question Generator</CardTitle>
-            <CardDescription>Generate long answer questions and key points.</CardDescription>
+            <CardDescription>
+              Generate long answer questions and key points.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/student-dashboard/long-answer">
@@ -57,6 +67,7 @@ export default function StudentDashboard() {
           </CardContent>
         </Card>
 
+        {/* Essay Feedback */}
         <Card>
           <CardHeader>
             <CardTitle>Essay Feedback</CardTitle>
@@ -71,10 +82,13 @@ export default function StudentDashboard() {
           </CardContent>
         </Card>
 
+        {/* Progress Tracker */}
         <Card>
           <CardHeader>
             <CardTitle>Progress Tracker</CardTitle>
-            <CardDescription>Visually track your progress through different topics.</CardDescription>
+            <CardDescription>
+              Visually track your progress through different topics.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/student-dashboard/progress">
@@ -85,10 +99,13 @@ export default function StudentDashboard() {
           </CardContent>
         </Card>
 
+        {/* Personalized Learning Path */}
         <Card>
           <CardHeader>
             <CardTitle>Personalized Learning Path</CardTitle>
-            <CardDescription>Get a personalized learning path based on your performance.</CardDescription>
+            <CardDescription>
+              Get a personalized learning path based on your performance.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/student-dashboard/learning-path">
@@ -102,4 +119,3 @@ export default function StudentDashboard() {
     </div>
   );
 }
-

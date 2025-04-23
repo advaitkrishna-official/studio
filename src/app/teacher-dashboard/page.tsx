@@ -15,6 +15,7 @@ import {Button} from '@/components/ui/button';
 import {Icons} from '@/components/icons';
 import {getAuth} from 'firebase/auth';
 import {app} from '@/lib/firebase';
+import {cn} from "@/lib/utils";
 
 const TeacherDashboardPage = () => {
   const {user, loading, userType} = useAuth();
