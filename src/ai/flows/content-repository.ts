@@ -67,6 +67,14 @@ const contentRepositoryFlow = ai.defineFlow<
   inputSchema: ContentRepositoryInputSchema,
   outputSchema: ContentRepositoryOutputSchema,
 }, async input => {
-  const {output} = await prompt(input);
-  return output!;
+  try {
+    const {output} = await prompt(input);
+    return output!;
+  } catch (error: any) {
+    console.error("Error generating content repository metadata:", error);
+    if (error.message.includes('QuotaFailure')) {
+      throw new Error('Quota limit reached. Please try again later.');
+    }
+    throw error; // Re-throw the error to be handled by the caller
+  }
 });
