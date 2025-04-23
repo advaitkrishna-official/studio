@@ -27,6 +27,21 @@ export default function StudentDashboard() {
     { title: 'Online Laxext', instructor: 'Lee Huang-Lian', lessons: 4, duration: '30 min', image: 'https://picsum.photos/303/200', youtubeLink: 'https://www.youtube.com/embed/H-dQ3zR1GDU' },
     ]);
 
+    const handleSearch = () => {
+        // Implement your search logic here
+        alert(`Searching for: ${searchQuery}`);
+    };
+
+    const handleCategoryClick = (categoryName: string) => {
+        // Implement category click logic here
+        alert(`Clicked on category: ${categoryName}`);
+    };
+
+    const handleBrowseCourses = () => {
+        // Implement browse courses logic here
+        alert('Browsing all courses');
+    };
+
   return (
     <div className="container mx-auto py-8">
       {/* Top Section */}
@@ -35,7 +50,7 @@ export default function StudentDashboard() {
         <div className="md:w-1/2">
           <h1 className="text-3xl font-bold mb-2">Learn with AI</h1>
           <p className="text-muted-foreground mb-4">Explore our courses and get help from the AI tutor.</p>
-          <Button>Browse Courses</Button>
+            <Button onClick={handleBrowseCourses}>Browse Courses</Button>
         </div>
 
         {/* Right: Image */}
@@ -54,12 +69,15 @@ export default function StudentDashboard() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+            <Button variant="secondary" size="sm" className="mt-2" onClick={handleSearch}>
+                Search
+            </Button>
         </div>
 
         {/* Course Categories */}
         <div className="flex space-x-4 items-center md:w-2/3">
           {categories.map((category) => (
-            <Button variant="secondary" size="sm" key={category.name}>
+            <Button variant="secondary" size="sm" key={category.name} onClick={() => handleCategoryClick(category.name)}>
               {category.name}
             </Button>
           ))}
