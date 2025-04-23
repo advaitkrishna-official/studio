@@ -13,6 +13,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, D
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 
 const StudentManagerPage = () => {
   const [students, setStudents] = useState<any[]>([]);
@@ -176,19 +177,24 @@ const StudentManagerPage = () => {
               <CardTitle>{student.email}</CardTitle>
               <CardDescription>Student Number: {student.studentNumber}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-2">
               <p>
-                Progress: {student.progress || 0}
+                Progress:
+                  <Progress value={student.progress || 0} />
+                  {student.progress || 0}%
+
               </p>
-              <EditProgressDialog
-                studentId={student.id}
-                currentProgress={student.progress || 0}
-                onUpdateProgress={handleUpdateProgress}
-              />
-              <SendMessageDialog
-                studentId={student.id}
-                onSendMessage={handleSendMessage}
-              />
+              <div className="flex gap-2">
+                <EditProgressDialog
+                  studentId={student.id}
+                  currentProgress={student.progress || 0}
+                  onUpdateProgress={handleUpdateProgress}
+                />
+                <SendMessageDialog
+                  studentId={student.id}
+                  onSendMessage={handleSendMessage}
+                />
+              </div>
               {student.lastMessage && (
                 <p className="mt-2">Last Message: {student.lastMessage}</p>
               )}
@@ -212,7 +218,7 @@ const EditProgressDialog: React.FC<EditProgressDialogProps> = ({ studentId, curr
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="secondary">
+        <Button variant="secondary" size="sm">
           Edit Progress <Icons.edit className="ml-2" />
         </Button>
       </DialogTrigger>
@@ -263,7 +269,7 @@ const SendMessageDialog: React.FC<SendMessageDialogProps> = ({ studentId, onSend
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="secondary">
+        <Button variant="secondary" size="sm">
           Send Message <Icons.messageSquare className="ml-2" />
         </Button>
       </DialogTrigger>
