@@ -1,20 +1,21 @@
 'use client';
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { generateOverview, GenerateOverviewOutput } from "@/ai/flows/generate-overview";
-import { useAuth } from "@/components/auth-provider";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import {useState, useEffect} from "react";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {generateOverview, GenerateOverviewOutput} from "@/ai/flows/generate-overview";
+import {useAuth} from "@/components/auth-provider";
+import {db} from "@/lib/firebase";
+import {collection, getDocs, query, where} from "firebase/firestore";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
+import {Badge} from "@/components/ui/badge";
+import {Icons} from "@/components/icons";
 
 const OverviewPage = () => {
   const [overview, setOverview] = useState<GenerateOverviewOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user, userClass } = useAuth();
+  const {user, userClass} = useAuth();
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
   const [cachedStudentData, setCachedStudentData] = useState<any[]>([]);
@@ -96,7 +97,7 @@ const OverviewPage = () => {
         </Select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card>
           <CardContent className="flex flex-col items-center justify-center space-y-2 p-6">
             <Avatar className="h-16 w-16">
