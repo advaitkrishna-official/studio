@@ -16,9 +16,9 @@ export default function StudentDashboard() {
   const {user} = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
     const [categories, setCategories] = useState([
-        { name: 'Data Science', icon: 'Data Science' },
+        { name: 'Data Science', icon: 'DataScience' },
         { name: 'Programming', icon: 'Programming' },
-        { name: 'Machine Learning', icon: 'Machine Learning' },
+        { name: 'Machine Learning', icon: 'MachineLearning' },
         { name: 'Mathematics', icon: 'Mathematics' },
     ]);
   const router = useRouter();
@@ -32,21 +32,15 @@ export default function StudentDashboard() {
     ]);
 
     const handleSearch = () => {
-        // Implement your search logic here
-      //  alert(`Searching for: ${searchQuery}`);
-      router.push(`/student-dashboard?search=${searchQuery}`);
+        router.push(`/student-dashboard?search=${searchQuery}`);
 
     };
 
     const handleCategoryClick = (categoryName: string) => {
-        // Implement category click logic here
-      //  alert(`Clicked on category: ${categoryName}`);
-      router.push(`/student-dashboard?category=${categoryName}`);
+        router.push(`/student-dashboard?category=${categoryName}`);
     };
 
     const handleBrowseCourses = () => {
-        // Implement browse courses logic here
-      //  alert('Browsing all courses');
         router.push(`/student-dashboard?browse=all`);
     };
 
