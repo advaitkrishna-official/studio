@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -40,15 +40,15 @@ const GoalInput = () => {
 
 const LessonPlannerPage = () => {
   const [subject, setSubject] = useState("");
-    const [gradeLevel, setGradeLevel] = useState("");
-    const [learningObjectives, setLearningObjectives] = useState("");
-    const [topics, setTopics] = useState("");
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
-    const [lessonTitle, setLessonTitle] = useState("");
-    const [teachingMethods, setTeachingMethods] = useState("");
-    const [intendedOutcomes, setIntendedOutcomes] = useState("");
-    const [lessonPlanItems, setLessonPlanItems] = useState<LessonPlanItem[]>([]);
+  const [gradeLevel, setGradeLevel] = useState("");
+  const [learningObjectives, setLearningObjectives] = useState("");
+  const [topics, setTopics] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [lessonTitle, setLessonTitle] = useState("");
+  const [teachingMethods, setTeachingMethods] = useState("");
+  const [intendedOutcomes, setIntendedOutcomes] = useState("");
+  const [lessonPlanItems, setLessonPlanItems] = useState<LessonPlanItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, userClass } = useAuth();
@@ -56,8 +56,9 @@ const LessonPlannerPage = () => {
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
   const [flashcards, setFlashcards] = useState<string[]>([]);
-    const subjectOptions = ['Math', 'Science', 'History', 'English'];
-    const gradeLevelOptions = ['Grade 4', 'Grade 6', 'Grade 8'];
+  const subjectOptions = ['Math', 'Science', 'History', 'English'];
+  const gradeLevelOptions = ['Grade 4', 'Grade 6', 'Grade 8'];
+  const router = useRouter();
 
 
   const handleGenerateFlashcards = async (topic: string, index: number) => {
@@ -75,19 +76,14 @@ const LessonPlannerPage = () => {
       setFlashcards([]);
        console.error("Error generating flashcards:", e);
 
-
-
         setError(e.message || "An error occurred while generating the flashcards.");
          toast({
                 variant: "destructive",
                 title: "Error",
                 description: e.message || "An error occurred while generating the flashcards.",
               });
-      setLessonPlanItems([]);
-    } 
+    }
   }
-
-
 
   const handleGenerateLessonPlan = async () => {
     setIsLoading(true);
@@ -127,8 +123,12 @@ const LessonPlannerPage = () => {
 
       if (aiGeneratedPlan?.questions) {
         try {
-          const lessonPlan = JSON.parse(aiGeneratedPlan.questions[0]);
-
+          const lessonPlanString = aiGeneratedPlan.questions[0];
+          console.log('AI Output String:', lessonPlanString);
+        
+          // Attempt to parse the lesson plan string as JSON
+          const lessonPlan = JSON.parse(lessonPlanString);
+        
           if (lessonPlan && lessonPlan.lessonPlan && Array.isArray(lessonPlan.lessonPlan)) {
             const lessonItems: LessonPlanItem[] = lessonPlan.lessonPlan.map((item: any) => ({
               week: item.week || 0,
