@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, doc, updateDoc, query, where } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, where, onSnapshot, DocumentData } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
 import { Input } from "@/components/ui/input";
@@ -24,9 +24,9 @@ const StudentManagerPage = () => {
   const { toast } = useToast();
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
-  const [cachedStudentData, setCachedStudentData] = useState<any[]>([]);
 
   useEffect(() => {
+    const unsubscribe = () => { };
     const fetchStudents = async () => {
       setIsLoading(true);
       setError(null);
@@ -39,39 +39,23 @@ const StudentManagerPage = () => {
         // Fetch student data from Firestore, filtered by selected class
         const studentsCollection = collection(db, "users");
         const q = query(studentsCollection, where("class", "==", selectedClass));
-        const studentsSnapshot = await getDocs(q);
-        const studentsData = studentsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        // Cache student data
-        localStorage.setItem('studentData', JSON.stringify(studentsData));
-        setCachedStudentData(studentsData); // Also set it to state for immediate use
-
-        setStudents(studentsData);
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const studentsData: any[] = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setStudents(studentsData);
+        });
       } catch (e: any) {
         setError(e.message || "An error occurred while fetching students.");
-        // If offline, try to use cached data
-        const cachedData = localStorage.getItem('studentData');
-        if (cachedData) {
-          try {
-            const studentsData = JSON.parse(cachedData);
-            setCachedStudentData(studentsData);
-            setStudents(studentsData);
-            setError("Offline mode: Using cached student data.");
-          } catch (parseError: any) {
-            setError(`Error parsing cached data: ${parseError.message}`);
-          }
-        } else {
-          setError("Offline mode: No cached student data available.");
-        }
       } finally {
         setIsLoading(false);
       }
+
     };
 
     fetchStudents();
+
   }, [user, selectedClass]);
 
   const handleUpdateProgress = async (studentId: string, subject: string, newProgress: number) => {
@@ -118,7 +102,6 @@ const StudentManagerPage = () => {
     }
   };
 
-
   const handleSendMessage = async (studentId: string, message: string) => {
     try {
       setIsLoading(true);
@@ -136,12 +119,6 @@ const StudentManagerPage = () => {
         )
       );
 
-      // Update cached data as well
-      const updatedStudentData = students.map(student =>
-        student.id === studentId ? { ...student, lastMessage: message } : student
-      );
-      localStorage.setItem('studentData', JSON.stringify(updatedStudentData));
-
       toast({
         title: "Message Sent",
         description: "Message sent to student successfully.",
@@ -151,7 +128,7 @@ const StudentManagerPage = () => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: e.message || "Failed to send message to student.",
+        description: "Failed to send message to student.",
       });
     } finally {
       setIsLoading(false);
@@ -163,20 +140,20 @@ const StudentManagerPage = () => {
       <h1 className="text-3xl font-bold mb-4">Student Manager</h1>
       <div>Manage your students' profiles and track their progress.</div>
 
-       {/* Class Selection Dropdown */}
-       <div className="grid gap-2 mb-4">
-            <label htmlFor="class">Select Class</label>
-            <Select onValueChange={setSelectedClass} defaultValue={userClass}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a class" />
-              </SelectTrigger>
-              <SelectContent>
-                {classes.map((cls) => (
-                  <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      {/* Class Selection Dropdown */}
+      <div className="grid gap-2 mb-4">
+        <label htmlFor="class">Select Class</label>
+        <Select onValueChange={setSelectedClass} defaultValue={userClass}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a class" />
+          </SelectTrigger>
+          <SelectContent>
+            {classes.map((cls) => (
+              <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {isLoading && <p>Loading students...</p>}
       {error && <p className="text-red-500">{error}</p>}
@@ -197,7 +174,7 @@ const StudentManagerPage = () => {
                       {subject}:
                       <Progress value={progress as number} />
                       {(progress as number) || 0}%
-                      </div>
+                    </div>
                   ))
                 ) : (
                   <div>No progress data available.</div>
