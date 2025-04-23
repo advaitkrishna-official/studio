@@ -9,6 +9,8 @@ import {useAuth} from '@/components/auth-provider';
 import {cn} from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useRouter } from 'next/navigation';
+
 
 export default function StudentDashboard() {
   const {user} = useAuth();
@@ -19,6 +21,8 @@ export default function StudentDashboard() {
         { name: 'Machine Learning', icon: 'Machine Learning' },
         { name: 'Mathematics', icon: 'Mathematics' },
     ]);
+  const router = useRouter();
+
 
   const [recommendedCourses, setRecommendedCourses] = useState([
     { title: 'Introduction to Python', instructor: 'Rachel Andringari', lessons: 4, duration: '51 min', image: 'https://picsum.photos/300/200', youtubeLink: 'https://www.youtube.com/embed/N4mEzFDjQtA' },
@@ -29,17 +33,21 @@ export default function StudentDashboard() {
 
     const handleSearch = () => {
         // Implement your search logic here
-        alert(`Searching for: ${searchQuery}`);
+      //  alert(`Searching for: ${searchQuery}`);
+      router.push(`/student-dashboard?search=${searchQuery}`);
+
     };
 
     const handleCategoryClick = (categoryName: string) => {
         // Implement category click logic here
-        alert(`Clicked on category: ${categoryName}`);
+      //  alert(`Clicked on category: ${categoryName}`);
+      router.push(`/student-dashboard?category=${categoryName}`);
     };
 
     const handleBrowseCourses = () => {
         // Implement browse courses logic here
-        alert('Browsing all courses');
+      //  alert('Browsing all courses');
+        router.push(`/student-dashboard?browse=all`);
     };
 
   return (
