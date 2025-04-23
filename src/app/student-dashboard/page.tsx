@@ -37,8 +37,8 @@ export default function StudentDashboard() {
     };
 
     const handleCategoryClick = (categoryName: string) => {
-        router.push(`/student-dashboard?category=${categoryName}`);
-    };
+      router.push(`/student-dashboard/${categoryName.toLowerCase().replace(' ', '-')}`);
+  };
 
     const handleBrowseCourses = () => {
         router.push(`/student-dashboard?browse=all`);
