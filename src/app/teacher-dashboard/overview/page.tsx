@@ -18,7 +18,7 @@ const OverviewPage = () => {
   const {user, userClass} = useAuth();
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
-  const [cachedStudentData, setCachedStudentData] = useState<any[]>([]);
+  const [studentData, setStudentData] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchOverview = async () => {
@@ -39,9 +39,7 @@ const OverviewPage = () => {
           ...doc.data(),
         }));
 
-        // Cache student data
-        localStorage.setItem('studentData', JSON.stringify(studentsData));
-        setCachedStudentData(studentsData); // Also set it to state for immediate use
+        setStudentData(studentsData);
 
         const studentDataString = JSON.stringify(studentsData);
         const result = await generateOverview({
@@ -51,25 +49,6 @@ const OverviewPage = () => {
         setOverview(result);
       } catch (e: any) {
         setError(e.message || "An error occurred while generating the overview.");
-        // If offline, try to use cached data
-        const cachedData = localStorage.getItem('studentData');
-        if (cachedData) {
-          try {
-            const studentsData = JSON.parse(cachedData);
-            setCachedStudentData(studentsData);
-            const studentDataString = JSON.stringify(studentsData);
-            const result = await generateOverview({
-              teacherId: user.uid,
-              studentData: studentDataString,
-            });
-            setOverview(result);
-            setError("Offline mode: Using cached student data.");
-          } catch (parseError: any) {
-            setError(`Error parsing cached data: ${parseError.message}`);
-          }
-        } else {
-          setError("Offline mode: No cached student data available.");
-        }
       } finally {
         setIsLoading(false);
       }
@@ -78,8 +57,8 @@ const OverviewPage = () => {
     fetchOverview();
   }, [user, selectedClass]);
 
-  const avgPerformance = overview?.performanceSummary ? parseFloat(overview.performanceSummary.match(/(\d+(\.\d+)?)%/)?.[1] || "0") : 0;
-  const totalStudents = overview?.totalStudents || 0;
+  const avgPerformance = studentData.length > 0 ? studentData.reduce((acc, student) => acc + (student.progress || 0), 0) / studentData.length : 0;
+  const totalStudents = studentData?.length || 0;
 
   return (
     <div className="container mx-auto py-8">
@@ -111,7 +90,7 @@ const OverviewPage = () => {
 
         <Card>
           <CardContent className="flex flex-col items-center justify-center space-y-2 p-6">
-            <div className="text-2xl font-bold">{avgPerformance}%</div>
+            <div className="text-2xl font-bold">{avgPerformance.toFixed(2)}%</div>
             <div className="text-muted-foreground">Avg Performance</div>
           </CardContent>
         </Card>
@@ -151,7 +130,7 @@ const OverviewPage = () => {
           <CardContent className="flex flex-col items-center justify-center">
             {overview && (
               <>
-                <div className="text-4xl font-bold">{avgPerformance}%</div>
+                <div className="text-4xl font-bold">{avgPerformance.toFixed(2)}%</div>
                 <p className="text-green-500">+8% from last week</p>
               </>
             )}
