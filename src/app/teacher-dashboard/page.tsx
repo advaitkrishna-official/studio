@@ -126,10 +126,11 @@ const TeacherDashboardPage = () => {
             <CardTitle>Class Calendar</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Add class calendar features here */}
-            <p>Schedule Classes &amp; Assignments</p>
-            <p>Sync with Student Dashboards</p>
-            <p>Push Notifications</p>
+            <Link href={`/teacher-dashboard/class-calendar?class=${classId}`}>
+              <Button variant="secondary">
+                View Details <Icons.arrowRight className="ml-2" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
