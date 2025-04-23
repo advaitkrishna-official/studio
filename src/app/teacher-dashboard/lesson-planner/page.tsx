@@ -12,10 +12,10 @@ import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { generateLongAnswerQuestions } from '@/ai/flows/generate-long-answer-questions';
-import { generateFlashcards } from '@/ai/flows/generate-flashcards';
 import { useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import { generateFlashcards } from '@/ai/flows/generate-flashcards';
+import { generateLessonPlan, GenerateLessonPlanOutput } from '@/ai/flows/generate-lesson-plan';
 
 interface LessonPlanItem {
   week: number;
@@ -45,7 +45,7 @@ const LessonPlannerPage = () => {
   const [topics, setTopics] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [lessonTitle, setLessonTitle] = useState("");
+  const [lessonPlanData, setLessonPlanData] = useState<GenerateLessonPlanOutput | null>(null);
   const [teachingMethods, setTeachingMethods] = useState("");
   const [intendedOutcomes, setIntendedOutcomes] = useState("");
   const [lessonPlanItems, setLessonPlanItems] = useState<LessonPlanItem[]>([]);
@@ -89,93 +89,31 @@ const LessonPlannerPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const prompt = `
-        Subject: ${subject}
-        Grade Level: ${gradeLevel}
-        Learning Objectives: ${learningObjectives}
-        Topics to be covered: ${topics}
-        Timeframe: From ${startDate} to ${endDate}
-        Class: ${selectedClass}
-
-        Generate a detailed and editable lesson plan in JSON format with the following structure:
-        
-        {
-          "lessonTitle": "Title",
-          "learningObjectives": ["Objective 1", "Objective 2"],
-          "teachingMethods": "Suggested methods (e.g., group work, visual aids)",
-          "intendedOutcomes": "Expected student outcomes",
-          "lessonPlan": [
-            {
-              "week": 1,
-              "topic": "Topic Name",
-              "activities": "Activities description",
-              "resources": ["PDF link", "Flashcards"],
-              "assessment": "Mini-quiz or review",
-              "teachingMethods": "Visual aids, MCQs",
-              "intendedOutcomes": "Students should understand X",
-              "notes": "Optional teacher notes"
-            }
-          ]
+        if (!user) {
+            setError("User not logged in.");
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "User not logged in.",
+            });
+            return;
         }
-      `
 
-      const aiGeneratedPlan = await generateLongAnswerQuestions({ topic: prompt, numQuestions: 1 });
+      const result = await generateLessonPlan({
+        subject,
+        gradeLevel,
+        learningObjectives,
+        topics,
+        startDate,
+        endDate,
+        classId: selectedClass,
+      });
+      setLessonPlanData(result);
+      toast({
+          title: "Lesson Plan Generated",
+          description: "AI has generated a lesson plan based on your input.",
+      });
 
-      if (aiGeneratedPlan?.questions) {
-        try {
-          const lessonPlanString = aiGeneratedPlan.questions[0];
-          console.log('AI Output String:', lessonPlanString);
-        
-          // Attempt to parse the lesson plan string as JSON
-          const lessonPlan = JSON.parse(lessonPlanString);
-        
-          if (lessonPlan && lessonPlan.lessonPlan && Array.isArray(lessonPlan.lessonPlan)) {
-            const lessonItems: LessonPlanItem[] = lessonPlan.lessonPlan.map((item: any) => ({
-              week: item.week || 0,
-              topic: item.topic || "",
-              activities: item.activities || "",
-              resources: item.resources || [],
-              assessment: item.assessment || "",
-              teachingMethods: item.teachingMethods || "",
-              intendedOutcomes: item.intendedOutcomes || "",
-              notes: item.notes || ""
-            }));
-
-            setLessonTitle(lessonPlan.lessonTitle || "");
-            setTeachingMethods(lessonPlan.teachingMethods || "");
-            setIntendedOutcomes(lessonPlan.intendedOutcomes || "");
-            setLessonPlanItems(lessonItems);
-             toast({
-                title: "Lesson Plan Generated",
-                description: "AI has generated a lesson plan based on your input.",
-              });
-          } else {
-            setError("Failed to parse AI generated lesson plan: Incorrect format.");
-               toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Failed to parse AI generated lesson plan. Please check the format.",
-              });
-            setLessonPlanItems([]);
-          }
-        } catch (parseError: any) {
-          setError(`Failed to parse JSON: ${parseError.message}`);
-              toast({
-                variant: "destructive",
-                title: "Error",
-                description: `Failed to parse JSON: ${parseError.message}`,
-              });
-          setLessonPlanItems([]);
-        }
-      } else {
-        setError("Failed to generate lesson plan.");
-           toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Failed to generate lesson plan.",
-              });
-        setLessonPlanItems([]);
-      }
     } catch (e: any) {
       setError(e.message || "An error occurred while generating the lesson plan.");
          toast({
@@ -183,7 +121,6 @@ const LessonPlannerPage = () => {
                 title: "Error",
                 description: e.message || "An error occurred while generating the lesson plan.",
               });
-      setLessonPlanItems([]);
     } finally {
       setIsLoading(false);
     }
@@ -209,10 +146,10 @@ const LessonPlannerPage = () => {
         topics,
         startDate,
         endDate,
-        lessonTitle,
-        teachingMethods,
-        intendedOutcomes,
-        lessonPlan: lessonPlanItems,
+        lessonTitle: lessonPlanData?.lessonTitle,
+        teachingMethods: lessonPlanData?.teachingMethods,
+        intendedOutcomes: lessonPlanData?.intendedOutcomes,
+        lessonPlan: lessonPlanData?.lessonPlan,
         dateCreated: new Date(),
         status: "Draft",
         classId: selectedClass? selectedClass: undefined,
@@ -233,10 +170,10 @@ const LessonPlannerPage = () => {
   };
 
   // Prepare data for the chart
-  const chartData = lessonPlanItems.map(item => ({
+  const chartData = lessonPlanData?.lessonPlan?.map(item => ({
     name: `Week ${item.week}`,
     Activities: item.activities.length, // Example: Number of activities
-  }));
+  })) || [];
 
   return (
     <div className="container mx-auto py-8">
@@ -311,13 +248,13 @@ const LessonPlannerPage = () => {
             {isLoading ? "Generating Lesson Plan..." : "Generate Lesson Plan"}
           </Button>
           {error && <p className="text-red-500">{error}</p>}
-          {lessonPlanItems.length > 0 && (
+          {lessonPlanData && (
             <div className="grid gap-2">
               <Label htmlFor="lessonPlan">Generated Lesson Plan</Label>
               <div>
-                <h2 className="text-xl font-bold">{lessonTitle}</h2>
-                <p><strong>Teaching Methods:</strong> {teachingMethods}</p>
-                <p><strong>Intended Outcomes:</strong> {intendedOutcomes}</p>
+                <h2 className="text-xl font-bold">{lessonPlanData.lessonTitle}</h2>
+                <p><strong>Teaching Methods:</strong> {lessonPlanData.teachingMethods}</p>
+                <p><strong>Intended Outcomes:</strong> {lessonPlanData.intendedOutcomes}</p>
 
                  <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={chartData}>
@@ -330,7 +267,7 @@ const LessonPlannerPage = () => {
                   </BarChart>
                 </ResponsiveContainer>
 
-                {lessonPlanItems.map((item, index) => (
+                {lessonPlanData.lessonPlan.map((item, index) => (
                   <div key={index} className="mb-4 border p-4 rounded">
                     <h3 className="text-lg font-semibold">Week {item.week}</h3>
                     <p><strong>Topic:</strong> {item.topic}</p>
