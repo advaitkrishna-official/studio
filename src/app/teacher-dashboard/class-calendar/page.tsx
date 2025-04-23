@@ -12,9 +12,14 @@ import { format } from "date-fns";
 import { DayPicker } from "react-day-picker";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, where } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from "firebase/firestore";
 import { useAuth } from "@/components/auth-provider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { generateMCQ } from '@/ai/flows/generate-mcq'; // Import MCQ Generator
+import { Progress } from "@/components/ui/progress"; // Import Progress
 
 interface ClassEvent {
   id: string;
@@ -34,7 +39,7 @@ const ClassCalendarPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
-
+  const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -105,6 +110,7 @@ const ClassCalendarPage = () => {
       // Clear input fields
       setNewEventTitle("");
       setNewEventDescription("");
+      setIsAddEventModalOpen(false); // Close the modal
     } catch (error: any) {
       console.error("Error adding event:", error);
       setError(error.message || "An error occurred while adding the event.");
@@ -113,6 +119,34 @@ const ClassCalendarPage = () => {
         title: "Error",
         description: `Failed to add event: ${error.message}`,
       });
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const eventDocRef = doc(db, 'classes', selectedClass, 'events', eventId);
+      await deleteDoc(eventDocRef);
+
+      toast({
+        title: 'Success',
+        description: 'Event deleted from calendar.',
+      });
+
+      // Update local state
+      setEvents(events => events.filter(event => event.id !== eventId));
+    } catch (error: any) {
+      console.error("Error deleting event:", error);
+      setError(error.message || "An error occurred while deleting the event.");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to delete event: ${error.message}`,
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -171,29 +205,8 @@ const ClassCalendarPage = () => {
               </PopoverContent>
             </Popover>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="event-title">Event Title</Label>
-              <Input
-                id="event-title"
-                type="text"
-                placeholder="Enter event title"
-                value={newEventTitle}
-                onChange={(e) => setNewEventTitle(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="event-description">Event Description</Label>
-              <Input
-                id="event-description"
-                type="text"
-                placeholder="Enter event description"
-                value={newEventDescription}
-                onChange={(e) => setNewEventDescription(e.target.value)}
-              />
-            </div>
-          </div>
-          <Button onClick={handleAddEvent}>Add Event</Button>
+
+          <Button onClick={() => setIsAddEventModalOpen(true)}>Add Event</Button>
 
           {/* Display Events for Selected Date */}
           <div className="mt-4">
@@ -204,9 +217,14 @@ const ClassCalendarPage = () => {
             {!isLoading && events.length > 0 && (
               <ul>
                 {events.map(event => (
-                  <li key={event.id} className="py-2 border-b">
-                    <h4 className="font-semibold">{event.title}</h4>
-                    <p className="text-sm text-muted-foreground">{event.description}</p>
+                  <li key={event.id} className="py-2 border-b flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold">{event.title}</h4>
+                      <p className="text-sm text-muted-foreground">{event.description}</p>
+                    </div>
+                    <Button variant="destructive" size="icon" onClick={() => handleDeleteEvent(event.id)}>
+                      <X className="h-4 w-4" />
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -214,6 +232,43 @@ const ClassCalendarPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add Event Modal */}
+      <Dialog open={isAddEventModalOpen} onOpenChange={setIsAddEventModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Event</DialogTitle>
+            <DialogDescription>Schedule a class, assignment, or announcement for your students.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="event-title">Event Title</Label>
+              <Input
+                id="event-title"
+                type="text"
+                placeholder="Enter event title"
+                value={newEventTitle}
+                onChange={(e) => setNewEventTitle(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="event-description">Event Description</Label>
+              <Textarea
+                id="event-description"
+                placeholder="Enter event description"
+                value={newEventDescription}
+                onChange={(e) => setNewEventDescription(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setIsAddEventModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleAddEvent}>Add Event</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -221,3 +276,5 @@ const ClassCalendarPage = () => {
 export default ClassCalendarPage;
 
 import { Calendar as CalendarIcon } from "lucide-react"
+import { X } from "lucide-react";
+
