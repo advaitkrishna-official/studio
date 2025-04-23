@@ -1,16 +1,21 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from "@/components/auth-provider";
+import { seedInitialData } from "@/lib/firebase";
 
 
 export default function Home() {
   const router = useRouter();
-  const { user, loading, userType, userClass } = useAuth();
+  const { user, loading, userType } = useAuth();
 
 
   useEffect(() => {
+    // Seed the database with initial data
+    seedInitialData();
+
     if (!loading) {
       if (!user) {
         router.push("/login");

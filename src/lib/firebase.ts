@@ -164,4 +164,56 @@ async function getGrades(studentId: string) {
   }
 }
 
-export { app, auth, db, getUserData, createUserDocument, saveGrade, getGrades };
+// Function to seed initial student data
+async function seedInitialData() {
+  try {
+    const usersCollection = collection(db, 'users');
+
+    // Sample student data
+    const students = [
+      {
+        id: 'student1',
+        email: 'student1@example.com',
+        studentNumber: '1001',
+        class: 'Grade 8',
+        progress: 75,
+        role: 'student'
+      },
+      {
+        id: 'student2',
+        email: 'student2@example.com',
+        studentNumber: '1002',
+        class: 'Grade 8',
+        progress: 50,
+        role: 'student'
+      },
+      {
+        id: 'student3',
+        email: 'student3@example.com',
+        studentNumber: '1003',
+        class: 'Grade 6',
+        progress: 60,
+        role: 'student'
+      },
+      {
+        id: 'student4',
+        email: 'student4@example.com',
+        studentNumber: '1004',
+        class: 'Grade 4',
+        progress: 80,
+        role: 'student'
+      }
+    ];
+
+    // Add each student to the users collection
+    for (const student of students) {
+      const studentDocRef = doc(usersCollection, student.id);
+      await setDoc(studentDocRef, student);
+      console.log(`Added student: ${student.email}`);
+    }
+  } catch (error: any) {
+    console.error("Error seeding initial data:", error.message);
+  }
+}
+
+export { app, auth, db, getUserData, createUserDocument, saveGrade, getGrades, seedInitialData };
