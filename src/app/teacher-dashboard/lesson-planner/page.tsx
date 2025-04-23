@@ -6,13 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { generateLongAnswerQuestions } from "@/ai/flows/generate-long-answer-questions";
 import { db } from "@/lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { generateLongAnswerQuestions } from '@/ai/flows/generate-long-answer-questions';
+import { useFormStatus } from 'react-dom';
+import { useRouter } from 'next/navigation';
 
 interface LessonPlanItem {
   week: number;
@@ -24,6 +26,16 @@ interface LessonPlanItem {
   intendedOutcomes: string;
   notes?: string;
 }
+
+const GoalInput = () => {
+    const { pending } = useFormStatus();
+
+    return (
+        <Button type="submit" aria-disabled={pending}>
+            {pending ? "Generating Lesson Plan..." : "Generate Lesson Plan"}
+        </Button>
+    );
+};
 
 const LessonPlannerPage = () => {
   const [subject, setSubject] = useState("");
@@ -42,6 +54,7 @@ const LessonPlannerPage = () => {
   const { toast } = useToast();
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
+  const router = useRouter();
 
   const handleGenerateLessonPlan = async () => {
     setIsLoading(true);
@@ -99,20 +112,44 @@ const LessonPlannerPage = () => {
             setTeachingMethods(lessonPlan.teachingMethods || "");
             setIntendedOutcomes(lessonPlan.intendedOutcomes || "");
             setLessonPlanItems(lessonItems);
+             toast({
+                title: "Lesson Plan Generated",
+                description: "AI has generated a lesson plan based on your input.",
+              });
           } else {
             setError("Failed to parse AI generated lesson plan: Incorrect format.");
+               toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to parse AI generated lesson plan. Please check the format.",
+              });
             setLessonPlanItems([]);
           }
         } catch (parseError: any) {
           setError(`Failed to parse JSON: ${parseError.message}`);
+              toast({
+                variant: "destructive",
+                title: "Error",
+                description: `Failed to parse JSON: ${parseError.message}`,
+              });
           setLessonPlanItems([]);
         }
       } else {
         setError("Failed to generate lesson plan.");
+           toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to generate lesson plan.",
+              });
         setLessonPlanItems([]);
       }
     } catch (e: any) {
       setError(e.message || "An error occurred while generating the lesson plan.");
+         toast({
+                variant: "destructive",
+                title: "Error",
+                description: e.message || "An error occurred while generating the lesson plan.",
+              });
       setLessonPlanItems([]);
     } finally {
       setIsLoading(false);
@@ -122,6 +159,11 @@ const LessonPlannerPage = () => {
   const handleSaveLessonPlan = async () => {
     if (!user) {
       setError("User not logged in.");
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "User not logged in.",
+              });
       return;
     }
 
@@ -142,17 +184,18 @@ const LessonPlannerPage = () => {
         status: "Draft",
         classId: selectedClass,
       });
-      toast({
+           toast({
         title: "Lesson Plan Saved",
         description: "Your lesson plan has been saved successfully.",
       });
+       router.refresh()
     } catch (e: any) {
       setError(e.message || "An error occurred while saving the lesson plan.");
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to save lesson plan.",
-      });
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: e.message || "An error occurred while saving the lesson plan.",
+              });
     }
   };
 
