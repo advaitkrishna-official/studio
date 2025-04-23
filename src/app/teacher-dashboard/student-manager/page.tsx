@@ -150,7 +150,7 @@ const StudentManagerPage = () => {
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-4">Student Manager</h1>
-      <p>Manage your students' profiles and track their progress.</p>
+      <div>Manage your students' profiles and track their progress.</div>
 
        {/* Class Selection Dropdown */}
        <div className="grid gap-2 mb-4">
@@ -178,12 +178,12 @@ const StudentManagerPage = () => {
               <CardDescription>Student Number: {student.studentNumber}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
-              <p>
+              <div>
                 Progress:
                   <Progress value={student.progress || 0} />
                   {student.progress || 0}%
 
-              </p>
+              </div>
               <div className="flex gap-2">
                 <EditProgressDialog
                   studentId={student.id}
