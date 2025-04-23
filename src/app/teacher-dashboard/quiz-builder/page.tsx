@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import {useState} from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -8,15 +8,18 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {Label} from '@/components/ui/label';
-import {Input} from '@/components/ui/input';
-import {Button} from '@/components/ui/button';
-import {Textarea} from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import {
   generateMCQ,
   GenerateMCQOutput,
 } from '@/ai/flows/generate-mcq';
-import {useToast} from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/components/auth-provider";
+import { assignMCQ } from "@/ai/flows/assign-mcq";
 
 const QuizBuilderPage = () => {
   const [topic, setTopic] = useState('');
@@ -24,13 +27,18 @@ const QuizBuilderPage = () => {
   const [mcq, setMcq] = useState<GenerateMCQOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const {toast} = useToast();
+  const { toast } = useToast();
+  const [selectedClass, setSelectedClass] = useState("");
+  const [isAssigning, setIsAssigning] = useState(false);
+  const {user, userClass} = useAuth();
+  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
+
 
   const handleSubmit = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await generateMCQ({topic, numQuestions});
+      const result = await generateMCQ({ topic, numQuestions });
       setMcq(result);
       toast({
         title: 'MCQs Generated',
@@ -45,6 +53,56 @@ const QuizBuilderPage = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAssign = async () => {
+    setIsAssigning(true);
+    setError(null);
+    try {
+      if (!mcq) {
+        setError("No MCQs generated to assign.");
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Please generate MCQs first.",
+        });
+        return;
+      }
+
+      if (!selectedClass) {
+        setError("Please select a class to assign the MCQs to.");
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Please select a class.",
+        });
+        return;
+      }
+      const mcqData = JSON.stringify(mcq);
+      const result = await assignMCQ({ classId: selectedClass, mcqData });
+      if (result.success) {
+        toast({
+          title: "MCQs Assigned",
+          description: result.message,
+        });
+      } else {
+        setError(result.message || "Failed to assign MCQs.");
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.message || "Failed to assign MCQs.",
+        });
+      }
+    } catch (e: any) {
+      setError(e.message || "An error occurred while assigning MCQs.");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to assign MCQs. Please try again.",
+      });
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -107,6 +165,22 @@ const QuizBuilderPage = () => {
                   </Card>
                 ))}
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="class">Select Class</Label>
+                <Select onValueChange={setSelectedClass} defaultValue={userClass? userClass:undefined}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleAssign} disabled={isAssigning || !selectedClass}>
+                {isAssigning ? "Assigning MCQs..." : "Assign MCQs to Class"}
+              </Button>
             </div>
           )}
         </CardContent>
