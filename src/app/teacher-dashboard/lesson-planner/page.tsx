@@ -40,7 +40,25 @@ const GoalInput = () => {
 
 const LessonPlannerPage = () => {
   const [subject, setSubject] = useState("");
-  const [gradeLevel, setGradeLevel] = useState("");
+    const [gradeLevel, setGradeLevel] = useState("");
+    const [learningObjectives, setLearningObjectives] = useState("");
+    const [topics, setTopics] = useState("");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [lessonTitle, setLessonTitle] = useState("");
+    const [teachingMethods, setTeachingMethods] = useState("");
+    const [intendedOutcomes, setIntendedOutcomes] = useState("");
+    const [lessonPlanItems, setLessonPlanItems] = useState<LessonPlanItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { user, userClass } = useAuth();
+  const { toast } = useToast()
+  const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
+  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
+  const [flashcards, setFlashcards] = useState<string[]>([]);
+    const subjectOptions = ['Math', 'Science', 'History', 'English'];
+    const gradeLevelOptions = ['Grade 4', 'Grade 6', 'Grade 8'];
+
 
   const handleGenerateFlashcards = async (topic: string, index: number) => {
     try {
@@ -69,22 +87,7 @@ const LessonPlannerPage = () => {
     } 
   }
 
-  const [learningObjectives, setLearningObjectives] = useState("");
-  const [topics, setTopics] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [lessonTitle, setLessonTitle] = useState("");
-  const [teachingMethods, setTeachingMethods] = useState("");
-  const [intendedOutcomes, setIntendedOutcomes] = useState("");
-  const [lessonPlanItems, setLessonPlanItems] = useState<LessonPlanItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { user, userClass } = useAuth();
-  const { toast } = useToast()
-  const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
-  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
-  const router = useRouter();
-  const [flashcards, setFlashcards] = useState<string[]>([]);
+
 
   const handleGenerateLessonPlan = async () => {
     setIsLoading(true);
@@ -237,7 +240,7 @@ const LessonPlannerPage = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <Card className="max-w-3xl mx-auto">
+      <Card className="max-w-5xl mx-auto">
         <CardHeader>
           <CardTitle>AI-Powered Lesson Planner</CardTitle>
           <CardDescription>
@@ -260,15 +263,34 @@ const LessonPlannerPage = () => {
               </SelectContent>
             </Select>
           </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="subject">Subject</Label>
-            <Input id="subject" placeholder="Enter subject..." value={subject} onChange={(e) => setSubject(e.target.value)} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="gradeLevel">Grade Level</Label>
-            <Input id="gradeLevel" placeholder="Enter grade level..." value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} />
-          </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="subject">Subject</Label>
+                            <Select onValueChange={setSubject} defaultValue={subject}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select Subject" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {subjectOptions.map((option) => (
+                                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label htmlFor="gradeLevel">Grade Level</Label>
+                            <Select onValueChange={setGradeLevel} defaultValue={gradeLevel}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select Grade Level" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {gradeLevelOptions.map((option) => (
+                                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
           <div className="grid gap-2">
             <Label htmlFor="learningObjectives">Learning Objectives</Label>
             <Textarea id="learningObjectives" placeholder="Enter learning objectives..." value={learningObjectives} onChange={(e) => setLearningObjectives(e.target.value)} />
@@ -304,7 +326,7 @@ const LessonPlannerPage = () => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="Activities" fill="#8884d8" />
+                    <Bar dataKey="Activities" fill="hsl(var(--primary))" />
                   </BarChart>
                 </ResponsiveContainer>
 
