@@ -11,6 +11,8 @@ import {getStorage, ref, uploadBytes, getDownloadURL} from 'firebase/storage';
 import {collection, addDoc, serverTimestamp} from 'firebase/firestore';
 import {useAuth} from '@/components/auth-provider';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import { generateContentRepositoryMetadata } from "@/ai/flows/content-repository";
+import { Textarea } from '@/components/ui/textarea';
 
 const ContentRepositoryPage = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -18,16 +20,32 @@ const ContentRepositoryPage = () => {
   const [subject, setSubject] = useState('');
   const [gradeLevel, setGradeLevel] = useState('');
   const [uploading, setUploading] = useState(false);
+	const [fileContent, setFileContent] = useState('');
   const {toast} = useToast();
   const {user} = useAuth(); // Use the auth context to get the current user
     const subjectOptions = ['Math', 'Science', 'History', 'English']; // Subject choices
   const gradeLevelOptions = ['Grade 4', 'Grade 6', 'Grade 8']; // Grade Level choices
+
+	const [aiMetadata, setAiMetadata] = useState({
+    subject: '',
+    gradeLevel: '',
+    tags: [],
+    description: '',
+    suggestions: [],
+  });
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
       setFileName(selectedFile.name);
+			// Read file content for AI analysis
+			const reader = new FileReader();
+			reader.onload = (event: any) => {
+				setFileContent(event.target.result);
+			};
+			reader.readAsText(selectedFile);
     }
   };
 
@@ -91,6 +109,7 @@ const ContentRepositoryPage = () => {
       setFileName('');
       setSubject('');
       setGradeLevel('');
+			setFileContent('');
     } catch (error: any) {
       console.error('Upload failed:', error);
       toast({
@@ -102,6 +121,43 @@ const ContentRepositoryPage = () => {
       setUploading(false);
     }
   };
+
+	const handleGenerateMetadata = async () => {
+		if (!file) {
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: 'Please select a file first.',
+			});
+			return;
+		}
+
+		try {
+			const result = await generateContentRepositoryMetadata({
+				fileName: fileName,
+				fileType: file.type,
+				fileContent: fileContent,
+			});
+			setAiMetadata({
+				subject: result.subject,
+				gradeLevel: result.gradeLevel,
+				tags: result.tags,
+				description: result.description,
+				suggestions: result.suggestions,
+			});
+			toast({
+				title: 'AI Metadata Generated',
+				description: 'AI has generated metadata for the file.',
+			});
+		} catch (error: any) {
+			console.error('Error generating metadata:', error);
+			toast({
+				variant: 'destructive',
+				title: 'Error',
+				description: `Failed to generate metadata: ${error.message}`,
+			});
+		}
+	};
 
   return (
     <div className="container mx-auto py-8">
@@ -144,9 +200,22 @@ const ContentRepositoryPage = () => {
                             </Select>
                         </div>
                     </div>
-          <Button onClick={handleUpload} disabled={uploading}>
+					<Button type="button" onClick={handleGenerateMetadata} disabled={uploading || !file}>
+						Generate AI Metadata
+					</Button>
+          <Button onClick={handleUpload} disabled={uploading || !file}>
             {uploading ? 'Uploading...' : 'Upload File'}
           </Button>
+					{aiMetadata.description && (
+						<div className="mt-4">
+							<h3 className="text-lg font-semibold">AI Metadata</h3>
+							<p>Subject: {aiMetadata.subject}</p>
+							<p>Grade Level: {aiMetadata.gradeLevel}</p>
+							<p>Tags: {aiMetadata.tags.join(', ')}</p>
+							<p>Description: {aiMetadata.description}</p>
+							<p>Suggestions: {aiMetadata.suggestions.join(', ')}</p>
+						</div>
+					)}
         </CardContent>
       </Card>
     </div>
