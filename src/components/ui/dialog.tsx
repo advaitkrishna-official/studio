@@ -42,7 +42,9 @@ const DialogContent = React.forwardRef<
         className
       )}
       {...props}
-    />
+    >
+      {children}
+    </DialogPrimitive.Content>
   </DialogPortal>
 ))
 DialogContent.displayName = DialogPrimitive.Content.displayName
@@ -114,4 +116,3 @@ export {
   DialogTitle,
   DialogDescription,
 }
-
