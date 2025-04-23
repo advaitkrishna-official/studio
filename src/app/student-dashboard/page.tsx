@@ -12,9 +12,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useRouter } from 'next/navigation';
 import {db} from '@/lib/firebase';
 import {collection, query, where, onSnapshot} from "firebase/firestore";
+import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,} from "@/components/ui/dropdown-menu"
+import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar"
+
 
 export default function StudentDashboard() {
-  const {user, userType, userClass} = useAuth();
+  const {user, userType, userClass, signOut} = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
     const [categories, setCategories] = useState([
         { name: 'Data Science', icon: 'DataScience' },
@@ -88,9 +91,25 @@ export default function StudentDashboard() {
         <div className="md:w-1/2">
           <h1 className="text-3xl font-bold mb-2">Learn with AI</h1>
           <p className="text-muted-foreground mb-4">Explore our courses and get help from the AI tutor.</p>
-            <Button onClick={handleBrowseCourses}>Browse Courses</Button>
         </div>
-
+                <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Open user menu</span>
+              <Avatar className="h-8 w-8">
+                <AvatarImage src="https://github.com/shadcn.png" alt="Shadcn" />
+                <AvatarFallback>SC</AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem>
+                <Button variant="secondary" onClick={signOut} className="w-full h-full block">
+                  Log Out
+                </Button>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {/* Right: Image */}
         <div className="md:w-1/2 flex justify-center">
           <img src="https://picsum.photos/400/300" alt="AI Learning" className="rounded-lg shadow-md" />
@@ -98,66 +117,8 @@ export default function StudentDashboard() {
       </div>
 
       {/* Search and Categories */}
-      <div className="flex flex-col md:flex-row items-center justify-between mb-6">
-        {/* Search Bar */}
-        <div className="mb-4 md:mb-0 md:w-1/3">
-          <Input
-            type="search"
-            placeholder="Search for courses"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-            <Button variant="secondary" size="sm" className="mt-2" onClick={handleSearch}>
-                Search
-            </Button>
-        </div>
 
-        {/* Course Categories */}
-        <div className="flex space-x-4 items-center md:w-2/3">
-          {categories.map((category) => (
-            <Button variant="secondary" size="sm" key={category.name} onClick={() => handleCategoryClick(category.name)}>
-              {category.name}
-            </Button>
-          ))}
-        </div>
-      </div>
-          {/* Recommended Courses */}
-            <div className="mb-8">
-                <h2 className="text-2xl font-bold tracking-tight mb-4">Recommended for You</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {recommendedCourses.map((course, index) => (
-                        <Card key={index}>
-                            <CardHeader>
-                                <CardTitle>{course.title}</CardTitle>
-                                <img src={course.image} alt={course.title} className="w-full h-32 object-cover rounded-md mb-2" />
-                                <CardDescription>By {course.instructor}</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-sm text-muted-foreground">
-                                    {course.lessons} lessons, {course.duration}
-                                </p>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="secondary">Watch Video</Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-[425px]">
-                                  <iframe
-                                    width="100%"
-                                    height="315"
-                                    src={course.youtubeLink}
-                                    title="YouTube video player"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                  ></iframe>
-                                </DialogContent>
-                              </Dialog>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            </div>
-
-            {/* Assigned Tasks */}
+          {/* Assigned Tasks */}
             <div className="mb-8">
                 <h2 className="text-2xl font-bold tracking-tight mb-4">Assigned Tasks</h2>
                 {loadingTasks ? (
@@ -276,6 +237,42 @@ export default function StudentDashboard() {
           </CardContent>
         </Card>
       </div>
+                  {/* Recommended Courses */}
+            <div className="mb-8">
+                <h2 className="text-2xl font-bold tracking-tight mb-4">Recommended for You</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {recommendedCourses.map((course, index) => (
+                        <Card key={index}>
+                            <CardHeader>
+                                <CardTitle>{course.title}</CardTitle>
+                                <img src={course.image} alt={course.title} className="w-full h-32 object-cover rounded-md mb-2" />
+                                <CardDescription>By {course.instructor}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-muted-foreground">
+                                    {course.lessons} lessons, {course.duration}
+                                </p>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="secondary">Watch Video</Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px]">
+                                  <iframe
+                                    width="100%"
+                                    height="315"
+                                    src={course.youtubeLink}
+                                    title="YouTube video player"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                  ></iframe>
+                                </DialogContent>
+                              </Dialog>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            </div>
     </div>
   );
 }
+
