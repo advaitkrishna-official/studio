@@ -1,20 +1,26 @@
 'use client';
 
-import { useAuth } from "@/components/auth-provider";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Icons } from "@/components/icons";
-import { getAuth } from "firebase/auth";
-import {app} from "@/lib/firebase";
+import {useAuth} from '@/components/auth-provider';
+import {useRouter, useSearchParams} from 'next/navigation';
+import {useEffect} from 'react';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import Link from 'next/link';
+import {Button} from '@/components/ui/button';
+import {Icons} from '@/components/icons';
+import {getAuth} from 'firebase/auth';
+import {app} from '@/lib/firebase';
 
 const TeacherDashboardPage = () => {
-  const { user, loading, userType } = useAuth();
+  const {user, loading, userType} = useAuth();
   const router = useRouter();
-    const searchParams = useSearchParams();
-    const classId = searchParams.get('class');
+  const searchParams = useSearchParams();
+  const classId = searchParams.get('class');
 
   useEffect(() => {
     if (!loading) {
@@ -41,7 +47,6 @@ const TeacherDashboardPage = () => {
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-4">Teacher Dashboard</h1>
       <p>Welcome, Teacher {user?.email} </p>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Overview Panel */}
         <Card>
@@ -50,7 +55,7 @@ const TeacherDashboardPage = () => {
             <CardDescription>View student performance overview.</CardDescription>
           </CardHeader>
           <CardContent>
-           <Link href={`/teacher-dashboard/overview?class=${classId}`}>
+            <Link href={`/teacher-dashboard/overview?class=${classId}`}>
               <Button variant="secondary">
                 View Details <Icons.arrowRight className="ml-2" />
               </Button>
@@ -65,7 +70,7 @@ const TeacherDashboardPage = () => {
             <CardDescription>Manage student profiles and track progress.</CardDescription>
           </CardHeader>
           <CardContent>
-           <Link href={`/teacher-dashboard/student-manager?class=${classId}`}>
+            <Link href={`/teacher-dashboard/student-manager?class=${classId}`}>
               <Button variant="secondary">
                 View Details <Icons.arrowRight className="ml-2" />
               </Button>
@@ -73,8 +78,8 @@ const TeacherDashboardPage = () => {
           </CardContent>
         </Card>
 
-         {/* AI-Powered Lesson Planner */}
-         <Card>
+        {/* AI-Powered Lesson Planner */}
+        <Card>
           <CardHeader>
             <CardTitle>AI-Powered Lesson Planner</CardTitle>
           </CardHeader>
@@ -93,9 +98,11 @@ const TeacherDashboardPage = () => {
             <CardTitle>Quiz Builder</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Add quiz building features here */}
-            <p>Create &amp; Assign MCQs using AI</p>
-            <p>Auto-Grading + Analytics</p>
+            <Link href={`/teacher-dashboard/quiz-builder?class=${classId}`}>
+              <Button variant="secondary">
+                View Details <Icons.arrowRight className="ml-2" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
