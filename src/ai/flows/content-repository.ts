@@ -72,8 +72,8 @@ const contentRepositoryFlow = ai.defineFlow<
     return output!;
   } catch (error: any) {
     console.error("Error generating content repository metadata:", error);
-    if (error.message.includes('QuotaFailure')) {
-      throw new Error('Quota limit reached. Please try again later.');
+    if (error.message.includes('QuotaFailure') || error.message.includes('429 Too Many Requests')) {
+      throw new Error('The AI service is currently overloaded. Please try again later.');
     }
     throw error; // Re-throw the error to be handled by the caller
   }
