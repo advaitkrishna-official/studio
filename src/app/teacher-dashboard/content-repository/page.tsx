@@ -10,6 +10,7 @@ import {db, auth} from '@/lib/firebase'; // Import Firebase services
 import {getStorage, ref, uploadBytes, getDownloadURL} from 'firebase/storage';
 import {collection, addDoc, serverTimestamp} from 'firebase/firestore';
 import {useAuth} from '@/components/auth-provider';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 
 const ContentRepositoryPage = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -19,6 +20,8 @@ const ContentRepositoryPage = () => {
   const [uploading, setUploading] = useState(false);
   const {toast} = useToast();
   const {user} = useAuth(); // Use the auth context to get the current user
+    const subjectOptions = ['Math', 'Science', 'History', 'English']; // Subject choices
+  const gradeLevelOptions = ['Grade 4', 'Grade 6', 'Grade 8']; // Grade Level choices
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -113,26 +116,34 @@ const ContentRepositoryPage = () => {
             <Input id="file" type="file" onChange={handleFileChange} />
             {fileName && <p>Selected file: {fileName}</p>}
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="subject">Subject</Label>
-            <Input
-              type="text"
-              id="subject"
-              placeholder="Enter subject"
-              value={subject}
-              onChange={e => setSubject(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="gradeLevel">Grade Level</Label>
-            <Input
-              type="text"
-              id="gradeLevel"
-              placeholder="Enter grade level"
-              value={gradeLevel}
-              onChange={e => setGradeLevel(e.target.value)}
-            />
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="subject">Subject</Label>
+                            <Select onValueChange={setSubject} defaultValue={subject}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select Subject" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {subjectOptions.map((option) => (
+                                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label htmlFor="gradeLevel">Grade Level</Label>
+                            <Select onValueChange={setGradeLevel} defaultValue={gradeLevel}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select Grade Level" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {gradeLevelOptions.map((option) => (
+                                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
           <Button onClick={handleUpload} disabled={uploading}>
             {uploading ? 'Uploading...' : 'Upload File'}
           </Button>
