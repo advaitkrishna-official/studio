@@ -1,5 +1,8 @@
 import {ArrowRight, Check, ChevronsUpDown, Circle, Copy, Edit, ExternalLink, File, HelpCircle, Home, Loader2, Mail, MessageSquare, Moon, Plus, PlusCircle, Search, Server, Settings, Share2, Shield, Sun, Trash, User, X, Workflow, BookOpen, GraduationCap, Lightbulb} from 'lucide-react';
 import { Brain } from 'lucide-react';
+import { Book } from "lucide-react"
+import { Code } from "lucide-react"
+import { ListOrdered } from "lucide-react"
 
 const Icons = {
   arrowRight: ArrowRight,
@@ -33,6 +36,11 @@ const Icons = {
   graduationCap: GraduationCap,
   lightbulb: Lightbulb,
   brain: Brain,
+  DataScience:Book,
+  Programming:Code,
+  MachineLearning:Brain,
+  Mathematics:ListOrdered
 };
 
 export {Icons};
+

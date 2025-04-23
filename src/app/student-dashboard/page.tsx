@@ -6,23 +6,92 @@ import {Button} from '@/components/ui/button';
 import {Icons} from '@/components/icons';
 import {useAuth} from '@/components/auth-provider';
 import {cn} from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { useEffect, useState } from 'react';
 
 export default function StudentDashboard() {
   const {user} = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
+    const [categories, setCategories] = useState([
+        { name: 'Data Science', icon: 'Data Science' },
+        { name: 'Programming', icon: 'Programming' },
+        { name: 'Machine Learning', icon: 'Machine Learning' },
+        { name: 'Mathematics', icon: 'Mathematics' },
+    ]);
+
+    const [recommendedCourses, setRecommendedCourses] = useState([
+        { title: 'Introduction to Python', instructor: 'Rachel Andringari', lessons: 4, duration: '51 min', image: 'https://picsum.photos/300/200' },
+        { title: 'Online Lessons with Katharina', instructor: 'Katharina', lessons: 6, duration: '8 lin', image: 'https://picsum.photos/301/200' },
+        { title: 'Introduction to Pract-1s Totaing', instructor: 'Joalna Radkart', lessons: 4, duration: '5 min', image: 'https://picsum.photos/302/200' },
+        { title: 'Online Laxext', instructor: 'Lee Huang-Lian', lessons: 4, duration: '30 min', image: 'https://picsum.photos/303/200' },
+    ]);
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">
-        Welcome to Your Student Dashboard, {user?.displayName || 'Student'}!
-      </h1>
+      {/* Top Section */}
+      <div className="flex flex-col md:flex-row items-center justify-between mb-6">
+        {/* Left: Title and AI Image */}
+        <div className="md:w-1/2">
+          <h1 className="text-3xl font-bold mb-2">Learn with AI</h1>
+          <p className="text-muted-foreground mb-4">Explore our courses and get help from the AI tutor.</p>
+          <Button>Browse Courses</Button>
+        </div>
+
+        {/* Right: Image */}
+        <div className="md:w-1/2 flex justify-center">
+          <img src="https://picsum.photos/400/300" alt="AI Learning" className="rounded-lg shadow-md" />
+        </div>
+      </div>
+
+      {/* Search and Categories */}
+      <div className="flex flex-col md:flex-row items-center justify-between mb-6">
+        {/* Search Bar */}
+        <div className="mb-4 md:mb-0 md:w-1/3">
+          <Input
+            type="search"
+            placeholder="Search for courses"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        {/* Course Categories */}
+        <div className="flex space-x-4 items-center md:w-2/3">
+          {categories.map((category) => (
+            <Button variant="secondary" size="sm" key={category.name}>
+              {category.name}
+            </Button>
+          ))}
+        </div>
+      </div>
+          {/* Recommended Courses */}
+            <div className="mb-8">
+                <h2 className="text-2xl font-bold tracking-tight mb-4">Recommended for You</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {recommendedCourses.map((course, index) => (
+                        <Card key={index}>
+                            <CardHeader>
+                                <CardTitle>{course.title}</CardTitle>
+                                <img src={course.image} alt={course.title} className="w-full h-32 object-cover rounded-md mb-2" />
+                                <CardDescription>By {course.instructor}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-muted-foreground">
+                                    {course.lessons} lessons, {course.duration}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            </div>
+
+      {/* Grid of Features (adjust as needed) */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Flashcard Generator */}
         <Card>
           <CardHeader>
             <CardTitle>Flashcard Generator</CardTitle>
-            <CardDescription>
-              Create flashcards based on a topic.
-            </CardDescription>
+            <CardDescription>Create flashcards based on a topic.</CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/student-dashboard/flashcards">
@@ -37,9 +106,7 @@ export default function StudentDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>MCQ Generator</CardTitle>
-            <CardDescription>
-              Generate Multiple Choice Questions on a topic.
-            </CardDescription>
+            <CardDescription>Generate Multiple Choice Questions on a topic.</CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/student-dashboard/mcq">
@@ -54,9 +121,7 @@ export default function StudentDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Long Answer Question Generator</CardTitle>
-            <CardDescription>
-              Generate long answer questions and key points.
-            </CardDescription>
+            <CardDescription>Generate long answer questions and key points.</CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/student-dashboard/long-answer">
@@ -86,9 +151,7 @@ export default function StudentDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Progress Tracker</CardTitle>
-            <CardDescription>
-              Visually track your progress through different topics.
-            </CardDescription>
+            <CardDescription>Visually track your progress through different topics.</CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/student-dashboard/progress">
@@ -103,9 +166,7 @@ export default function StudentDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Personalized Learning Path</CardTitle>
-            <CardDescription>
-              Get a personalized learning path based on your performance.
-            </CardDescription>
+            <CardDescription>Get a personalized learning path based on your performance.</CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/student-dashboard/learning-path">
@@ -119,3 +180,4 @@ export default function StudentDashboard() {
     </div>
   );
 }
+
