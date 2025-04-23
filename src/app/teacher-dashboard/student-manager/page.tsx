@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { z } from "zod";
 
 const StudentManagerPage = () => {
   const [students, setStudents] = useState<any[]>([]);
@@ -73,28 +74,37 @@ const StudentManagerPage = () => {
     fetchStudents();
   }, [user, selectedClass]);
 
-  const handleUpdateProgress = async (studentId: string, newProgress: number) => {
+  const handleUpdateProgress = async (studentId: string, subject: string, newProgress: number) => {
     try {
       setIsLoading(true);
       setError(null);
       const studentDocRef = doc(db, "users", studentId);
-      await updateDoc(studentDocRef, { progress: newProgress });
 
+      // Prepare the update: use dot notation to update nested field
+      const updatePayload: { [key: string]: any } = {};
+      updatePayload[`progress.${subject}`] = newProgress; // e.g., 'progress.Math': 85
+
+      await updateDoc(studentDocRef, updatePayload);
+
+      // Update the local state
       setStudents(prevStudents =>
-        prevStudents.map(student =>
-          student.id === studentId ? { ...student, progress: newProgress } : student
-        )
+        prevStudents.map(student => {
+          if (student.id === studentId) {
+            return {
+              ...student,
+              progress: {
+                ...student.progress,
+                [subject]: newProgress,
+              }
+            };
+          }
+          return student;
+        })
       );
-
-      // Update cached data as well
-      const updatedStudentData = students.map(student =>
-        student.id === studentId ? { ...student, progress: newProgress } : student
-      );
-      localStorage.setItem('studentData', JSON.stringify(updatedStudentData));
 
       toast({
         title: "Progress Updated",
-        description: "Student progress updated successfully.",
+        description: `Student progress in ${subject} updated successfully.`,
       });
     } catch (e: any) {
       setError(e.message || "An error occurred while updating progress.");
@@ -107,6 +117,7 @@ const StudentManagerPage = () => {
       setIsLoading(false);
     }
   };
+
 
   const handleSendMessage = async (studentId: string, message: string) => {
     try {
@@ -179,15 +190,23 @@ const StudentManagerPage = () => {
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               <div>
-                Progress:
-                  <Progress value={student.progress || 0} />
-                  {student.progress || 0}%
-
+                {/* Subject-wise progress display */}
+                {student.progress && Object.keys(student.progress).length > 0 ? (
+                  Object.entries(student.progress).map(([subject, progress]) => (
+                    <div key={subject} className="mb-2">
+                      {subject}:
+                      <Progress value={progress as number} />
+                      {(progress as number) || 0}%
+                      </div>
+                  ))
+                ) : (
+                  <div>No progress data available.</div>
+                )}
               </div>
               <div className="flex gap-2">
                 <EditProgressDialog
                   studentId={student.id}
-                  currentProgress={student.progress || 0}
+                  currentProgress={student.progress || {}} // Ensure it's an object
                   onUpdateProgress={handleUpdateProgress}
                 />
                 <SendMessageDialog
@@ -208,12 +227,19 @@ const StudentManagerPage = () => {
 
 interface EditProgressDialogProps {
   studentId: string;
-  currentProgress: number;
-  onUpdateProgress: (studentId: string, newProgress: number) => void;
+  currentProgress: { [key: string]: number }; // Subject: Progress
+  onUpdateProgress: (studentId: string, subject: string, newProgress: number) => void;
 }
 
 const EditProgressDialog: React.FC<EditProgressDialogProps> = ({ studentId, currentProgress, onUpdateProgress }) => {
-  const [progress, setProgress] = useState(currentProgress);
+  const [subject, setSubject] = useState(Object.keys(currentProgress)[0] || 'Math'); // Default subject
+  const [progress, setProgress] = useState(currentProgress[subject] || 0);
+
+  useEffect(() => {
+    setProgress(currentProgress[subject] || 0);
+  }, [currentProgress, subject]);
+
+  const subjectOptions = ['Math', 'Science', 'History', 'English']; // Subject choices
 
   return (
     <Dialog>
@@ -226,10 +252,27 @@ const EditProgressDialog: React.FC<EditProgressDialogProps> = ({ studentId, curr
         <DialogHeader>
           <DialogTitle>Edit Student Progress</DialogTitle>
           <DialogDescription>
-            Update the student's progress.
+            Update the student's progress in {subject}.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="subject" className="text-right">
+              Subject
+            </Label>
+            <Select onValueChange={setSubject} defaultValue={subject} className="col-span-3">
+              <SelectTrigger>
+                <SelectValue placeholder="Select Subject" />
+              </SelectTrigger>
+              <SelectContent>
+                {subjectOptions.map((option) => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="progress" className="text-right">
               Progress
@@ -249,7 +292,7 @@ const EditProgressDialog: React.FC<EditProgressDialogProps> = ({ studentId, curr
               Cancel
             </Button>
           </DialogClose>
-          <Button type="button" onClick={() => onUpdateProgress(studentId, progress)}>
+          <Button type="button" onClick={() => onUpdateProgress(studentId, subject, progress)}>
             Save
           </Button>
         </DialogFooter>
