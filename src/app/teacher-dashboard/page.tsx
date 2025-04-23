@@ -112,9 +112,11 @@ const TeacherDashboardPage = () => {
             <CardTitle>Content Repository</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Add content repository features here */}
-            <p>Upload/Share PDFs, Videos, Slides</p>
-            <p>Tag by Subject/Grade</p>
+            <Link href={`/teacher-dashboard/content-repository?class=${classId}`}>
+              <Button variant="secondary">
+                View Details <Icons.arrowRight className="ml-2" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
