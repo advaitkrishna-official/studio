@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { generateLongAnswerQuestions } from '@/ai/flows/generate-long-answer-questions';
+import { generateFlashcards } from '@/ai/flows/generate-flashcards';
 import { useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
@@ -40,6 +41,34 @@ const GoalInput = () => {
 const LessonPlannerPage = () => {
   const [subject, setSubject] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
+
+  const handleGenerateFlashcards = async (topic: string, index: number) => {
+    try {
+      const aiGeneratedFlashcards = await generateFlashcards({ topic, numCards: 5 });
+
+       if(aiGeneratedFlashcards?.flashcards){
+          setFlashcards(aiGeneratedFlashcards.flashcards.map(item => `${item.front} - ${item.back}`) || []);
+       }
+      toast({
+        title: "Flashcards Generated",
+        description: "AI has generated flashcards based on your input.",
+      });
+    } catch (e: any) {
+      setFlashcards([]);
+       console.error("Error generating flashcards:", e);
+
+
+
+        setError(e.message || "An error occurred while generating the flashcards.");
+         toast({
+                variant: "destructive",
+                title: "Error",
+                description: e.message || "An error occurred while generating the flashcards.",
+              });
+      setLessonPlanItems([]);
+    } 
+  }
+
   const [learningObjectives, setLearningObjectives] = useState("");
   const [topics, setTopics] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -51,10 +80,11 @@ const LessonPlannerPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, userClass } = useAuth();
-  const { toast } = useToast();
+  const { toast } = useToast()
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
   const router = useRouter();
+  const [flashcards, setFlashcards] = useState<string[]>([]);
 
   const handleGenerateLessonPlan = async () => {
     setIsLoading(true);
@@ -69,7 +99,7 @@ const LessonPlannerPage = () => {
         Class: ${selectedClass}
 
         Generate a detailed and editable lesson plan in JSON format with the following structure:
-
+        
         {
           "lessonTitle": "Title",
           "learningObjectives": ["Objective 1", "Objective 2"],
@@ -88,7 +118,7 @@ const LessonPlannerPage = () => {
             }
           ]
         }
-      `;
+      `
 
       const aiGeneratedPlan = await generateLongAnswerQuestions({ topic: prompt, numQuestions: 1 });
 
@@ -182,7 +212,7 @@ const LessonPlannerPage = () => {
         lessonPlan: lessonPlanItems,
         dateCreated: new Date(),
         status: "Draft",
-        classId: selectedClass,
+        classId: selectedClass? selectedClass: undefined,
       });
            toast({
         title: "Lesson Plan Saved",
@@ -219,7 +249,7 @@ const LessonPlannerPage = () => {
           {/* Class Selection Dropdown */}
           <div className="grid gap-2">
             <label htmlFor="class">Select Class</label>
-            <Select onValueChange={setSelectedClass} defaultValue={userClass}>
+            <Select onValueChange={setSelectedClass} defaultValue={userClass? userClass:undefined}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a class" />
               </SelectTrigger>
@@ -288,9 +318,29 @@ const LessonPlannerPage = () => {
                     <p><strong>Resources:</strong> {item.resources.join(', ')}</p>
                     <p><strong>Assessment:</strong> {item.assessment}</p>
                     <p><strong>Notes:</strong> {item.notes}</p>
+                    <Button className='mt-2' onClick={() => handleGenerateFlashcards(item.topic, index)}>
+                       Generate Flashcards
+                    </Button>
                   </div>
                 ))}
                 <Button onClick={handleSaveLessonPlan}>Save Lesson Plan</Button>
+                 {/* Render Flashcards if available */}
+                {flashcards.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-lg font-semibold">Generated Flashcards:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                      {flashcards.map((flashcard, index) => (
+                        <Card key={index} className="border p-4 rounded shadow">
+                          <CardContent className='p-4'>
+                                <p>{flashcard}</p>
+                            
+                          </CardContent>
+                         </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           )}
