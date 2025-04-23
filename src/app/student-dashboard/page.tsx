@@ -10,10 +10,11 @@ import {cn} from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useRouter } from 'next/navigation';
-
+import {db} from '@/lib/firebase';
+import {collection, query, where, onSnapshot} from "firebase/firestore";
 
 export default function StudentDashboard() {
-  const {user} = useAuth();
+  const {user, userType, userClass} = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
     const [categories, setCategories] = useState([
         { name: 'Data Science', icon: 'DataScience' },
@@ -22,6 +23,9 @@ export default function StudentDashboard() {
         { name: 'Mathematics', icon: 'Mathematics' },
     ]);
   const router = useRouter();
+    const [tasks, setTasks] = useState<any[]>([]);
+    const [loadingTasks, setLoadingTasks] = useState(true);
+    const [errorTasks, setErrorTasks] = useState<string | null>(null);
 
 
   const [recommendedCourses, setRecommendedCourses] = useState([
@@ -43,6 +47,38 @@ export default function StudentDashboard() {
     const handleBrowseCourses = () => {
         router.push(`/student-dashboard?browse=all`);
     };
+
+    useEffect(() => {
+        const fetchTasks = async () => {
+            setLoadingTasks(true);
+            setErrorTasks(null);
+            try {
+                if (!user || !userClass) {
+                    setErrorTasks("User not logged in or class not defined.");
+                    return;
+                }
+
+                const tasksCollection = collection(db, 'classes', userClass, 'events');
+                const q = query(tasksCollection, where("type", "==", "task"));
+
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    const tasksData = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data(),
+                    })) as any[];
+                    setTasks(tasksData);
+                });
+
+                return () => unsubscribe();
+            } catch (e: any) {
+                setErrorTasks(e.message || "An error occurred while fetching tasks.");
+            } finally {
+                setLoadingTasks(false);
+            }
+        };
+
+        fetchTasks();
+    }, [user, userClass]);
 
   return (
     <div className="container mx-auto py-8">
@@ -119,6 +155,33 @@ export default function StudentDashboard() {
                         </Card>
                     ))}
                 </div>
+            </div>
+
+            {/* Assigned Tasks */}
+            <div className="mb-8">
+                <h2 className="text-2xl font-bold tracking-tight mb-4">Assigned Tasks</h2>
+                {loadingTasks ? (
+                    <p>Loading tasks...</p>
+                ) : errorTasks ? (
+                    <p className="text-red-500">{errorTasks}</p>
+                ) : tasks.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {tasks.map((task) => (
+                            <Card key={task.id}>
+                                <CardHeader>
+                                    <CardTitle>{task.title}</CardTitle>
+                                    <CardDescription>{task.description}</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-sm text-muted-foreground">Due Date: {task.date}</p>
+                                    {/* Add more details or actions here */}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                ) : (
+                    <p>No tasks assigned yet.</p>
+                )}
             </div>
 
       {/* Grid of Features (adjust as needed) */}

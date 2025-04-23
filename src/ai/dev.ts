@@ -10,3 +10,4 @@ import '@/ai/flows/assign-mcq.ts';
 import '@/ai/flows/generate-lesson-plan.ts';
 import '@/ai/flows/generate-quiz.ts';
 import '@/ai/flows/content-repository.ts';
+import '@/ai/flows/assign-task.ts';
