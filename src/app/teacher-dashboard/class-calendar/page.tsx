@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { assignTask } from '@/ai/flows/assign-task'; // Import assignTask
 import { Progress } from "@/components/ui/progress"; // Import Progress
 import { X } from "lucide-react";
-import { toast } from 'sonner';
+
 
 interface ClassEvent {
   id: string;
@@ -85,7 +85,7 @@ const ClassCalendarPage = () => {
     try {
       if (!user) {
         setError("User not logged in.");
-        toast({
+        useToast.toast({
           variant: "destructive",
           title: "Error",
           description: "You must be logged in to add events.",
@@ -95,7 +95,7 @@ const ClassCalendarPage = () => {
 
       if (!newEventTitle || !newEventDescription) {
         setError("Please enter event title and description.");
-        toast({
+        useToast.toast({
           variant: "destructive",
           title: "Error",
           description: "Please enter event title and description.",
@@ -110,7 +110,7 @@ const ClassCalendarPage = () => {
         description: newEventDescription,
         type: 'event',
       });
-      toast({
+      useToast.toast({
         title: 'Success',
         description: 'Event added to calendar.',
       });
@@ -121,7 +121,7 @@ const ClassCalendarPage = () => {
     } catch (error: any) {
       console.error("Error adding event:", error);
       setError(error.message || "An error occurred while adding the event.");
-      toast({
+      useToast.toast({
         variant: "destructive",
         title: "Error",
         description: `Failed to add event: ${error.message}`,
@@ -137,7 +137,7 @@ const ClassCalendarPage = () => {
       const eventDocRef = doc(db, 'classes', selectedClass, 'events', eventId);
       await deleteDoc(eventDocRef);
 
-      toast({
+      useToast.toast({
         title: 'Success',
         description: 'Event deleted from calendar.',
       });
@@ -147,7 +147,7 @@ const ClassCalendarPage = () => {
     } catch (error: any) {
       console.error("Error deleting event:", error);
       setError(error.message || "An error occurred while deleting the event.");
-      toast({
+      useToast.toast({
         variant: "destructive",
         title: "Error",
         description: `Failed to delete event: ${error.message}`,
@@ -161,7 +161,7 @@ const ClassCalendarPage = () => {
     try {
       if (!user) {
         setError("User not logged in.");
-        toast({
+        useToast.toast({
           variant: "destructive",
           title: "Error",
           description: "You must be logged in to assign tasks.",
@@ -171,7 +171,7 @@ const ClassCalendarPage = () => {
 
       if (!newTaskTitle || !newTaskDescription || !newTaskDueDate) {
         setError("Please enter all task details.");
-        toast({
+        useToast.toast({
           variant: "destructive",
           title: "Error",
           description: "Please enter all task details.",
@@ -191,13 +191,13 @@ const ClassCalendarPage = () => {
       });
 
       if (result.success) {
-        toast({
+        useToast.toast({
           title: 'Success',
           description: result.message,
         });
       } else {
         setError(result.message || "Failed to assign task.");
-        toast({
+        useToast.toast({
           variant: "destructive",
           title: "Error",
           description: result.message || "Failed to assign task.",
@@ -221,7 +221,7 @@ const ClassCalendarPage = () => {
     } catch (error: any) {
       console.error("Error assigning task:", error);
       setError(error.message || "An error occurred while assigning the task.");
-      toast({
+      useToast.toast({
         variant: "destructive",
         title: "Error",
         description: `Failed to assign task: ${error.message}`,

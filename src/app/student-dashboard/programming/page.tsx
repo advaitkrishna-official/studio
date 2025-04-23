@@ -1,4 +1,4 @@
-tsx
+import React from 'react';
 export default function ProgrammingPage() {
   return (
     <div className="container mx-auto py-8">

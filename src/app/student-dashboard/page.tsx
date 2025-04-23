@@ -111,9 +111,9 @@ export default function StudentDashboard() {
           </DropdownMenuContent>
         </DropdownMenu>
         {/* Right: Image */}
-        <div className="md:w-1/2 flex justify-center">
+        {/*<div className="md:w-1/2 flex justify-center">
           <img src="https://picsum.photos/400/300" alt="AI Learning" className="rounded-lg shadow-md" />
-        </div>
+        </div>*/}
       </div>
 
       {/* Search and Categories */}
@@ -275,4 +275,5 @@ export default function StudentDashboard() {
     </div>
   );
 }
+
 
