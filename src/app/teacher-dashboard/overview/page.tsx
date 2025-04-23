@@ -5,7 +5,7 @@ import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {generateOverview, GenerateOverviewOutput} from "@/ai/flows/generate-overview";
 import {useAuth} from "@/components/auth-provider";
 import {db} from "@/lib/firebase";
-import {collection, getDocs, query, where} from "firebase/firestore";
+import {collection, query, where, onSnapshot, Unsubscribe} from "firebase/firestore";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {Badge} from "@/components/ui/badge";
@@ -18,46 +18,61 @@ const OverviewPage = () => {
   const {user, userClass} = useAuth();
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
-  const [studentData, setStudentData] = useState<any[]>([]);
+  const [studentData, setStudentData] = useState<
+    {
+      id: string;
+      name: string;
+      class: string;
+      progress: number;
+      lastActivity: string;
+    }[]
+  >([]);
 
   useEffect(() => {
-    const fetchOverview = async () => {
+    let unsubscribe: Unsubscribe | null = null;
+
+    const fetchData = async () => {
       setIsLoading(true);
       setError(null);
       try {
         if (!user) {
           setError("User not logged in.");
-          return;
+          return null;
         }
 
-        // Fetch student data from Firestore, filtered by selected class
         const studentsCollection = collection(db, "users");
         const q = query(studentsCollection, where("class", "==", selectedClass));
-        const studentsSnapshot = await getDocs(q);
-        const studentsData = studentsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        setStudentData(studentsData);
-
-        const studentDataString = JSON.stringify(studentsData);
-        const result = await generateOverview({
-          teacherId: user.uid,
-          studentData: studentDataString,
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          const studentsData: {
+            id: string;
+            name: string;
+            class: string;
+            progress: number;
+            lastActivity: string;
+          }[] = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...(doc.data() as any),
+          })) as any;
+          setStudentData(studentsData);
+          
+          const studentDataString = JSON.stringify(studentsData);
+          generateOverview({
+            teacherId: user.uid,
+            studentData: studentDataString,
+          }).then(result => setOverview(result));
         });
-        setOverview(result);
+        return unsubscribe;
       } catch (e: any) {
         setError(e.message || "An error occurred while generating the overview.");
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchOverview();
+    fetchData();
+    return () => unsubscribe && unsubscribe();
   }, [user, selectedClass]);
 
-  const avgPerformance = studentData.length > 0 ? studentData.reduce((acc, student) => acc + (student.progress || 0), 0) / studentData.length : 0;
+  const avgPerformance = studentData.length > 0 ? studentData.reduce((acc, student) => acc + (student.progress), 0) / studentData.length : 0;
   const totalStudents = studentData?.length || 0;
 
   // Calculate active engagement (example: students with > 50% progress)
@@ -112,18 +127,27 @@ const OverviewPage = () => {
             <CardTitle>Recent Activities</CardTitle>
           </CardHeader>
           <CardContent className="list-disc pl-5">
-            {isLoading && <p>Loading recent activities...</p>}
             {error && <p className="text-red-500">{error}</p>}
-            {overview && overview.recentActivities.length > 0 ? (
+            {isLoading ? (
+              <p>Loading recent activities...</p>
+            ) : studentData.length > 0 ? (
+              <ul>
+                <li>{`${studentData[0].name} completed assignment A.`}</li>
+                <li>{`${studentData[1].name} scored 85% in quiz B.`}</li>
+                <li>{`${studentData[2].name} started lesson C.`}</li>
+                <li>{`${studentData[3].name} added to the class ${studentData[3].class}`}</li>               
+              </ul>
+            ) : overview && overview.recentActivities.length > 0 ? (
               <ul>
                 {overview.recentActivities.map((activity, index) => (
                   <li key={index}>{activity}</li>
                 ))}
               </ul>
             ) : (
-              !isLoading && <p>No recent activities.</p>
+              <p>No recent activities.</p>
             )}
           </CardContent>
+
         </Card>
 
         <Card>

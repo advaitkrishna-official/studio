@@ -1,6 +1,6 @@
 'use client';
 
-import { FirebaseApp, initializeApp, getApps } from "firebase/app";
+import { FirebaseApp, initializeApp, getApps, deleteApp } from "firebase/app";
 import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth } from "firebase/auth";
 import { getFirestore, Firestore, collection, doc, setDoc, getDoc, DocumentData, addDoc, query, where, getDocs } from "firebase/firestore";
 import {useEffect, useState} from 'react';
@@ -164,6 +164,41 @@ async function getGrades(studentId: string) {
   }
 }
 
+async function addMockData() {
+  try {
+    const data = [
+      {
+        name: 'Alice Smith',
+        class: 'Grade 8',
+        progress: 75,
+        lastActivity: 'Completed assignment A',
+      },
+      {
+        name: 'Bob Johnson',
+        class: 'Grade 8',
+        progress: 90,
+        lastActivity: 'Scored 95% in quiz B',
+      },
+      {
+        name: 'Charlie Brown',
+        class: 'Grade 6',
+        progress: 60,
+        lastActivity: 'Completed lesson 3',
+      },
+      {
+        name: 'David Lee',
+        class: 'Grade 6',
+        progress: 80,
+        lastActivity: 'Scored 85% in quiz C',
+      },
+    ];
+    for(const item of data){
+      await addDoc(collection(db, "users"),item)
+    }
+  } catch(error: any) {
+    console.log(error.message)
+  }
+}
 // Function to seed initial student data
 async function seedInitialData() {
   try {
@@ -216,4 +251,4 @@ async function seedInitialData() {
   }
 }
 
-export { app, auth, db, getUserData, createUserDocument, saveGrade, getGrades, seedInitialData };
+export { app, auth, db, getUserData, createUserDocument, saveGrade, getGrades, seedInitialData, addMockData };
