@@ -248,7 +248,7 @@ const LessonPlannerPage = () => {
 
           {/* Class Selection Dropdown */}
           <div className="grid gap-2">
-            <label htmlFor="class">Select Class</label>
+            <Label htmlFor="class">Select Class</Label>
             <Select onValueChange={setSelectedClass} defaultValue={userClass? userClass:undefined}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a class" />
