@@ -60,6 +60,9 @@ const OverviewPage = () => {
   const avgPerformance = studentData.length > 0 ? studentData.reduce((acc, student) => acc + (student.progress || 0), 0) / studentData.length : 0;
   const totalStudents = studentData?.length || 0;
 
+  // Calculate active engagement (example: students with > 50% progress)
+  const activeEngagement = studentData.length > 0 ? (studentData.filter(student => (student.progress || 0) > 50).length / studentData.length) * 100 : 0;
+
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-4">
@@ -97,7 +100,7 @@ const OverviewPage = () => {
 
         <Card>
           <CardContent className="flex flex-col items-center justify-center space-y-2 p-6">
-            <div className="text-2xl font-bold">75%</div>
+            <div className="text-2xl font-bold">{activeEngagement.toFixed(0)}%</div>
             <div className="text-muted-foreground">Active Engagement</div>
           </CardContent>
         </Card>
@@ -147,7 +150,7 @@ const OverviewPage = () => {
             {overview ? (
               <p>{overview.insights}</p>
             ) : (
-              <p>No AI insights available.</p>
+              <p>No AI insights available. Please provide student data to generate insights.</p>
             )}
           </CardContent>
         </Card>
@@ -164,7 +167,7 @@ const OverviewPage = () => {
                 ))}
               </ul>
             ) : (
-              <p>No suggested activities available.</p>
+              <p>No suggested activities available. Check student enrollment and data import process.</p>
             )}
           </CardContent>
         </Card>
