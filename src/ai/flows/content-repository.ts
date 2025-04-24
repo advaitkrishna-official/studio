@@ -6,6 +6,7 @@
 
 import {ai} from '@/ai/ai-instance';
 import {z} from 'genkit';
+import {summariseContent} from '@/ai/content-repository-tool';
 
 const ContentRepositoryInputSchema = z.object({
   fileName: z.string().describe('The name of the file.'),
@@ -66,9 +67,12 @@ const contentRepositoryFlow = ai.defineFlow<
   name: 'contentRepositoryFlow',
   inputSchema: ContentRepositoryInputSchema,
   outputSchema: ContentRepositoryOutputSchema,
+  tools: [summariseContent],
 }, async input => {
   try {
-    const {output} = await prompt(input);
+    //Summarise the content before calling the prompt
+    const {output: summarisedContent} = await summariseContent({fileContent: input.fileContent});
+    const {output} = await prompt({...input, fileContent: summarisedContent});
     return output!;
   } catch (error: any) {
     console.error("Error generating content repository metadata:", error);

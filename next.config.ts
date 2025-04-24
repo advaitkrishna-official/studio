@@ -11,10 +11,15 @@ const nextConfig: NextConfig = {
       ...config.output,
       publicPath: '/',
     };
+
+    // Ignore async_hooks module
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      async_hooks: false,
+    };
     return config;
   },
   env: {
-    FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
     FIREBASE_AUTH_DOMAIN: process.env.FIREBASE_AUTH_DOMAIN,
     FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
     FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET,

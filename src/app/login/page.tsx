@@ -115,7 +115,6 @@ const Login = () => {
           <Button onClick={handleSubmit} disabled={isLoading}>
             {isLoading ? "Logging In..." : "Login"}
           </Button>
-          {error && <p className="text-red-500">{error}</p>}
           <p className="text-sm text-muted-foreground">
             Don't have an account? <Link href="/register" className="text-primary">Register</Link>
           </p>
