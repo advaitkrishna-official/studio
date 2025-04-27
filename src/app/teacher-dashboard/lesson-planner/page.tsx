@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, doc, setDoc, serverTimestamp, query, getDocs, where } from "firebase/firestore";
+import { collection, addDoc, doc, deleteDoc, serverTimestamp, query, getDocs, where } from "firebase/firestore";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -67,7 +67,6 @@ const LessonPlannerPage = () => {
   const [userLessonPlans, setUserLessonPlans] = useState<any[]>([]); // State to store user's lesson plans
   const [selectedLessonPlan, setSelectedLessonPlan] = useState<any | null>(null);
 
-
   useEffect(() => {
     const fetchUserLessonPlans = async () => {
       if (user) {
@@ -97,6 +96,35 @@ const LessonPlannerPage = () => {
   const handleViewLessonPlan = (plan: any) => {
     setSelectedLessonPlan(plan);
   };
+
+    const handleDeleteLessonPlan = async (planId: string) => {
+        if (!user) {
+            setError("User not logged in.");
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "User not logged in.",
+            });
+            return;
+        }
+        try {
+            const lessonPlanDoc = doc(db, `teachers/${user.uid}/lessonPlans`, planId);
+            await deleteDoc(lessonPlanDoc);
+            setUserLessonPlans(currentPlans => currentPlans.filter(plan => plan.id !== planId));
+            toast({
+                title: "Lesson Plan Deleted",
+                description: "The lesson plan has been successfully deleted.",
+            });
+        } catch (e: any) {
+            setError(e.message || "An error occurred while deleting the lesson plan.");
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: e.message || "An error occurred while deleting the lesson plan.",
+            });
+        }
+    };
+
   const handleGenerateFlashcards = async (topic: string, index: number) => {
     try {
       const aiGeneratedFlashcards = await generateFlashcards({ topic, numCards: 5, grade: selectedGrade });
@@ -381,6 +409,13 @@ const LessonPlannerPage = () => {
                       <Button variant="secondary" onClick={() => handleViewLessonPlan(plan)}>
                         View Details
                       </Button>
+                                            <Button
+                                                variant="destructive"
+                                                onClick={() => handleDeleteLessonPlan(plan.id)}
+                                                className="ml-2"
+                                            >
+                                                Delete
+                                            </Button>
                     </CardContent>
                   </Card>
                 ))}
