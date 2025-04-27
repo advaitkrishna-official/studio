@@ -1,277 +1,241 @@
 'use client';
 
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import {useEffect, useState} from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/auth-provider';
+import { auth, db } from '@/lib/firebase';
+import { collection, query, onSnapshot, where, DocumentData } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { format } from 'date-fns';
+
 import {
   Card,
-  CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
+  CardContent,
 } from '@/components/ui/card';
-import {Button} from '@/components/ui/button';
-import {Icons} from '@/components/icons';
-import {useAuth} from '@/components/auth-provider';
-import {cn} from "@/lib/utils";
-import {Input} from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {useRouter} from 'next/navigation';
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  DocumentData,
-} from "firebase/firestore";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
+  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
-import {format} from 'date-fns';
-import {Badge} from "@/components/ui/badge";
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
-interface ClassEvent {
+import {
+  Search,
+  Menu,
+  Home,
+  ListChecks,
+  BookOpenCheck,
+  LayoutGrid,
+  PencilRuler,
+  BookOpen,
+  LineChart,
+  LogOut,
+  Code,
+  Database,
+  Cpu,
+  Hash,
+} from 'lucide-react';
+
+import MyAssignments from './my-assignments/page';
+
+interface Assignment {
   id: string;
   title: string;
-  description?: string;
-  type: "task" | "event";
-  date: Date;
+  description: string;
+  type: string;
+  dueDate: Date;
 }
 
-const ClientComponent = () => {
-  const {user, userType, userClass, signOut} = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState([
-    {name: 'Data Science', icon: 'DataScience', link: '/student-dashboard/data-science'},
-    {name: 'Programming', icon: 'Programming', link: '/student-dashboard/programming'},
-    {name: 'Machine Learning', icon: 'MachineLearning', link: '/student-dashboard/machine-learning'},
-    {name: 'Mathematics', icon: 'Mathematics', link: '#'},
-  ]);
+function Sidebar() {
   const router = useRouter();
-  const [tasks, setTasks] = useState<ClassEvent[]>([]);
+  const links = [
+    { name: 'Home', Icon: Home, link: '/student-dashboard' },
+    { name: 'Assignments', Icon: ListChecks, link: '/student-dashboard/my-assignments' },
+    { name: 'Flashcards', Icon: BookOpenCheck, link: '/student-dashboard/flashcards' },
+    { name: 'MCQs', Icon: LayoutGrid, link: '/student-dashboard/mcqs' },
+    { name: 'Essay Feedback', Icon: PencilRuler, link: '/student-dashboard/essay-feedback' },
+    { name: 'Progress', Icon: LineChart, link: '/student-dashboard/progress' },
+    { name: 'Learning Path', Icon: BookOpen, link: '/student-dashboard/learning-path' },
+  ];
+
+  return (
+    <aside className="bg-white border-r border-gray-200 w-64 hidden md:block">
+      <nav className="p-4 space-y-4">
+        <Link href="/student-dashboard" className="flex items-center gap-2 text-xl font-bold">
+          <Code className="w-6 h-6" /> Learn Hub
+        </Link>
+        {links.map(({ name, Icon, link }) => (
+          <Link
+            key={name}
+            href={link}
+            className="flex items-center gap-2 px-4 py-2 rounded hover:bg-gray-100"
+          >
+            <Icon className="w-5 h-5" /> {name}
+          </Link>
+        ))}
+        <Separator />
+        <Button
+          variant="ghost"
+          onClick={() => signOut(auth!)}
+          className="w-full justify-start"
+        >
+          <LogOut className="w-4 h-4 mr-2" /> Log Out
+        </Button>
+      </nav>
+    </aside>
+  );
+}
+
+export default function StudentDashboardPage() {
+  const { user, userClass } = useAuth();
+  const router = useRouter();
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
-  const [errorTasks, setErrorTasks] = useState<string | null>(null);
-
-  const [recommendedCourses, setRecommendedCourses] = useState([
-    {
-      title: 'Introduction to Python',
-      instructor: 'Rachel Andringari',
-      lessons: 4,
-      duration: '51 min',
-      image: 'https://picsum.photos/300/200',
-      youtubeLink: 'https://www.youtube.com/embed/N4mEzFDjQtA'
-    },
-    {
-      title: 'Online Lessons with Katharina',
-      instructor: 'Katharina',
-      lessons: 6,
-      duration: '8 lin',
-      image: 'https://picsum.photos/301/200',
-      youtubeLink: 'https://www.youtube.com/embed/VNlcrsRowlo'
-    },
-    {
-      title: 'Introduction to Pract-1s Totaing',
-      instructor: 'Joalna Radkart',
-      lessons: 4,
-      duration: '5 min',
-      image: 'https://picsum.photos/302/200',
-      youtubeLink: 'https://www.youtube.com/embed/jtsIJNbNHfg'
-    },
-    {
-      title: 'Online Laxext',
-      instructor: 'Lee Huang-Lian',
-      lessons: 4,
-      duration: '30 min',
-      image: 'https://picsum.photos/303/200',
-      youtubeLink: 'https://www.youtube.com/embed/H-dQ3zR1GDU'
-    },
-  ]);
-
-  const handleSearch = () => {
-    router.push(`/student-dashboard?search=${searchQuery}`);
-
-  };
-
-  const handleCategoryClick = (categoryName: string) => {
-    const category = categories.find(cat => cat.name === categoryName);
-    if (category && category.link) {
-      router.push(category.link);
-    } else {
-      // Handle the case where the link is not defined, perhaps show an error message
-      console.error(`Link not defined for category: ${categoryName}`);
-    }
-  };
-
 
   useEffect(() => {
     if (!user) {
-      setLoading(false);
-      router.push("/login");
+      router.push('/login');
+      return;
+    }
+    if (!userClass) {
+      setLoadingTasks(false);
       return;
     }
 
-    setLoadingTasks(true);
-    setErrorTasks(null);
-
-    if (user && userClass) {
-      const tasksCollection = collection(db, 'classes', userClass, 'events');
-      const q = query(tasksCollection, where("type", "==", "task"));
-
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const tasksData = snapshot.docs.map(doc => {
-          const raw = doc.data() as DocumentData;
-          return {
-            id: doc.id,
-            title: raw.title,
-            description: raw.description,
-            type: raw.type,
-            date: raw.date.toDate(),
-          } as ClassEvent;
-        });
-        setTasks(tasksData);
-        setLoadingTasks(false);
-      }, (error) => {
-        setErrorTasks(error.message || "An error occurred while fetching tasks.");
-        setLoadingTasks(false);
+    const col = collection(db, 'assignments');
+    const q = query(col, where('assignedTo.classId', '==', userClass));
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map((d) => {
+        const raw = d.data() as DocumentData;
+        return {
+          id: d.id,
+          title: raw.title,
+          description: raw.description,
+          type: raw.type,
+          dueDate: raw.dueDate.toDate(),
+        } as Assignment;
       });
-
-      return () => unsubscribe();
-    } else {
-      setErrorTasks("User not logged in or class not defined.");
+      setAssignments(data);
       setLoadingTasks(false);
-    }
+    });
+
+    return () => unsub();
   }, [user, userClass, router]);
 
+  const handleSearch = () => {
+    router.push(`/student-dashboard?search=${encodeURIComponent(searchQuery)}`);
+  };
 
-  if (loading) {
+  if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Loading...</p>
+        Loading...
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-3xl font-bold">Student Dashboard</h1>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open user menu</span>
-              <Avatar className="h-8 w-8">
-                <AvatarImage src="https://github.com/shadcn.png" alt="Shadcn"/>
-                <AvatarFallback>SC</AvatarFallback>
-              </Avatar>
+    <div className="flex min-h-screen bg-gray-100">
+      {/* Mobile sidebar */}
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button variant="outline" className="md:hidden fixed top-4 left-4 z-50">
+            <Menu className="w-5 h-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="p-0">
+          <Sidebar />
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop sidebar */}
+      <Sidebar />
+
+      {/* Main area */}
+      <div className="flex-1 flex flex-col">
+        <header className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Student Dashboard</h1>
+          <div className="flex items-center gap-4">
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="max-w-xs"
+            />
+            <Button onClick={handleSearch}>
+              <Search className="h-4 w-4 mr-2" /> Search
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>
-              <Button variant="secondary" onClick={signOut} className="w-full h-full block">
-                Log Out
-              </Button>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* Assigned Tasks */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold tracking-tight mb-4">Assigned Tasks</h2>
-        {loadingTasks ? (
-          <p>Loading tasks...</p>
-        ) : errorTasks ? (
-          <p className="text-red-500">{errorTasks}</p>
-        ) : tasks.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tasks.map((task) => (
-              <Card key={task.id}>
-                <CardHeader>
-                  <CardTitle>{task.title}</CardTitle>
-                  <CardDescription>{task.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">Due Date: {format(task.date, "dd/MM/yyyy")}</p>
-                  {/* Add more details or actions here */}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <p>No tasks assigned yet.</p>
-        )}
-      </div>
-
-      {/* Course Categories */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold tracking-tight mb-4">Explore Subjects</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {categories.map((category) => (
-            <Card key={category.name}
-                  className="cursor-pointer hover:shadow-md transition-shadow duration-300">
-              <CardContent className="flex flex-col items-start">
-                {category.icon && <Icons[category.icon] className="h-6 w-6 mb-2 text-primary"/>}
-                <h3 className="font-semibold">{category.name}</h3>
-                <Button variant="secondary" size="sm" onClick={() => handleCategoryClick(category.name)}>
-                  Explore
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="p-0">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.photoURL || ''} alt={user.displayName || 'User'} />
+                    <AvatarFallback>
+                      {user.displayName
+                        ?.split(' ')
+                        .map((n) => n.charAt(0))
+                        .join('')
+                        .toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                 </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => signOut(auth!)}>
+                  <LogOut className="mr-2 h-4 w-4" /> Log Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
 
-      {/* Recommended Courses */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold tracking-tight mb-4">Recommended for You</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {recommendedCourses.map((course, index) => (
-            <Card key={index}>
-              <CardHeader>
-                <CardTitle>{course.title}</CardTitle>
-                <img src={course.image} alt={course.title} className="w-full h-32 object-cover rounded-md mb-2"/>
-                <CardDescription>By {course.instructor}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {course.lessons} lessons, {course.duration}
-                </p>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="secondary">Watch Video</Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <iframe
-                      width="100%"
-                      height="315"
-                      src={course.youtubeLink}
-                      title="YouTube video player"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    ></iframe>
-                  </DialogContent>
-                </Dialog>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <main className="flex-1 overflow-y-auto p-8 space-y-12">
+          {/* Assignments Grid */}
+          {loadingTasks ? (
+            <p>Loading your assignments…</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {assignments.map((a) => (
+                <Card key={a.id}>
+                  <CardHeader>
+                    <CardTitle>{a.title}</CardTitle>
+                    <CardDescription>{a.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">
+                      Due: {format(a.dueDate, 'dd/MM/yyyy')}
+                    </span>
+                    <Badge variant="outline">{a.type}</Badge>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Detailed “My Assignments” page */}
+          <MyAssignments />
+        </main>
       </div>
     </div>
   );
 }
-
-export default function Home() {
-  return <ClientComponent/>;
-}
-

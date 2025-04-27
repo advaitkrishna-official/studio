@@ -4,11 +4,9 @@ import {useState, useEffect, createContext, useContext, ReactNode, useCallback} 
 import {useRouter} from 'next/navigation';
 import {
   getAuth,
-  onAuthStateChanged,
-  User,
-  signOut,
-} from 'firebase/auth';
-import {auth, db, getUserData} from '@/lib/firebase';
+  onAuthStateChanged, signOut as firebaseSignOut, User} from 'firebase/auth';
+import {auth as firebaseAuth, db, getUserData} from '@/lib/firebase';
+import {Auth} from "firebase/auth";
 import {doc, getDoc} from 'firebase/firestore';
 
 interface AuthContextType {
@@ -16,7 +14,7 @@ interface AuthContextType {
   loading: boolean;
   userType: 'student' | 'teacher' | null;
   userClass: string | null;
-  signOut: () => void;
+  signOut: (auth:any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,7 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   userType: null,
   userClass: null,
-  signOut: () => {},
+  signOut: async (auth: any) => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -60,7 +58,7 @@ export default function AuthProvider({children}: AuthProviderProps) {
 
 
   useEffect(() => {
-    const unsubscribe = auth ? onAuthStateChanged(auth, async user => {
+    const unsubscribe = firebaseAuth ? onAuthStateChanged(firebaseAuth, async user => {
       if (!user) {
         setUser(null);
         setUserType(null);
@@ -76,11 +74,12 @@ export default function AuthProvider({children}: AuthProviderProps) {
     return () => unsubscribe();
   }, [router, fetchUserData]);
 
-  const signOutFunc = async () => {
-    if (auth) {
-      try {
-        await signOut(auth);
-        router.push('/login');
+  const signOutFunc = async (auth: any) => {
+      const authAux = getAuth();
+    if (authAux) {
+       try {
+        await firebaseSignOut(authAux);
+        await router.push('/login');
       } catch (error) {
         console.error('Error signing out:', error);
       }
