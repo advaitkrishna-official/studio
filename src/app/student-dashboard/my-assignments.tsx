@@ -68,22 +68,16 @@ const StudentAssignmentsPage = () => {
   useEffect(() => {
     const fetchAssignments = async () => {
       if (user?.uid) {
-        const studentDocRef = doc(db, 'students', user.uid);
-        const studentDocSnap = await getDoc(studentDocRef);
-        if (studentDocSnap.exists()) {
-          const studentData = studentDocSnap.data();
-          const currentClassId = studentData.classId;
-          const q = query(
-            collection(db, 'assignments'),
-            where('assignedTo.classId', '==', currentClassId)
-          );
-          const querySnapshot = await getDocs(q);
-          const assignmentsData = querySnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Assignment[];
-          setAssignments(assignmentsData);
-        }
+        const q = query(
+          collection(db, 'assignments'),
+          where('assignedTo.classId', '==', 'Grade 8') // Replace 'Grade 8' with dynamic class ID if needed
+        );
+        const querySnapshot = await getDocs(q);
+        const assignmentsData = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Assignment[];
+        setAssignments(assignmentsData);
       }
     };
 
@@ -100,11 +94,7 @@ const StudentAssignmentsPage = () => {
       user!.uid
     );
     const submissionSnap = await getDoc(submissionRef);
-    if (submissionSnap.exists()) {
-        setSubmission(submissionSnap.data() as Submission);
-      }else{
-        setSubmission({status: "Not Started"});
-      }
+    setSubmission(submissionSnap.data() as Submission);
     setMcqAnswers([]);
     setResponseText('');
   };
