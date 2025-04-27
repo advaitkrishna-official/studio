@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import {
@@ -29,11 +29,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";//
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
-import { CalendarIcon, ArrowLeft, ArrowRight } from "lucide-react";
+import { Calendar as CalendarIcon, ArrowLeft, ArrowRight } from "lucide-react";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { assignTask } from '@/ai/flows/assign-task'; // Import assignTask
 import { generateMCQ, GenerateMCQOutput } from '@/ai/flows/generate-mcq';
@@ -198,7 +198,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
           <CardDescription>Create and manage assignments for your class.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6">
-          <div className="grid gap-2">
+          
             <Label htmlFor="class">Select Class</Label>
             <Select onValueChange={setSelectedClass} defaultValue={selectedClass}>
               <SelectTrigger className="w-full">
@@ -210,9 +210,8 @@ const TeachersAssignmentHubPage: React.FC = () => {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <Button onClick={() => setIsCreateAssignmentOpen(true)}>Create New Assignment</Button>
+          
+            <Button onClick={() => setIsCreateAssignmentOpen(true)}>Create New Assignment</Button>
 
           {assignments.length > 0 ? (
             <Table>
@@ -263,8 +262,8 @@ const TeachersAssignmentHubPage: React.FC = () => {
                                 <div>
                                     <h4 className="text-lg font-semibold mt-4">MCQ Questions</h4>
                                     {selectedAssignment.mcqQuestions.map((question, index) => (
-                                        <div key={index} className="mb-4">
-                                            <p>{index + 1}. {question.question}</p>
+                                        <div key={index}>
+                                            <p className="font-bold">{index + 1}. {question.question}</p>
                                             <ul>
                                                 {question.options.map((option, i) => (
                                                     <li key={i}>{String.fromCharCode(65 + i)}. {option}</li>
@@ -290,8 +289,8 @@ const TeachersAssignmentHubPage: React.FC = () => {
                 <DialogDescription>Create an assignment for your selected class.</DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
+            
+                
                     <Label htmlFor="title">Title</Label>
                     <Input
                         id="title"
@@ -299,8 +298,8 @@ const TeachersAssignmentHubPage: React.FC = () => {
                         value={newAssignment.title}
                         onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })}
                     />
-                </div>
-                <div className="grid gap-2">
+                
+                
                     <Label htmlFor="description">Description</Label>
                     <Textarea
                         id="description"
@@ -308,8 +307,8 @@ const TeachersAssignmentHubPage: React.FC = () => {
                         value={newAssignment.description}
                         onChange={(e) => setNewAssignment({ ...newAssignment, description: e.target.value })}
                     />
-                </div>
-                <div className="grid gap-2">
+                
+                
                     <Label htmlFor="type">Type</Label>
                     <Select
                         onValueChange={(value) => setNewAssignment({ ...newAssignment, type: value as AssignmentType })}
@@ -325,9 +324,9 @@ const TeachersAssignmentHubPage: React.FC = () => {
                             <SelectItem value="Other">Other</SelectItem>
                         </SelectContent>
                     </Select>
-                </div>
+                
 
-                <div className="grid gap-2">
+                
                     <Label htmlFor="task-due-date">Due Date</Label>
                     <Input
                         id="task-due-date"
@@ -335,11 +334,12 @@ const TeachersAssignmentHubPage: React.FC = () => {
                         value={newTaskDueDate ? format(newTaskDueDate, "yyyy-MM-dd") : ""}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setNewTaskDueDate(new Date(e.target.value))}
                     />
-                </div>
-            </div>
+                
+            
+
         {newAssignment.type === 'MCQ' && (
-          <div className="relative">
-              <div className="grid gap-2 mb-4">
+          
+              
                 <Label htmlFor="mcqTopic">MCQ Topic</Label>
                 <Input
                   id="mcqTopic"
@@ -347,8 +347,8 @@ const TeachersAssignmentHubPage: React.FC = () => {
                   value={mcqTopic}
                   onChange={(e) => setMcqTopic(e.target.value)}
                 />
-              </div>
-              <div className="grid gap-2 mb-4">
+              
+              
                 <Label htmlFor="mcqNumQuestions">Number of Questions</Label>
                 <Input
                   id="mcqNumQuestions"
@@ -357,7 +357,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                   value={mcqNumQuestions.toString()}
                   onChange={(e) => setMcqNumQuestions(parseInt(e.target.value))}
                 />
-              </div>
+              
               <Button
                 variant="outline"
                 size="sm"
@@ -368,7 +368,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
               </Button>
               {generatingError && <p className="text-red-500">{generatingError}</p>}
               {generatedMCQs && generatedMCQs.questions && (
-                <div className="mt-4 relative">
+                
                   <Button
                     variant="ghost"
                     size="icon"
@@ -378,10 +378,10 @@ const TeachersAssignmentHubPage: React.FC = () => {
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
-                  <Card className="w-full h-48 overflow-hidden">
+                  <Card className="w-full h-auto overflow-hidden">
                     <CardContent className="flex items-center justify-center h-full">
                       {generatedMCQs.questions[currentCardIndex] ? (
-                        <div>
+                        
                           <p className="font-bold">{generatedMCQs.questions[currentCardIndex].question}</p>
                           <ul>
                             {generatedMCQs.questions[currentCardIndex].options.map((option, i) => (
@@ -389,7 +389,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                             ))}
                           </ul>
                           <p><strong>Correct Answer:</strong> {generatedMCQs.questions[currentCardIndex].correctAnswer}</p>
-                        </div>
+                        
                       ) : (
                         <p>No MCQs generated.</p>
                       )}
@@ -404,9 +404,9 @@ const TeachersAssignmentHubPage: React.FC = () => {
                   >
                     <ArrowRight className="h-4 w-4" />
                   </Button>
-                </div>
+                
               )}
-          </div>
+          
         )}
         <DialogFooter className="flex justify-end gap-4 mt-8 md:col-span-2">
           <Button type="button" variant="secondary" onClick={() => setIsCreateAssignmentOpen(false)}>
@@ -414,7 +414,6 @@ const TeachersAssignmentHubPage: React.FC = () => {
           </Button>
           <Button type="submit" onClick={handleCreateAssignment}>Create Assignment</Button>
         </DialogFooter>
-      </DialogContent>
       </Dialog>
     </div>
   );
