@@ -22,7 +22,6 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
-  Timestamp,
 } from 'firebase/firestore';
 import { useAuth } from "@/components/auth-provider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,7 +30,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
@@ -315,10 +313,10 @@ const TeachersAssignmentHubPage: React.FC = () => {
                   <SelectItem value="Test">Test</SelectItem>
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
-              </Select>
+            </Select>
             </div>
 
-             <div className="grid gap-2">
+            <div className="grid gap-2">
               <Label htmlFor="task-due-date">Due Date</Label>
               <Input
                 id="task-due-date"
