@@ -84,12 +84,13 @@ const StudentAssignmentsPage: React.FC = () => {
       if (user?.uid) {
         const q = query(
           collection(db, 'assignments'),
-          where('assignedTo.classId', '==', 'Grade 8') // Replace 'Grade 8' with dynamic class ID if needed
+          where('assignedTo.classId', '==', user?.class)
         );
         const querySnapshot = await getDocs(q);
         const assignmentsData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
+            dueDate: doc.data().dueDate ? (doc.data().dueDate instanceof Date ? doc.data().dueDate : doc.data().dueDate.toDate()) : null,
         })) as Assignment[];
         setAssignments(assignmentsData);
       }
