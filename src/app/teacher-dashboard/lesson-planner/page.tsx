@@ -308,21 +308,27 @@ const LessonPlannerPage = () => {
                   </BarChart>
                 </ResponsiveContainer>
 
-                {lessonPlanData.lessonPlan.map((item, index) => (
-                  <div key={index} className="mb-4 border p-4 rounded">
-                    <h3 className="text-lg font-semibold">Week {item.week}</h3>
-                    <p><strong>Topic:</strong> {item.topic}</p>
-                    <p><strong>Activities:</strong> {item.activities}</p>
-                    <p><strong>Teaching Methods:</strong> {item.teachingMethods}</p>
-                    <p><strong>Intended Outcomes:</strong> {item.intendedOutcomes}</p>
-                    <p><strong>Resources:</strong> {item.resources.join(', ')}</p>
-                    <p><strong>Assessment:</strong> {item.assessment}</p>
-                    <p><strong>Notes:</strong> {item.notes}</p>
-                    <Button className='mt-2' onClick={() => handleGenerateFlashcards(item.topic, index)}>
-                       Generate Flashcards
-                    </Button>
-                  </div>
-                ))}
+                <div className="mb-4 border p-4 rounded">
+                  <ScrollArea className="h-[400px] w-full rounded-md border">
+                  {lessonPlanData.lessonPlan.map((item, index) => (
+                    
+                      <div key={index} className="mb-4  p-4 rounded">
+                        <h3 className="text-lg font-semibold">Week {item.week}</h3>
+                        <p><strong>Topic:</strong> {item.topic}</p>
+                        <p><strong>Activities:</strong> {item.activities}</p>
+                        <p><strong>Teaching Methods:</strong> {item.teachingMethods}</p>
+                        <p><strong>Intended Outcomes:</strong> {item.intendedOutcomes}</p>
+                        <p><strong>Resources:</strong> {item.resources.join(', ')}</p>
+                        <p><strong>Assessment:</strong> {item.assessment}</p>
+                        <p><strong>Notes:</strong> {item.notes}</p>
+                        <Button className='mt-2' onClick={() => handleGenerateFlashcards(item.topic, index)}>
+                         Generate Flashcards
+                        </Button>
+                      </div>
+                    
+                  ))}
+                  </ScrollArea>
+                </div>
                 <Button onClick={handleSaveLessonPlan} disabled={isLoading}>
                   {isLoading ? "Saving Lesson Plan..." : "Save Lesson Plan"}
                 </Button>
@@ -410,6 +416,7 @@ const LessonPlannerPage = () => {
               <p>
                 <strong>Learning Objectives:</strong> {selectedLessonPlan.learningObjectives}
               </p>
+              <ScrollArea className="h-[400px] w-full rounded-md border">
               {selectedLessonPlan.lessonPlan && selectedLessonPlan.lessonPlan.map((item, index) => (
                 <div key={index} className="mb-4 border p-4 rounded">
                   <h3 className="text-lg font-semibold">Week {item.week}</h3>
@@ -422,6 +429,7 @@ const LessonPlannerPage = () => {
                   <p><strong>Notes:</strong> {item.notes}</p>
                 </div>
               ))}
+                </ScrollArea>
             </div>
           )}
           <DialogFooter>
