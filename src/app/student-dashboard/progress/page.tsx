@@ -27,7 +27,9 @@ import {cn} from '@/lib/utils';
 
 const ProgressPage = () => {
   const {user} = useAuth();
-  const [grades, setGrades] = useState([]);
+  const [grades, setGrades] = useState<{
+    id: string;
+  }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +41,7 @@ const ProgressPage = () => {
         if (user) {
           const gradesData = await getGrades(user.uid);
           setGrades(gradesData);
+
         }
       } catch (e: any) {
         setError(e.message || 'An error occurred while fetching grades.');

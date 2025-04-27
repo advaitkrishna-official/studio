@@ -55,7 +55,7 @@ interface Assignment {
   createdAt: any;
   mcqQuestions?: {
     question: string;
-    options: string[];
+    options: string[]; // Now options is an array of strings
     correctAnswer: string;
   }[];
 }
@@ -72,7 +72,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
     description: '',
     type: 'Written' as AssignmentType,
     dueDate: new Date(),
-    mcqQuestions: [] as { question: string; options: string[]; correctAnswer: string }[],
+    mcqQuestions: [] as { question: string; options: string[]; correctAnswer: string }[], // Properly typed
     assignedTo: {
       classId: '',
       studentIds: [] as string[],
@@ -231,12 +231,14 @@ const TeachersAssignmentHubPage: React.FC = () => {
                           setNewAssignment({ ...newAssignment, mcqQuestions: updatedQuestions });
                         }} />
                       </div>
-                      {['A', 'B', 'C', 'D'].map((optionKey) => (
-                        <div className="grid gap-1" key={optionKey}>
-                          <Label htmlFor={`option-${optionKey}-${index}`}>Option {optionKey}</Label>
-                          <Input id={`option-${optionKey}-${index}`} placeholder={`Enter option ${optionKey}`} value={mcq.options?.[optionKey] || ''} onChange={(e) => {
+                      {/* Correctly mapping 4 options */}
+                      {[0, 1, 2, 3].map((optionIndex) => (
+                        <div className="grid gap-1" key={optionIndex}>
+                          <Label htmlFor={`option-${optionIndex}-${index}`}>Option {String.fromCharCode(65 + optionIndex)}</Label>
+                          <Input id={`option-${optionIndex}-${index}`} placeholder={`Enter option ${String.fromCharCode(65 + optionIndex)}`} value={mcq.options[optionIndex] || ''} onChange={(e) => {
                             const updatedQuestions = [...newAssignment.mcqQuestions];
-                            const updatedOptions = { ...mcq.options, [optionKey]: e.target.value };
+                            const updatedOptions = [...(mcq.options || [])];
+                            updatedOptions[optionIndex] = e.target.value;
                             updatedQuestions[index] = { ...mcq, options: updatedOptions };
                             setNewAssignment({ ...newAssignment, mcqQuestions: updatedQuestions });
                           }} />
@@ -253,19 +255,19 @@ const TeachersAssignmentHubPage: React.FC = () => {
                             <SelectValue placeholder="Select correct answer" />
                           </SelectTrigger>
                           <SelectContent>
-                            {['A', 'B', 'C', 'D'].map((optionKey) => (
-                              <SelectItem value={optionKey} key={optionKey}>{optionKey}</SelectItem>
+                            {[0, 1, 2, 3].map((optionIndex) => (
+                              <SelectItem value={String.fromCharCode(65 + optionIndex)} key={optionIndex}>{String.fromCharCode(65 + optionIndex)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                     </CardContent>
-                  </Card>
+                  </Card>                      
                 ))}
                 <Button variant="outline" size="sm" onClick={() => {
                   setNewAssignment({
                     ...newAssignment,
-                    mcqQuestions: [...newAssignment.mcqQuestions, { question: '', options: {}, correctAnswer: '' }],
+                    mcqQuestions: [...newAssignment.mcqQuestions, { question: '', options: [], correctAnswer: '' }],
                   });
                 }}>+ Add Question</Button>
               </div>

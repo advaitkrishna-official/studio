@@ -1,27 +1,25 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";//
 import { format } from "date-fns";
-import { DayPicker } from "react-day-picker";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from "firebase/firestore";//
 import { useAuth } from "@/components/auth-provider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar as CalendarIcon } from "lucide-react";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Calendar as CalendarIcon, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { assignTask } from '@/ai/flows/assign-task'; // Import assignTask
-import { Progress } from "@/components/ui/progress"; // Import Progress
-import { X } from "lucide-react";
-
+import { Progress } from "@/components/ui/progress";
+const { toast } = useToast();
 
 interface ClassEvent {
   id: string;
@@ -246,7 +244,7 @@ const ClassCalendarPage = () => {
           {/* Class Selection Dropdown */}
           <div className="grid gap-2">
             <Label htmlFor="class">Select Class</Label>
-            <Select onValueChange={(value) => {setSelectedClass(value);setSelectedGrade("grade-" + value.split(" ")[1])}} defaultValue={userClass? userClass:undefined}>
+            <Select onValueChange={(value: string) => {setSelectedClass(value);setSelectedGrade("grade-" + value.split(" ")[1])}} defaultValue={userClass? userClass:undefined}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a class" />
               </SelectTrigger>
@@ -390,7 +388,7 @@ const ClassCalendarPage = () => {
                 id="task-due-date"
                 type="date"
                 value={newTaskDueDate ? format(newTaskDueDate, "yyyy-MM-dd") : ""}
-                onChange={(e) => setNewTaskDueDate(new Date(e.target.value))}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewTaskDueDate(new Date(e.target.value))}
               />
             </div>
           </div>

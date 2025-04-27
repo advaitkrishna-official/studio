@@ -28,24 +28,38 @@ import { Input } from '@/components/ui/input';
 
 type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other';
 
-interface Assignment {
+interface BaseAssignment {
   id: string;
   title: string;
   description: string;
-  type: AssignmentType;
   dueDate: any;
   assignedTo: {
     classId: string;
     studentIds: string[];
   };
   createdBy: string;
-  createdAt: any;
+    createdAt: any;
+}
+
+interface McqAssignment extends BaseAssignment {
+  type: 'MCQ';
+  mcqQuestions: {
+    question: string;
+    options: string[];
+    correctAnswer: string;
+  }[];
+}
+
+interface NonMcqAssignment extends BaseAssignment {
+    type: Exclude<AssignmentType, 'MCQ'>;
   mcqQuestions?: {
     question: string;
     options: string[];
     correctAnswer: string;
   }[];
 }
+
+type Assignment = McqAssignment | NonMcqAssignment;
 
 interface Submission {
   status: 'Not Started' | 'Submitted' | 'Overdue';
@@ -56,7 +70,7 @@ interface Submission {
   feedback?: string;
 }
 
-const StudentAssignmentsPage = () => {
+const StudentAssignmentsPage: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [submission, setSubmission] = useState<Submission | null>(null);
@@ -114,11 +128,17 @@ const StudentAssignmentsPage = () => {
       'submissions',
       user!.uid
     );
-    await setDoc(submissionRef, {
-      status: 'Submitted',
-      submittedAt: serverTimestamp(),
-      answers: mcqAnswers,
-    });
+      const submissionData: Submission = {
+          status: 'Submitted',
+          submittedAt: serverTimestamp(),
+      };
+      if (selectedAssignment.type === 'MCQ') {
+          submissionData.answers = mcqAnswers;
+      } else {
+          submissionData.responseText = responseText;
+      }
+
+      await setDoc(submissionRef, submissionData);
     setSubmission({ status: 'Submitted', submittedAt: serverTimestamp(), answers: mcqAnswers });
     setSelectedAssignment(null);
     toast({ title: 'Success', description: 'MCQ submitted successfully.' });
@@ -204,8 +224,8 @@ const StudentAssignmentsPage = () => {
                 <CardContent>
                   <Badge>{assignment.type}</Badge>
                   <p>Due: {assignment.dueDate.toDate().toLocaleString()}</p>
-                  <Button onClick={() => handleStartAssignment(assignment)}>
-                  {submission?.status === "Submitted" ? "Continue" : "Start"}
+                  <Button onClick={() => handleStartAssignment(assignment)} disabled={submission?.status === "Submitted"}>
+                      {submission?.status === "Submitted" ? "Continue" : "Start"}
                     </Button>
                 </CardContent>
               </Card>
