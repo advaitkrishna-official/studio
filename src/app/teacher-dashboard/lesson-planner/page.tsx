@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { db } from "@/lib/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -129,12 +129,12 @@ const LessonPlannerPage = () => {
   };
 
   const handleSaveLessonPlan = async () => {
-    if (!user) {
-      setError("User not logged in.");
+    if (!user || !lessonPlanData) {
+      setError("User not logged in or no lesson plan to save.");
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: "User not logged in.",
+                description: "User not logged in or no lesson plan to save.",
               });
       return;
     }
@@ -148,11 +148,11 @@ const LessonPlannerPage = () => {
         topics,
         startDate,
         endDate,
-        lessonTitle: lessonPlanData?.lessonTitle,
-        teachingMethods: lessonPlanData?.teachingMethods,
-        intendedOutcomes: lessonPlanData?.intendedOutcomes,
-        lessonPlan: lessonPlanData?.lessonPlan,
-        dateCreated: new Date(),
+        lessonTitle: lessonPlanData.lessonTitle,
+        teachingMethods: lessonPlanData.teachingMethods,
+        intendedOutcomes: lessonPlanData.intendedOutcomes,
+        lessonPlan: lessonPlanData.lessonPlan,
+        dateCreated: serverTimestamp(),
         status: "Draft",
         classId: selectedClass? selectedClass: undefined,
       });
@@ -284,7 +284,9 @@ const LessonPlannerPage = () => {
                     </Button>
                   </div>
                 ))}
-                <Button onClick={handleSaveLessonPlan}>Save Lesson Plan</Button>
+                <Button onClick={handleSaveLessonPlan} disabled={isLoading}>
+                  {isLoading ? "Saving Lesson Plan..." : "Save Lesson Plan"}
+                </Button>
                  {/* Render Flashcards if available */}
                 {flashcards.length > 0 && (
                   <div className="mt-4">
