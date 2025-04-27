@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent } from 'react';
 import {
   Card,
   CardContent,
@@ -8,9 +8,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import {
@@ -37,15 +37,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format } from 'date-fns';
 import { CalendarIcon } from "lucide-react";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { ChangeEvent } from 'react';
+import { assignTask } from '@/ai/flows/assign-task'; // Import assignTask
+import { GenerateMCQOutput } from '@/ai/flows/generate-mcq';
 
 type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other';
 
-interface Assignment {
+interface BaseAssignment {
   id: string;
   title: string;
   description: string;
-  type: AssignmentType;
   dueDate: any;
   assignedTo: {
     classId: string;
@@ -53,21 +53,45 @@ interface Assignment {
   };
   createdBy: string;
   createdAt: any;
-  mcqQuestions?: {
+}
+
+interface McqAssignment extends BaseAssignment {
+  type: 'MCQ';
+  mcqQuestions: {
     question: string;
-    options: string[]; // Now options is an array of strings
+    options: string[];
     correctAnswer: string;
   }[];
 }
 
+interface NonMcqAssignment extends BaseAssignment {
+    type: Exclude<AssignmentType, 'MCQ'>;
+  mcqQuestions?: {
+    question: string;
+    options: string[];
+    correctAnswer: string;
+  }[];
+}
+
+type Assignment = McqAssignment | NonMcqAssignment;
+
+interface Submission {
+  status: 'Not Started' | 'Submitted' | 'Overdue';
+  submittedAt?: any;
+  answers?: string[];
+  responseText?: string;
+  grade?: string;
+  feedback?: string;
+}
+
 const TeachersAssignmentHubPage: React.FC = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
-  const [selectedClass, setSelectedClass] = useState("");
+  const { user, userClass } = useAuth();
+  const [selectedClass, setSelectedClass] = useState(userClass || "");
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isCreateAssignmentOpen, setIsCreateAssignmentOpen] = useState(false);
-    const [newTaskDueDate, setNewTaskDueDate] = useState<Date | undefined>(new Date());
+  const [newTaskDueDate, setNewTaskDueDate] = useState<Date | undefined>(new Date());
 
   const [newAssignment, setNewAssignment] = useState({
     title: '',
@@ -95,7 +119,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
         const assignmentsData = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-          dueDate: doc.data().dueDate?.toDate(), // Convert to JavaScript Date object
+          dueDate: doc.data().dueDate ? (doc.data().dueDate instanceof Date ? doc.data().dueDate : doc.data().dueDate.toDate()) : null,
         })) as Assignment[];
         setAssignments(assignmentsData);
       });
@@ -172,7 +196,13 @@ const TeachersAssignmentHubPage: React.FC = () => {
                   <TableRow key={assignment.id}>
                     <TableCell>{assignment.title}</TableCell>
                     <TableCell><Badge>{assignment.type}</Badge></TableCell>
-                    <TableCell>{assignment.dueDate?.toDate().toLocaleString()}</TableCell>
+                    <TableCell>
+                      {assignment.dueDate ? (
+                        (assignment.dueDate instanceof Date ? assignment.dueDate : assignment.dueDate.toDate()).toLocaleString()
+                      ) : (
+                        'No due date'
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" onClick={() => handleViewDetails(assignment)}>View Details</Button>
                     </TableCell>
@@ -319,7 +349,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                 <Button variant="outline" size="sm" onClick={() => {
                   setNewAssignment({
                     ...newAssignment,
-                    mcqQuestions: [...newAssignment.mcqQuestions, { question: '', options: [], correctAnswer: '' }],
+                    mcqQuestions: [...newAssignment.mcqQuestions, { question: '', options: ['', '', '', ''], correctAnswer: '' }],
                   });
                 }}>+ Add Question</Button>
               </div>
