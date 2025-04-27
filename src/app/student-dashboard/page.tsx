@@ -1,279 +1,277 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from "react";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import {useEffect, useState} from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {Icons} from '@/components/icons';
 import {useAuth} from '@/components/auth-provider';
 import {cn} from "@/lib/utils";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useRouter } from 'next/navigation';
-import {db} from '@/lib/firebase';
-import {collection, query, where, onSnapshot} from "firebase/firestore";
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,} from "@/components/ui/dropdown-menu"
-import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar"
+import {Input} from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {useRouter} from 'next/navigation';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  DocumentData,
+} from "firebase/firestore";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
+import {format} from 'date-fns';
+import {Badge} from "@/components/ui/badge";
 
+interface ClassEvent {
+  id: string;
+  title: string;
+  description?: string;
+  type: "task" | "event";
+  date: Date;
+}
 
-export default function StudentDashboard() {
+const ClientComponent = () => {
   const {user, userType, userClass, signOut} = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-    const [categories, setCategories] = useState([
-        { name: 'Data Science', icon: 'DataScience' },
-        { name: 'Programming', icon: 'Programming' },
-        { name: 'Machine Learning', icon: 'MachineLearning' },
-        { name: 'Mathematics', icon: 'Mathematics' },
-    ]);
+  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState([
+    {name: 'Data Science', icon: 'DataScience', link: '/student-dashboard/data-science'},
+    {name: 'Programming', icon: 'Programming', link: '/student-dashboard/programming'},
+    {name: 'Machine Learning', icon: 'MachineLearning', link: '/student-dashboard/machine-learning'},
+    {name: 'Mathematics', icon: 'Mathematics', link: '#'},
+  ]);
   const router = useRouter();
-    const [tasks, setTasks] = useState<any[]>([]);
-    const [loadingTasks, setLoadingTasks] = useState(true);
-    const [errorTasks, setErrorTasks] = useState<string | null>(null);
-
+  const [tasks, setTasks] = useState<ClassEvent[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+  const [errorTasks, setErrorTasks] = useState<string | null>(null);
 
   const [recommendedCourses, setRecommendedCourses] = useState([
-    { title: 'Introduction to Python', instructor: 'Rachel Andringari', lessons: 4, duration: '51 min', image: 'https://picsum.photos/300/200', youtubeLink: 'https://www.youtube.com/embed/N4mEzFDjQtA' },
-    { title: 'Online Lessons with Katharina', instructor: 'Katharina', lessons: 6, duration: '8 lin', image: 'https://picsum.photos/301/200', youtubeLink: 'https://www.youtube.com/embed/VNlcrsRowlo' },
-    { title: 'Introduction to Pract-1s Totaing', instructor: 'Joalna Radkart', lessons: 4, duration: '5 min', image: 'https://picsum.photos/302/200', youtubeLink: 'https://www.youtube.com/embed/jtsIJNbNHfg' },
-    { title: 'Online Laxext', instructor: 'Lee Huang-Lian', lessons: 4, duration: '30 min', image: 'https://picsum.photos/303/200', youtubeLink: 'https://www.youtube.com/embed/H-dQ3zR1GDU' },
-    ]);
+    {
+      title: 'Introduction to Python',
+      instructor: 'Rachel Andringari',
+      lessons: 4,
+      duration: '51 min',
+      image: 'https://picsum.photos/300/200',
+      youtubeLink: 'https://www.youtube.com/embed/N4mEzFDjQtA'
+    },
+    {
+      title: 'Online Lessons with Katharina',
+      instructor: 'Katharina',
+      lessons: 6,
+      duration: '8 lin',
+      image: 'https://picsum.photos/301/200',
+      youtubeLink: 'https://www.youtube.com/embed/VNlcrsRowlo'
+    },
+    {
+      title: 'Introduction to Pract-1s Totaing',
+      instructor: 'Joalna Radkart',
+      lessons: 4,
+      duration: '5 min',
+      image: 'https://picsum.photos/302/200',
+      youtubeLink: 'https://www.youtube.com/embed/jtsIJNbNHfg'
+    },
+    {
+      title: 'Online Laxext',
+      instructor: 'Lee Huang-Lian',
+      lessons: 4,
+      duration: '30 min',
+      image: 'https://picsum.photos/303/200',
+      youtubeLink: 'https://www.youtube.com/embed/H-dQ3zR1GDU'
+    },
+  ]);
 
-    const handleSearch = () => {
-        router.push(`/student-dashboard?search=${searchQuery}`);
+  const handleSearch = () => {
+    router.push(`/student-dashboard?search=${searchQuery}`);
 
-    };
-
-    const handleCategoryClick = (categoryName: string) => {
-      router.push(`/student-dashboard/${categoryName.toLowerCase().replace(' ', '-')}`);
   };
 
-    const handleBrowseCourses = () => {
-        router.push(`/student-dashboard?browse=all`);
-    };
+  const handleCategoryClick = (categoryName: string) => {
+    const category = categories.find(cat => cat.name === categoryName);
+    if (category && category.link) {
+      router.push(category.link);
+    } else {
+      // Handle the case where the link is not defined, perhaps show an error message
+      console.error(`Link not defined for category: ${categoryName}`);
+    }
+  };
 
-    useEffect(() => {
-        const fetchTasks = async () => {
-            setLoadingTasks(true);
-            setErrorTasks(null);
-            try {
-                if (!user || !userClass) {
-                    setErrorTasks("User not logged in or class not defined.");
-                    return;
-                }
 
-                const tasksCollection = collection(db, 'classes', userClass, 'events');
-                const q = query(tasksCollection, where("type", "==", "task"));
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      router.push("/login");
+      return;
+    }
 
-                const unsubscribe = onSnapshot(q, (snapshot) => {
-                    const tasksData = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data(),
-                    })) as any[];
-                    setTasks(tasksData);
-                });
+    setLoadingTasks(true);
+    setErrorTasks(null);
 
-                return () => unsubscribe();
-            } catch (e: any) {
-                setErrorTasks(e.message || "An error occurred while fetching tasks.");
-            } finally {
-                setLoadingTasks(false);
-            }
-        };
+    if (user && userClass) {
+      const tasksCollection = collection(db, 'classes', userClass, 'events');
+      const q = query(tasksCollection, where("type", "==", "task"));
 
-        fetchTasks();
-    }, [user, userClass]);
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const tasksData = snapshot.docs.map(doc => {
+          const raw = doc.data() as DocumentData;
+          return {
+            id: doc.id,
+            title: raw.title,
+            description: raw.description,
+            type: raw.type,
+            date: raw.date.toDate(),
+          } as ClassEvent;
+        });
+        setTasks(tasksData);
+        setLoadingTasks(false);
+      }, (error) => {
+        setErrorTasks(error.message || "An error occurred while fetching tasks.");
+        setLoadingTasks(false);
+      });
+
+      return () => unsubscribe();
+    } else {
+      setErrorTasks("User not logged in or class not defined.");
+      setLoadingTasks(false);
+    }
+  }, [user, userClass, router]);
+
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8">
-      {/* Top Section */}
-      <div className="flex flex-col md:flex-row items-center justify-between mb-6">
-        {/* Left: Title and AI Image */}
-        <div className="md:w-1/2">
-          <h1 className="text-3xl font-bold mb-2">Learn with AI</h1>
-          <p className="text-muted-foreground mb-4">Explore our courses and get help from the AI tutor.</p>
-        </div>
-                <DropdownMenu>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-3xl font-bold">Student Dashboard</h1>
+        <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
               <span className="sr-only">Open user menu</span>
               <Avatar className="h-8 w-8">
-                <AvatarImage src="https://github.com/shadcn.png" alt="Shadcn" />
+                <AvatarImage src="https://github.com/shadcn.png" alt="Shadcn"/>
                 <AvatarFallback>SC</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem>
-                <Button variant="secondary" onClick={signOut} className="w-full h-full block">
-                  Log Out
-                </Button>
+              <Button variant="secondary" onClick={signOut} className="w-full h-full block">
+                Log Out
+              </Button>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        {/* Right: Image */}
-        {/*<div className="md:w-1/2 flex justify-center">
-          <img src="https://picsum.photos/400/300" alt="AI Learning" className="rounded-lg shadow-md" />
-        </div>*/}
       </div>
 
-      {/* Search and Categories */}
-
-          {/* Assigned Tasks */}
-            <div className="mb-8">
-                <h2 className="text-2xl font-bold tracking-tight mb-4">Assigned Tasks</h2>
-                {loadingTasks ? (
-                    <p>Loading tasks...</p>
-                ) : errorTasks ? (
-                    <p className="text-red-500">{errorTasks}</p>
-                ) : tasks.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {tasks.map((task) => (
-                            <Card key={task.id}>
-                                <CardHeader>
-                                    <CardTitle>{task.title}</CardTitle>
-                                    <CardDescription>{task.description}</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-sm text-muted-foreground">Due Date: {task.date}</p>
-                                    {/* Add more details or actions here */}
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                ) : (
-                    <p>No tasks assigned yet.</p>
-                )}
-            </div>
-
-      {/* Grid of Features (adjust as needed) */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Flashcard Generator */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Flashcard Generator</CardTitle>
-            <CardDescription>Create flashcards based on a topic.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/student-dashboard/flashcards">
-              <Button variant="secondary">
-                Get Started <Icons.arrowRight className="ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        {/* MCQ Generator */}
-        <Card>
-          <CardHeader>
-            <CardTitle>MCQ Generator</CardTitle>
-            <CardDescription>Generate Multiple Choice Questions on a topic.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/student-dashboard/mcq">
-              <Button variant="secondary">
-                Get Started <Icons.arrowRight className="ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        {/* Long Answer Question Generator */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Long Answer Question Generator</CardTitle>
-            <CardDescription>Generate long answer questions and key points.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/student-dashboard/long-answer">
-              <Button variant="secondary">
-                Get Started <Icons.arrowRight className="ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        {/* Essay Feedback */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Essay Feedback</CardTitle>
-            <CardDescription>Get detailed feedback on your essays.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/student-dashboard/essay-feedback">
-              <Button variant="secondary">
-                Get Started <Icons.arrowRight className="ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        {/* Progress Tracker */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Progress Tracker</CardTitle>
-            <CardDescription>Visually track your progress through different topics.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/student-dashboard/progress">
-              <Button variant="secondary">
-                Get Started <Icons.arrowRight className="ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        {/* Personalized Learning Path */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Personalized Learning Path</CardTitle>
-            <CardDescription>Get a personalized learning path based on your performance.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/student-dashboard/learning-path">
-              <Button variant="secondary">
-                Get Started <Icons.arrowRight className="ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+      {/* Assigned Tasks */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold tracking-tight mb-4">Assigned Tasks</h2>
+        {loadingTasks ? (
+          <p>Loading tasks...</p>
+        ) : errorTasks ? (
+          <p className="text-red-500">{errorTasks}</p>
+        ) : tasks.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tasks.map((task) => (
+              <Card key={task.id}>
+                <CardHeader>
+                  <CardTitle>{task.title}</CardTitle>
+                  <CardDescription>{task.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">Due Date: {format(task.date, "dd/MM/yyyy")}</p>
+                  {/* Add more details or actions here */}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <p>No tasks assigned yet.</p>
+        )}
       </div>
-                  {/* Recommended Courses */}
-            <div className="mb-8">
-                <h2 className="text-2xl font-bold tracking-tight mb-4">Recommended for You</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {recommendedCourses.map((course, index) => (
-                        <Card key={index}>
-                            <CardHeader>
-                                <CardTitle>{course.title}</CardTitle>
-                                <img src={course.image} alt={course.title} className="w-full h-32 object-cover rounded-md mb-2" />
-                                <CardDescription>By {course.instructor}</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-sm text-muted-foreground">
-                                    {course.lessons} lessons, {course.duration}
-                                </p>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="secondary">Watch Video</Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-[425px]">
-                                  <iframe
-                                    width="100%"
-                                    height="315"
-                                    src={course.youtubeLink}
-                                    title="YouTube video player"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                  ></iframe>
-                                </DialogContent>
-                              </Dialog>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            </div>
+
+      {/* Course Categories */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold tracking-tight mb-4">Explore Subjects</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {categories.map((category) => (
+            <Card key={category.name}
+                  className="cursor-pointer hover:shadow-md transition-shadow duration-300">
+              <CardContent className="flex flex-col items-start">
+                {category.icon && <Icons[category.icon] className="h-6 w-6 mb-2 text-primary"/>}
+                <h3 className="font-semibold">{category.name}</h3>
+                <Button variant="secondary" size="sm" onClick={() => handleCategoryClick(category.name)}>
+                  Explore
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Recommended Courses */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold tracking-tight mb-4">Recommended for You</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {recommendedCourses.map((course, index) => (
+            <Card key={index}>
+              <CardHeader>
+                <CardTitle>{course.title}</CardTitle>
+                <img src={course.image} alt={course.title} className="w-full h-32 object-cover rounded-md mb-2"/>
+                <CardDescription>By {course.instructor}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  {course.lessons} lessons, {course.duration}
+                </p>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="secondary">Watch Video</Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <iframe
+                      width="100%"
+                      height="315"
+                      src={course.youtubeLink}
+                      title="YouTube video player"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
+                  </DialogContent>
+                </Dialog>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
+export default function Home() {
+  return <ClientComponent/>;
+}
 
