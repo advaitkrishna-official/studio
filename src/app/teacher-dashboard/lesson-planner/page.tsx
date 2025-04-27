@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, doc, setDoc, serverTimestamp, query, getDocs, where } from "firebase/firestore";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -16,6 +16,8 @@ import { useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { generateFlashcards } from '@/ai/flows/generate-flashcards';
 import { generateLessonPlan, GenerateLessonPlanOutput } from '@/ai/flows/generate-lesson-plan';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Calendar as CalendarIcon } from "lucide-react";
 
 interface LessonPlanItem {
   week: number;
@@ -60,8 +62,40 @@ const LessonPlannerPage = () => {
   const subjectOptions = ['Math', 'Science', 'History', 'English'];
   const gradeLevelOptions = ['Grade 4', 'Grade 6', 'Grade 8'];
   const router = useRouter();
+  const [openViewPlans, setOpenViewPlans] = useState(false);
+  const [userLessonPlans, setUserLessonPlans] = useState<any[]>([]); // State to store user's lesson plans
+  const [selectedLessonPlan, setSelectedLessonPlan] = useState<any | null>(null);
 
 
+  useEffect(() => {
+    const fetchUserLessonPlans = async () => {
+      if (user) {
+        const lessonPlansCollection = collection(db, `teachers/${user.uid}/lessonPlans`);
+        const q = query(lessonPlansCollection);
+        try {
+          const querySnapshot = await getDocs(q);
+          const plans = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setUserLessonPlans(plans);
+        } catch (e: any) {
+          setError(e.message || "An error occurred while fetching lesson plans.");
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: e.message || "An error occurred while fetching lesson plans.",
+          });
+        }
+      }
+    };
+
+    fetchUserLessonPlans();
+  }, [user]);
+
+  const handleViewLessonPlan = (plan: any) => {
+    setSelectedLessonPlan(plan);
+  };
   const handleGenerateFlashcards = async (topic: string, index: number) => {
     try {
       const aiGeneratedFlashcards = await generateFlashcards({ topic, numCards: 5, grade: selectedGrade });
@@ -249,6 +283,10 @@ const LessonPlannerPage = () => {
           <Button onClick={handleGenerateLessonPlan} disabled={isLoading}>
             {isLoading ? "Generating Lesson Plan..." : "Generate Lesson Plan"}
           </Button>
+          <Button variant="secondary" onClick={() => setOpenViewPlans(true)}>
+            <CalendarIcon className="mr-2 h-4 w-4" /> View Saved Lesson Plans
+          </Button>
+
           {error && <p className="text-red-500">{error}</p>}
           {lessonPlanData && (
             <div className="grid gap-2">
@@ -309,6 +347,87 @@ const LessonPlannerPage = () => {
           )}
         </CardContent>
       </Card>
+      <Dialog open={openViewPlans} onOpenChange={setOpenViewPlans}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Your Saved Lesson Plans</DialogTitle>
+            <DialogDescription>
+              View and manage your saved lesson plans.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            {userLessonPlans.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {userLessonPlans.map((plan) => (
+                  <Card key={plan.id} className="border p-4 rounded">
+                    <CardHeader>
+                      <CardTitle>{plan.lessonTitle}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        Subject: {plan.subject}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Grade Level: {plan.gradeLevel}
+                      </p>
+                      <Button variant="secondary" onClick={() => handleViewLessonPlan(plan)}>
+                        View Details
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <p>No lesson plans saved yet.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setOpenViewPlans(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={selectedLessonPlan !== null} onOpenChange={() => setSelectedLessonPlan(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{selectedLessonPlan?.lessonTitle}</DialogTitle>
+            <DialogDescription>
+              View details of the selected lesson plan.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedLessonPlan && (
+            <div className="grid gap-4">
+              <p>
+                <strong>Subject:</strong> {selectedLessonPlan.subject}
+              </p>
+              <p>
+                <strong>Grade Level:</strong> {selectedLessonPlan.gradeLevel}
+              </p>
+              <p>
+                <strong>Learning Objectives:</strong> {selectedLessonPlan.learningObjectives}
+              </p>
+              {selectedLessonPlan.lessonPlan && selectedLessonPlan.lessonPlan.map((item, index) => (
+                <div key={index} className="mb-4 border p-4 rounded">
+                  <h3 className="text-lg font-semibold">Week {item.week}</h3>
+                  <p><strong>Topic:</strong> {item.topic}</p>
+                  <p><strong>Activities:</strong> {item.activities}</p>
+                  <p><strong>Teaching Methods:</strong> {item.teachingMethods}</p>
+                  <p><strong>Intended Outcomes:</strong> {item.intendedOutcomes}</p>
+                  <p><strong>Resources:</strong> {item.resources.join(', ')}</p>
+                  <p><strong>Assessment:</strong> {item.assessment}</p>
+                  <p><strong>Notes:</strong> {item.notes}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setSelectedLessonPlan(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
