@@ -18,6 +18,7 @@ import { generateFlashcards } from '@/ai/flows/generate-flashcards';
 import { generateLessonPlan, GenerateLessonPlanOutput } from '@/ai/flows/generate-lesson-plan';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as CalendarIcon } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface LessonPlanItem {
   week: number;
@@ -355,6 +356,7 @@ const LessonPlannerPage = () => {
               View and manage your saved lesson plans.
             </DialogDescription>
           </DialogHeader>
+          <ScrollArea className="h-[400px] w-full rounded-md border">
           <div className="grid gap-4">
             {userLessonPlans.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -381,6 +383,7 @@ const LessonPlannerPage = () => {
               <p>No lesson plans saved yet.</p>
             )}
           </div>
+          </ScrollArea>
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setOpenViewPlans(false)}>
               Close
