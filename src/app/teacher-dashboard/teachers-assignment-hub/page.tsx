@@ -22,8 +22,7 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
-  getDocs,
-  updateDoc,
+  Timestamp,
 } from 'firebase/firestore';
 import { useAuth } from '@/components/auth-provider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -36,8 +35,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon } from "lucide-react";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { ChangeEvent } from 'react';
 
 type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other';
 
@@ -67,6 +67,8 @@ const TeachersAssignmentHubPage: React.FC = () => {
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isCreateAssignmentOpen, setIsCreateAssignmentOpen] = useState(false);
+    const [newTaskDueDate, setNewTaskDueDate] = useState<Date | undefined>(new Date());
+
   const [newAssignment, setNewAssignment] = useState({
     title: '',
     description: '',
@@ -93,6 +95,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
         const assignmentsData = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
+          dueDate: doc.data().dueDate?.toDate(), // Convert to JavaScript Date object
         })) as Assignment[];
         setAssignments(assignmentsData);
       });
@@ -109,7 +112,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
         title: newAssignment.title,
         description: newAssignment.description,
         type: newAssignment.type,
-        dueDate: serverTimestamp(),
+        dueDate: newTaskDueDate,
         mcqQuestions: newAssignment.mcqQuestions,
         assignedTo: {
           classId: selectedClass,
@@ -251,6 +254,16 @@ const TeachersAssignmentHubPage: React.FC = () => {
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+             <div className="grid gap-2">
+              <Label htmlFor="task-due-date">Due Date</Label>
+              <Input
+                id="task-due-date"
+                type="date"
+                value={newTaskDueDate ? format(newTaskDueDate, "yyyy-MM-dd") : ""}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewTaskDueDate(new Date(e.target.value))}
+              />
             </div>
 
             {/* MCQ Builder - Conditionally Rendered */}
