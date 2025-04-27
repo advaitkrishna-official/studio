@@ -13,6 +13,7 @@ import {z} from 'genkit';
 const GenerateFlashcardsInputSchema = z.object({
   topic: z.string().describe('The topic for which to generate flashcards.'),
   numCards: z.number().min(1).max(20).default(10).describe('The number of flashcards to generate.'),
+  grade: z.string().describe('The grade of the student.').nonempty(),
 });
 export type GenerateFlashcardsInput = z.infer<typeof GenerateFlashcardsInputSchema>;
 
@@ -37,6 +38,7 @@ const prompt = ai.definePrompt({
     schema: z.object({
       topic: z.string().describe('The topic for which to generate flashcards.'),
       numCards: z.number().describe('The number of flashcards to generate.'),
+      context: z.string().describe('The context for generating flashcards.'),
     }),
   },
   output: {
@@ -44,11 +46,14 @@ const prompt = ai.definePrompt({
       flashcards: z.array(FlashcardSchema).describe('An array of flashcards generated for the topic.'),
     }),
   },
-  prompt: `You are an AI flashcard generator. Generate a set of flashcards for the given topic.
+  prompt: `You are an AI flashcard generator. Generate a set of flashcards for the given topic based on the context provided.
 
-Topic: {{{topic}}}
+  <CODE_BLOCK>
+  Context:\n
+  {{{context}}}\n
+  Topic: {{{topic}}}\n
+  </CODE_BLOCK>
 Number of flashcards: {{{numCards}}}
-
 Each flashcard should have a clear question or term on the front and a concise answer or definition on the back.
 Ensure that the flashcards are informative and helpful for studying the topic. Return a JSON array of flashcards.
 
@@ -79,7 +84,36 @@ const generateFlashcardsFlow = ai.defineFlow<
     outputSchema: GenerateFlashcardsOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
+    let context: string = '';
+
+    switch (input.grade) {
+      case 'grade-8':
+        context = `Grade 8 Subjects:
+      - Mathematics: Algebra, Geometry, Data Handling
+      - Science: Physics (Forces, Motion), Chemistry (Elements, Compounds), Biology (Cells, Systems)
+      - English: Literature, Grammar
+      - History: Modern World History
+    `;
+        break;
+      case 'grade-6':
+        context = `Grade 6 Subjects:
+      - Mathematics: Fractions, Decimals, Ratios
+      - Science: Simple Machines, Living Things
+      - English: Reading Comprehension, Creative Writing
+      - Geography: Continents and Oceans
+    `;
+        break;
+      case 'grade-4':
+        context = `Grade 4 Subjects:
+      - Mathematics: Addition, Subtraction, Introduction to Multiplication
+      - Science: Animals, Plants, Environment
+      - English: Vocabulary Building, Sentence Formation
+      - Social Studies: Communities and Citizenship
+    `;
+        break;
+      default: context = `The student is in an unspecified grade, please provide answer based on the best information you know.`;
+    }
+    const {output} = await prompt({...input, context});
     return {
       flashcards: output!.flashcards,
       progress: `Generated ${input.numCards} flashcards on the topic of ${input.topic}.`,

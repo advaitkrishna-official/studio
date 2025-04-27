@@ -19,6 +19,7 @@ const GenerateLessonPlanInputSchema = z.object({
   startDate: z.string().describe('The start date of the lesson plan.'),
   endDate: z.string().describe('The end date of the lesson plan.'),
   classId: z.string().describe('The ID of the class for the lesson plan.'),
+  grade: z.string().describe('The grade of the student.').nonempty(),
 });
 export type GenerateLessonPlanInput = z.infer<typeof GenerateLessonPlanInputSchema>;
 
@@ -57,6 +58,7 @@ const prompt = ai.definePrompt({
       startDate: z.string().describe('The start date of the lesson plan.'),
       endDate: z.string().describe('The end date of the lesson plan.'),
       classId: z.string().describe('The ID of the class for the lesson plan.'),
+      context: z.string().describe('The context for generating lesson plan questions.'),
     }),
   },
   output: {
@@ -71,15 +73,19 @@ const prompt = ai.definePrompt({
   prompt: `You are an AI assistant designed to generate detailed lesson plans on a given topic.
   You should generate a structured, detailed, and editable lesson plan tailored to the teacher's input, such as subject, grade level, learning objectives, topics to be covered, and timeframe.
   This output should include a clear lesson title, defined learning objectives, and a timeline outlining topics, activities, and intended outcomes.
+  The relevant course material is given as context.
+
+  <CODE_BLOCK>
+  Context:\n  {{{context}}}\n  </CODE_BLOCK>
   It should also suggest teaching methods—such as visual aids, group activities, or quizzes—based on the content and student needs.
   Recommend relevant resources, including PDFs, videos, flashcards, and AI-generated MCQs, all linked or embedded within the plan.
   Include an assessment section with scheduled checkpoints for quizzes or evaluations.
   The output MUST be valid JSON format, and the ENTIRE response should be enclosed within a valid JSON structure.
 
-  Subject: {{{subject}}}
-  Grade Level: {{{gradeLevel}}}
-  Learning Objectives: {{{learningObjectives}}}
-  Topics to be covered: {{{topics}}}
+  Subject: <CODE_BLOCK>{{{subject}}}</CODE_BLOCK>
+  Grade Level: <CODE_BLOCK>{{{gradeLevel}}}</CODE_BLOCK>
+  Learning Objectives: <CODE_BLOCK>{{{learningObjectives}}}</CODE_BLOCK>
+  Topics to be covered: <CODE_BLOCK>{{{topics}}}</CODE_BLOCK>
   Timeframe: From {{{startDate}}} to {{{endDate}}}
   Class: {{{classId}}}
   
@@ -97,6 +103,37 @@ const generateLessonPlanFlow = ai.defineFlow<
   inputSchema: GenerateLessonPlanInputSchema,
   outputSchema: GenerateLessonPlanOutputSchema,
 }, async input => {
-  const {output} = await prompt(input);
+    let context: string = '';
+  
+    switch (input.grade) {
+      case 'grade-8':
+        context = `Grade 8 Subjects:
+        - Mathematics: Algebra, Geometry, Data Handling
+        - Science: Physics (Forces, Motion), Chemistry (Elements, Compounds), Biology (Cells, Systems)
+        - English: Literature, Grammar
+        - History: Modern World History
+      `;
+        break;
+      case 'grade-6':
+        context = `Grade 6 Subjects:
+        - Mathematics: Fractions, Decimals, Ratios
+        - Science: Simple Machines, Living Things
+        - English: Reading Comprehension, Creative Writing
+        - Geography: Continents and Oceans
+      `;
+        break;
+      case 'grade-4':
+        context =`Grade 4 Subjects:
+        - Mathematics: Addition, Subtraction, Introduction to Multiplication
+        - Science: Animals, Plants, Environment
+        - English: Vocabulary Building, Sentence Formation
+        - Social Studies: Communities and Citizenship
+      `;
+        break;
+      default:
+          context = `The student is in an unspecified grade, please provide answer based on the best information you know.`;
+        break;
+    }
+  const {output} = await prompt({...input, context});
   return output!;
 });

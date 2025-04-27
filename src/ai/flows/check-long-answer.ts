@@ -15,6 +15,7 @@ const CheckLongAnswerInputSchema = z.object({
   question: z.string().describe('The long answer question.'),
   studentAnswer: z.string().describe('The student\'s answer to the question.'),
   keyPoints: z.array(z.string()).describe('The key points that should be included in the answer.'),
+  grade: z.string().describe('The grade of the student.').nonempty(),
 });
 export type CheckLongAnswerInput = z.infer<typeof CheckLongAnswerInputSchema>;
 
@@ -36,6 +37,7 @@ const prompt = ai.definePrompt({
       question: z.string().describe('The long answer question.'),
       studentAnswer: z.string().describe('The student\'s answer to the question.'),
       keyPoints: z.array(z.string()).describe('The key points that should be included in the answer.'),
+      context: z.string().describe('The context for answering the question.'),
     }),
   },
   output: {
@@ -46,14 +48,20 @@ const prompt = ai.definePrompt({
     }),
   },
   prompt: `You are an AI tutor specializing in checking long answer questions.
+  Your task is to provide answers based on the context provided.
+  The relevant course material is given as context.
 
-You will be given a question, the student's answer, and the key points that should be included in the answer.
-You will provide a detailed feedback on the student's answer, including whether the answer is correct, a correct answer, areas for improvement, and mistakes.
+  <CODE_BLOCK>
+  Context:
+  {{{context}}}
+  </CODE_BLOCK>
 
-Question: {{{question}}}
-Student's Answer: {{{studentAnswer}}}
-Key Points: {{{keyPoints}}}
-
+  <CODE_BLOCK>
+  Question: {{{question}}}
+  Student's Answer: {{{studentAnswer}}}
+  Key Points: {{{keyPoints}}}
+  </CODE_BLOCK>
+  
 Provide the output in JSON format.
 `,
 });
@@ -66,6 +74,37 @@ const checkLongAnswerFlow = ai.defineFlow<
   inputSchema: CheckLongAnswerInputSchema,
   outputSchema: CheckLongAnswerOutputSchema,
 }, async input => {
-  const {output} = await prompt(input);
+  let context: string = '';
+
+  switch (input.grade) {
+    case 'grade-8':
+      context = `Grade 8 Subjects:
+      - Mathematics: Algebra, Geometry, Data Handling
+      - Science: Physics (Forces, Motion), Chemistry (Elements, Compounds), Biology (Cells, Systems)
+      - English: Literature, Grammar
+      - History: Modern World History
+    `;
+      break;
+    case 'grade-6':
+      context = `Grade 6 Subjects:
+      - Mathematics: Fractions, Decimals, Ratios
+      - Science: Simple Machines, Living Things
+      - English: Reading Comprehension, Creative Writing
+      - Geography: Continents and Oceans
+    `;
+      break;
+    case 'grade-4':
+      context = `Grade 4 Subjects:
+      - Mathematics: Addition, Subtraction, Introduction to Multiplication
+      - Science: Animals, Plants, Environment
+      - English: Vocabulary Building, Sentence Formation
+      - Social Studies: Communities and Citizenship
+    `;
+      break;
+    default:
+      context = `The student is in an unspecified grade, please provide answer based on the best information you know.`;
+      break;
+  }
+  const {output} = await prompt({...input, context});
   return output!;
 });

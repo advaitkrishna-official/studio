@@ -12,6 +12,14 @@ import { generateMcqExplanation } from "@/ai/flows/generate-mcq-explanation";
 import { useAuth } from "@/components/auth-provider";
 import { saveGrade, getGrades } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 
 const MCQPage = () => {
   const [topic, setTopic] = useState("");
@@ -26,12 +34,20 @@ const MCQPage = () => {
   const [quizScore, setQuizScore] = useState(0);
   const { toast } = useToast();
     const [totalScore, setTotalScore] = useState<number | null>(null);
+    const [selectedGrade, setSelectedGrade] = useState<string>("grade-8"); // Default grade
+
+    type Grade = {
+      id: string;
+      score: number;
+    }
 
     useEffect(() => {
         if (user) {
-            getGrades(user.uid).then(grades => {
-                const sum = grades.reduce((acc, grade) => acc + grade.score, 0);
-                setTotalScore(sum);
+            getGrades(user.uid).then(gradesData => {
+                const grades = gradesData as Grade[];
+                if (grades.length > 0) {
+                    setTotalScore(grades.reduce((acc, grade) => acc + grade.score, 0));
+                }
             }).catch(e => {
                 console.error("Error fetching grades:", e);
                 setError(e.message || "An error occurred while fetching grades.");
@@ -92,6 +108,7 @@ const MCQPage = () => {
               question: q.question,
               options: q.options,
               correctAnswer: q.correctAnswer,
+              grade: selectedGrade, // Pass the grade here
             });
             return explanationResult.explanation;
           } catch (error: any) {
@@ -145,6 +162,21 @@ const MCQPage = () => {
               onChange={(e) => setNumQuestions(parseInt(e.target.value))}
             />
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="grade">Grade</Label>
+            <Select onValueChange={setSelectedGrade} defaultValue={selectedGrade}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Grade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="grade-8">Grade 8</SelectItem>
+                <SelectItem value="grade-6">Grade 6</SelectItem>
+                <SelectItem value="grade-4">Grade 4</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+
           <Button onClick={handleSubmit} disabled={isLoading}>
             {isLoading ? "Generating MCQs..." : "Generate MCQs"}
           </Button>

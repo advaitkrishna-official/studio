@@ -15,6 +15,7 @@ import {z} from 'genkit';
 const GenerateMCQInputSchema = z.object({
   topic: z.string().describe('The topic to generate MCQs for.'),
   numQuestions: z.number().describe('The number of MCQs to generate.'),
+  grade: z.string().describe('The grade of the student.').optional(),
 });
 export type GenerateMCQInput = z.infer<typeof GenerateMCQInputSchema>;
 
@@ -40,6 +41,7 @@ const prompt = ai.definePrompt({
     schema: z.object({
       topic: z.string().describe('The topic to generate MCQs for.'),
       numQuestions: z.number().describe('The number of MCQs to generate.'),
+      context: z.string().describe('The context for answering the MCQs questions.'),
     }),
   },
   output: {
@@ -54,9 +56,13 @@ const prompt = ai.definePrompt({
 describe('The generated multiple choice questions.'),
     }),
   },
-  prompt: `You are an expert in generating multiple choice questions for students.
+  prompt: `You are an AI assistant designed to generate multiple-choice questions (MCQs).\n  Your task is to provide questions based on the context provided.\n  The relevant course material is given as context.\n
+  <CODE_BLOCK>\n  Context:\n  {{{context}}}\n  </CODE_BLOCK>\n
 
-  Generate {{numQuestions}} multiple choice questions on the topic of {{{topic}}}.
+  
+  
+  Generate {{numQuestions}} multiple choice questions on the topic of :
+  \`\`\`{{{topic}}}\`\`\`
 
   Each question should have 4 options, with one correct answer.
   The options should be plausible distractors, testing the student's knowledge of the topic.
@@ -76,6 +82,39 @@ const generateMCQFlow = ai.defineFlow<
   inputSchema: GenerateMCQInputSchema,
   outputSchema: GenerateMCQOutputSchema,
 }, async input => {
-  const {output} = await prompt(input);
-  return output!;
+    let context: string = '';
+    switch (input.grade) {
+        case 'grade-8':
+            context = `
+      Grade 8 Subjects:
+      - Mathematics: Algebra, Geometry, Data Handling
+      - Science: Physics (Forces, Motion), Chemistry (Elements, Compounds), Biology (Cells, Systems)
+      - English: Literature, Grammar
+      - History: Modern World History
+    `;
+            break;
+        case 'grade-6':
+            context = `
+      Grade 6 Subjects:
+      - Mathematics: Fractions, Decimals, Ratios
+      - Science: Simple Machines, Living Things
+      - English: Reading Comprehension, Creative Writing
+      - Geography: Continents and Oceans
+    `;
+            break;
+        case 'grade-4':
+            context = `
+      Grade 4 Subjects:
+      - Mathematics: Addition, Subtraction, Introduction to Multiplication
+      - Science: Animals, Plants, Environment
+      - English: Vocabulary Building, Sentence Formation
+      - Social Studies: Communities and Citizenship
+    `;
+            break;
+        default:
+            context = `The student is in an unspecified grade, please provide answer based on the best information you know.`;
+            break;
+    }
+    const {output} = await prompt({...input, context});
+    return output!;
 });

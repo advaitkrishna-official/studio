@@ -142,7 +142,7 @@ const TeacherDashboardPage = () => {
         {/* Content Repository */}
         <Card>
           <CardHeader>
-            <CardTitle>Content Repository</CardTitle>
+            <CardTitle>Teachers Assignment Hub</CardTitle>
             <CardDescription>Upload and share learning resources.</CardDescription>
           </CardHeader>
           <CardContent>

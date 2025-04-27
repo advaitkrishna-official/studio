@@ -16,6 +16,7 @@ const PersonalizeLearningPathInputSchema = z.object({
   studentId: z.string().describe('The ID of the student.'),
   performanceData: z.string().describe('JSON string of the student performance data, including topics and question types attempted, and accuracy.'),
   learningStyle: z.string().optional().describe('The student learning style (e.g., visual, auditory, kinesthetic).'),
+  grade: z.string().describe('The grade of the student.').nonempty(),
 });
 export type PersonalizeLearningPathInput = z.infer<typeof PersonalizeLearningPathInputSchema>;
 
@@ -47,6 +48,7 @@ const prompt = ai.definePrompt({
       studentId: z.string().describe('The ID of the student.'),
       performanceData: z.string().describe('JSON string of the student performance data, including topics and question types attempted, and accuracy.'),
       learningStyle: z.string().optional().describe('The student learning style (e.g., visual, auditory, kinesthetic).'),
+      context: z.string().describe('The context for giving recommendations for the student learning path.'),
     }),
   },
   output: {
@@ -62,9 +64,13 @@ You will analyze the student's performance data and recommend topics and questio
 
 Consider the student's learning style, if available, when making recommendations.
 
+<CODE_BLOCK>
 Student ID: {{{studentId}}}
+</CODE_BLOCK>
+<CODE_BLOCK>
 Performance Data: {{{performanceData}}}
-Learning Style: {{{learningStyle}}}
+</CODE_BLOCK>
+<CODE_BLOCK>Learning Style: {{{learningStyle}}}</CODE_BLOCK>
 
 Based on this information, provide:
 
@@ -86,7 +92,37 @@ const personalizeLearningPathFlow = ai.defineFlow<
     outputSchema: PersonalizeLearningPathOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
+    let context: string = '';
+    switch (input.grade) {
+      case 'grade-8':
+        context = `Grade 8 Subjects:
+      - Mathematics: Algebra, Geometry, Data Handling
+      - Science: Physics (Forces, Motion), Chemistry (Elements, Compounds), Biology (Cells, Systems)
+      - English: Literature, Grammar
+      - History: Modern World History
+    `;
+        break;
+      case 'grade-6':
+        context = `Grade 6 Subjects:
+      - Mathematics: Fractions, Decimals, Ratios
+      - Science: Simple Machines, Living Things
+      - English: Reading Comprehension, Creative Writing
+      - Geography: Continents and Oceans
+    `;
+        break;
+      case 'grade-4':
+        context =`Grade 4 Subjects:
+      - Mathematics: Addition, Subtraction, Introduction to Multiplication
+      - Science: Animals, Plants, Environment
+      - English: Vocabulary Building, Sentence Formation
+      - Social Studies: Communities and Citizenship
+    `;
+        break;
+      default:
+          context = `The student is in an unspecified grade, please provide answer based on the best information you know.`;
+        break;
+    }
+    const {output} = await prompt({...input, context});
     return output!;
   }
 );

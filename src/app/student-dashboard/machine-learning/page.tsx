@@ -1,4 +1,4 @@
-tsx
+
 export default function MachineLearningPage() {
   return (
     <div className="container mx-auto py-8">

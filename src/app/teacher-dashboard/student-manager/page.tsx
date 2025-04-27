@@ -143,7 +143,7 @@ const StudentManagerPage = () => {
       {/* Class Selection Dropdown */}
       <div className="grid gap-2 mb-4">
         <label htmlFor="class">Select Class</label>
-        <Select onValueChange={setSelectedClass} defaultValue={userClass}>
+        <Select onValueChange={setSelectedClass} defaultValue={userClass || undefined}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select a class" />
           </SelectTrigger>
@@ -238,7 +238,7 @@ const EditProgressDialog: React.FC<EditProgressDialogProps> = ({ studentId, curr
             <Label htmlFor="subject" className="text-right">
               Subject
             </Label>
-            <Select onValueChange={setSubject} defaultValue={subject} className="col-span-3">
+            <Select onValueChange={setSubject} defaultValue={subject} >
               <SelectTrigger>
                 <SelectValue placeholder="Select Subject" />
               </SelectTrigger>

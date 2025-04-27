@@ -19,7 +19,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/components/auth-provider";
-import { assignMCQ } from "@/ai/flows/assign-mcq";
+import {
+  assignMCQ,
+  AssignMCQInput,
+  AssignMCQOutput,
+} from "@/ai/flows/assign-mcq";
+import { GenerateQuizInput } from "@/ai/flows/generate-quiz";
+
 import { generateQuiz, GenerateQuizOutput } from '@/ai/flows/generate-quiz';
 
 const QuizBuilderPage = () => {
@@ -40,7 +46,12 @@ const QuizBuilderPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await generateQuiz({ topic, numQuestions, difficulty, questionType });
+      const result = await generateQuiz({
+        topic,
+        numQuestions,
+        difficulty,
+        questionType: questionType as GenerateQuizInput["questionType"],
+      });
       setQuiz(result);
       toast({
         title: 'Quiz Generated',
@@ -82,7 +93,11 @@ const QuizBuilderPage = () => {
         return;
       }
       const quizData = JSON.stringify(quiz);
-      const result = await assignMCQ({ classId: selectedClass, mcqData: quizData });
+      const result = await assignMCQ({
+        classId: selectedClass,
+        mcqData: quizData,
+        grade: selectedClass,
+      });
       if (result.success) {
         toast({
           title: "Quiz Assigned",

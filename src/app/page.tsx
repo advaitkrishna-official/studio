@@ -8,7 +8,7 @@ import { seedInitialData } from "@/lib/firebase";
 
 const ClientComponent = () => {
   const router = useRouter();
-  const { user, loading, userType } = useAuth();
+  const { user, loading, userType, userClass } = useAuth();
 
 
   useEffect(() => {
@@ -22,11 +22,11 @@ const ClientComponent = () => {
       }
     
       if (userType === 'teacher') {
-        router.push(`/teacher-dashboard?class=${user?.class}`);
+        router.push(`/teacher-dashboard?class=${userClass}`);
       } else {
         router.push(`/student-dashboard`);
       }
-    }
+    };
   }, [user, loading, userType, router]);
 
   if (loading)  {

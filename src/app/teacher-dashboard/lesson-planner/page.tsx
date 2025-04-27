@@ -53,6 +53,7 @@ const LessonPlannerPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user, userClass } = useAuth();
   const { toast } = useToast()
+  const [selectedGrade, setSelectedGrade] = useState<string>("grade-8");
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
   const [flashcards, setFlashcards] = useState<string[]>([]);
@@ -63,7 +64,7 @@ const LessonPlannerPage = () => {
 
   const handleGenerateFlashcards = async (topic: string, index: number) => {
     try {
-      const aiGeneratedFlashcards = await generateFlashcards({ topic, numCards: 5 });
+      const aiGeneratedFlashcards = await generateFlashcards({ topic, numCards: 5, grade: selectedGrade });
 
        if(aiGeneratedFlashcards?.flashcards){
           setFlashcards(aiGeneratedFlashcards.flashcards.map(item => `${item.front} - ${item.back}`) || []);
@@ -106,6 +107,7 @@ const LessonPlannerPage = () => {
         topics,
         startDate,
         endDate,
+        grade: selectedGrade,
         classId: selectedClass,
       });
       setLessonPlanData(result);
@@ -216,7 +218,7 @@ const LessonPlannerPage = () => {
                         </div>
                         <div>
                             <Label htmlFor="gradeLevel">Grade Level</Label>
-                            <Select onValueChange={setGradeLevel} defaultValue={gradeLevel}>
+                            <Select onValueChange={(value) => { setGradeLevel(value); setSelectedGrade(`grade-${value.split(" ")[1]}`); }} defaultValue={gradeLevel}>
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Grade Level" />
                                 </SelectTrigger>

@@ -22,6 +22,7 @@ const QuestionTypeSchema = z.enum([
   'Code Output',
 ]);
 
+
 const GenerateQuizInputSchema = z.object({
   topic: z.string().describe('The topic to generate the quiz for.'),
   numQuestions: z.number().describe('The number of questions to generate.'),
@@ -46,6 +47,7 @@ export async function generateQuiz(input: GenerateQuizInput): Promise<GenerateQu
   return generateQuizFlow(input);
 }
 
+
 const prompt = ai.definePrompt({
   name: 'generateQuizPrompt',
   input: {
@@ -53,6 +55,7 @@ const prompt = ai.definePrompt({
       topic: z.string().describe('The topic to generate the quiz for.'),
       numQuestions: z.number().describe('The number of questions to generate.'),
       difficulty: z.string().describe('The difficulty level of the quiz.'),
+      context: z.string().describe('The context for the quiz.'),
       questionType: QuestionTypeSchema.describe('The type of questions to generate.'),
     }),
   },
@@ -61,10 +64,15 @@ const prompt = ai.definePrompt({
   },
   prompt: `You are an expert in generating quizzes for students.
 
-  Generate {{numQuestions}} questions on the topic of {{{topic}}} with a difficulty of {{{difficulty}}}.
-  The questions should be of type {{{questionType}}}.
+  Generate {{numQuestions}} questions on the topic of <CODE_BLOCK>{{{topic}}}</CODE_BLOCK> with a difficulty of <CODE_BLOCK>{{{difficulty}}}</CODE_BLOCK>.
+  The questions should be of type <CODE_BLOCK>{{{questionType}}}</CODE_BLOCK>.
+  The context you have of the student's grade is:
+  <CODE_BLOCK>
+  Context:
+  {{{context}}}
+  </CODE_BLOCK>
 
-  Each question should be appropriate for the given difficulty level, testing the student's knowledge of the topic.
+  Each question should be appropriate for the given difficulty level and context, testing the student's knowledge of the topic.
 
   Format the output as a JSON array of questions. Each question object in the array should have the following keys:
   - question: The question.
@@ -82,6 +90,34 @@ const generateQuizFlow = ai.defineFlow<
   inputSchema: GenerateQuizInputSchema,
   outputSchema: GenerateQuizOutputSchema,
 }, async input => {
-  const {output} = await prompt(input);
+  let context: string = ``;
+
+  switch (input.difficulty) {
+    case 'grade-8':
+      context = `Grade 8 Subjects:
+      - Mathematics: Algebra, Geometry, Data Handling
+      - Science: Physics (Forces, Motion), Chemistry (Elements, Compounds), Biology (Cells, Systems)
+      - English: Literature, Grammar
+      - History: Modern World History
+    `;
+      break;
+    case 'grade-6':
+      context = `Grade 6 Subjects:
+      - Mathematics: Fractions, Decimals, Ratios
+      - Science: Simple Machines, Living Things
+      - English: Reading Comprehension, Creative Writing
+      - Geography: Continents and Oceans
+    `;
+    case 'grade-4':
+      context =`Grade 4 Subjects:
+      - Mathematics: Addition, Subtraction, Introduction to Multiplication
+      - Science: Animals, Plants, Environment
+      - English: Vocabulary Building, Sentence Formation
+      - Social Studies: Communities and Citizenship
+    `;
+    default:
+        context = `The student is in an unspecified grade, please provide answer based on the best information you know.`;
+  }
+  const {output} = await prompt({...input, context});
   return output!;
 });

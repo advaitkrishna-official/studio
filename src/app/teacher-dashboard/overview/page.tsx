@@ -44,12 +44,12 @@ const OverviewPage = () => {
         const q = query(studentsCollection, where("class", "==", selectedClass));
         unsubscribe = onSnapshot(q, (snapshot) => {
           const studentsData: {
-            id: string;
-            name: string;
-            class: string;
-            progress: number;
-            lastActivity: string;
-          }[] = snapshot.docs.map((doc) => ({
+              id: string;
+              name: string;
+              class: string;
+              progress: number;
+              lastActivity: string;
+            }[] = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...(doc.data() as any),
           })) as any;
@@ -69,7 +69,12 @@ const OverviewPage = () => {
       }
     };
     fetchData();
-    return () => unsubscribe && unsubscribe();
+    return () => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+        
+    }
   }, [user, selectedClass]);
 
   const avgPerformance = studentData.length > 0 ? studentData.reduce((acc, student) => acc + (student.progress), 0) / studentData.length : 0;
@@ -82,7 +87,7 @@ const OverviewPage = () => {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold">Overview</h1>
-        <Select onValueChange={setSelectedClass} defaultValue={userClass}>
+        <Select onValueChange={setSelectedClass} defaultValue={userClass ? userClass : undefined}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Select Class" />
           </SelectTrigger>

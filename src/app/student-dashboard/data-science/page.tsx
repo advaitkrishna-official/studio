@@ -1,4 +1,3 @@
-tsx
 // src/app/student-dashboard/data-science/page.tsx
 export default function DataSciencePage() {
   return (

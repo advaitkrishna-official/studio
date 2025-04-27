@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { DayPicker } from "react-day-picker";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from "firebase/firestore";
 import { useAuth } from "@/components/auth-provider";
@@ -42,6 +42,7 @@ const ClassCalendarPage = () => {
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
+  const [selectedGrade, setSelectedGrade] = useState("grade-8");
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false); // New state for task modal
   const [newTaskTitle, setNewTaskTitle] = useState(""); // New state for task title
   const [newTaskDescription, setNewTaskDescription] = useState(""); // New state for task description
@@ -85,7 +86,7 @@ const ClassCalendarPage = () => {
     try {
       if (!user) {
         setError("User not logged in.");
-        useToast.toast({
+        toast({
           variant: "destructive",
           title: "Error",
           description: "You must be logged in to add events.",
@@ -95,7 +96,7 @@ const ClassCalendarPage = () => {
 
       if (!newEventTitle || !newEventDescription) {
         setError("Please enter event title and description.");
-        useToast.toast({
+        toast({
           variant: "destructive",
           title: "Error",
           description: "Please enter event title and description.",
@@ -110,7 +111,7 @@ const ClassCalendarPage = () => {
         description: newEventDescription,
         type: 'event',
       });
-      useToast.toast({
+      toast({
         title: 'Success',
         description: 'Event added to calendar.',
       });
@@ -121,7 +122,7 @@ const ClassCalendarPage = () => {
     } catch (error: any) {
       console.error("Error adding event:", error);
       setError(error.message || "An error occurred while adding the event.");
-      useToast.toast({
+      toast({
         variant: "destructive",
         title: "Error",
         description: `Failed to add event: ${error.message}`,
@@ -137,7 +138,7 @@ const ClassCalendarPage = () => {
       const eventDocRef = doc(db, 'classes', selectedClass, 'events', eventId);
       await deleteDoc(eventDocRef);
 
-      useToast.toast({
+      toast({
         title: 'Success',
         description: 'Event deleted from calendar.',
       });
@@ -147,7 +148,7 @@ const ClassCalendarPage = () => {
     } catch (error: any) {
       console.error("Error deleting event:", error);
       setError(error.message || "An error occurred while deleting the event.");
-      useToast.toast({
+      toast({
         variant: "destructive",
         title: "Error",
         description: `Failed to delete event: ${error.message}`,
@@ -161,7 +162,7 @@ const ClassCalendarPage = () => {
     try {
       if (!user) {
         setError("User not logged in.");
-        useToast.toast({
+        toast({
           variant: "destructive",
           title: "Error",
           description: "You must be logged in to assign tasks.",
@@ -171,7 +172,7 @@ const ClassCalendarPage = () => {
 
       if (!newTaskTitle || !newTaskDescription || !newTaskDueDate) {
         setError("Please enter all task details.");
-        useToast.toast({
+        toast({
           variant: "destructive",
           title: "Error",
           description: "Please enter all task details.",
@@ -185,19 +186,23 @@ const ClassCalendarPage = () => {
         dueDate: newTaskDueDate.toISOString(),
       });
 
+      const teacherId = user.uid; // Assuming user object has a uid property
+      const assignmentTitle = newTaskTitle || "Untitled Task"; // Use the task title or a default
+
       const result = await assignTask({
         classId: selectedClass,
         taskDetails: taskDetails,
+        grade: selectedGrade, teacherId, assignmentTitle
       });
 
       if (result.success) {
-        useToast.toast({
+        toast({
           title: 'Success',
           description: result.message,
         });
       } else {
         setError(result.message || "Failed to assign task.");
-        useToast.toast({
+        toast({
           variant: "destructive",
           title: "Error",
           description: result.message || "Failed to assign task.",
@@ -221,7 +226,7 @@ const ClassCalendarPage = () => {
     } catch (error: any) {
       console.error("Error assigning task:", error);
       setError(error.message || "An error occurred while assigning the task.");
-      useToast.toast({
+      toast({
         variant: "destructive",
         title: "Error",
         description: `Failed to assign task: ${error.message}`,
@@ -241,7 +246,7 @@ const ClassCalendarPage = () => {
           {/* Class Selection Dropdown */}
           <div className="grid gap-2">
             <Label htmlFor="class">Select Class</Label>
-            <Select onValueChange={setSelectedClass} defaultValue={userClass? userClass:undefined}>
+            <Select onValueChange={(value) => {setSelectedClass(value);setSelectedGrade("grade-" + value.split(" ")[1])}} defaultValue={userClass? userClass:undefined}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a class" />
               </SelectTrigger>

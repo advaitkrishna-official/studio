@@ -15,6 +15,7 @@ const GenerateMcqExplanationInputSchema = z.object({
   question: z.string().describe('The multiple choice question.'),
   options: z.array(z.string()).describe('The options for the question.'),
   correctAnswer: z.string().describe('The correct answer to the question.'),
+  grade: z.string().describe('The grade of the student.'),
 });
 export type GenerateMcqExplanationInput = z.infer<typeof GenerateMcqExplanationInputSchema>;
 
@@ -36,6 +37,7 @@ const prompt = ai.definePrompt({
       question: z.string().describe('The multiple choice question.'),
       options: z.array(z.string()).describe('The options for the question.'),
       correctAnswer: z.string().describe('The correct answer to the question.'),
+      context: z.string().describe('The context for the mcq question.'),
     }),
   },
   output: {
@@ -44,13 +46,22 @@ const prompt = ai.definePrompt({
     }),
   },
   prompt: `You are an AI assistant designed to provide clear and concise explanations for multiple choice questions.
-
+  The context provided is as follows:\n
+  <CODE_BLOCK>\n
+  {{{context}}}\n
+  </CODE_BLOCK>\n
   Given the question, its options, and the correct answer, provide a step-by-step explanation of why the correct answer is the right one.
   Also, briefly explain why the other options are incorrect.
-
-  Question: {{{question}}}
-  Options: {{{options}}}
-  Correct Answer: {{{correctAnswer}}}
+  \n
+  <CODE_BLOCK>
+  Question: {{{question}}}\n
+  </CODE_BLOCK>
+  <CODE_BLOCK>
+  Options: {{{options}}}\n
+  </CODE_BLOCK>
+  <CODE_BLOCK>
+  Correct Answer: {{{correctAnswer}}}\n
+  </CODE_BLOCK>
 
   Explanation:
   `,
@@ -64,6 +75,38 @@ const generateMcqExplanationFlow = ai.defineFlow<
   inputSchema: GenerateMcqExplanationInputSchema,
   outputSchema: GenerateMcqExplanationOutputSchema,
 }, async input => {
-  const {output} = await prompt(input);
+  let context = '';
+  switch (input.grade) {
+    case 'grade-8':
+      context = `
+      Grade 8 Subjects:
+      - Mathematics: Algebra, Geometry, Data Handling
+      - Science: Physics (Forces, Motion), Chemistry (Elements, Compounds), Biology (Cells, Systems)
+      - English: Literature, Grammar
+      - History: Modern World History
+    `;
+      break;
+    case 'grade-6':
+      context = `
+      Grade 6 Subjects:
+      - Mathematics: Fractions, Decimals, Ratios
+      - Science: Simple Machines, Living Things
+      - English: Reading Comprehension, Creative Writing
+      - Geography: Continents and Oceans
+    `;
+      break;
+    case 'grade-4':
+      context = `Grade 4 Subjects:
+      - Mathematics: Addition, Subtraction, Introduction to Multiplication
+      - Science: Animals, Plants, Environment
+      - English: Vocabulary Building, Sentence Formation
+      - Social Studies: Communities and Citizenship
+    `;
+      break;
+    default:
+      context = `The student is in an unspecified grade, please provide answer based on the best information you know.`;
+      break;
+  }
+  const {output} = await prompt({...input, context});
   return output!;
 });

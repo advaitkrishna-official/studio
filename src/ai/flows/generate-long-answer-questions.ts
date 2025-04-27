@@ -15,6 +15,7 @@ import {z} from 'genkit';
 const GenerateLongAnswerQuestionsInputSchema = z.object({
   topic: z.string().describe('The topic to generate long answer questions for.'),
   numQuestions: z.number().describe('The number of questions to generate.').default(1),
+  grade: z.string().describe('The grade of the student.').nonempty(),
 });
 export type GenerateLongAnswerQuestionsInput = z.infer<typeof GenerateLongAnswerQuestionsInputSchema>;
 
@@ -36,6 +37,7 @@ const prompt = ai.definePrompt({
     schema: z.object({
       topic: z.string().describe('The topic to generate long answer questions for.'),
       numQuestions: z.number().describe('The number of questions to generate.'),
+      context: z.string().describe('The context for answering the long answer questions.'),
     }),
   },
   output: {
@@ -44,20 +46,23 @@ const prompt = ai.definePrompt({
       keyPoints: z.array(z.string()).describe('Suggested key points to include in the answers.'),
     }),
   },
-  prompt: `You are an AI assistant designed to generate detailed lesson plans on a given topic.
-  You should generate a structured, detailed, and editable lesson plan tailored to the teacher's input, such as subject, grade level, learning objectives, and timeframe.
-  This output should include a clear lesson title, defined learning objectives, and a timeline outlining topics, activities, and intended outcomes.
-  It should also suggest teaching methods—such as visual aids, group activities, or quizzes—based on the content and student needs.
-  Recommend relevant resources, including PDFs, videos, flashcards, and AI-generated MCQs, all linked or embedded within the plan.
-  Include an assessment section with scheduled checkpoints for quizzes or evaluations.
-  The output MUST be valid JSON format, and the ENTIRE response should be enclosed within a valid JSON structure.
-
-  Generate {{numQuestions}} long detailed lesson plan on the topic of {{{topic}}}.
+  prompt: `You are an AI assistant designed to help teachers create long answer questions for students.
+  Your task is to provide questions based on the context provided.
+  The relevant course material is given as context.\n
+  <CODE_BLOCK>\n
+  Context:\n
+  {{{context}}}\n
+  </CODE_BLOCK>\n
+  Generate {{numQuestions}} long answer questions on the topic of <CODE_BLOCK>\n {{{topic}}}\n </CODE_BLOCK>.\n
   Also, suggest key points that should be included in the answers to these questions.
   Format the output as a JSON object with "questions" and "keyPoints" keys, each containing an array of strings.
   Ensure the output is a valid JSON string that can be parsed without errors.
   `,
 });
+
+
+
+
 
 const generateLongAnswerQuestionsFlow = ai.defineFlow<
   typeof GenerateLongAnswerQuestionsInputSchema,
@@ -68,6 +73,37 @@ const generateLongAnswerQuestionsFlow = ai.defineFlow<
   outputSchema: GenerateLongAnswerQuestionsOutputSchema,
 },
 async input => {
-  const {output} = await prompt(input);
+  let context: string = '';
+
+  switch (input.grade) {
+    case 'grade-8':
+      context = `Grade 8 Subjects:
+      - Mathematics: Algebra, Geometry, Data Handling
+      - Science: Physics (Forces, Motion), Chemistry (Elements, Compounds), Biology (Cells, Systems)
+      - English: Literature, Grammar
+      - History: Modern World History
+    `;
+      break;
+    case 'grade-6':
+      context = `Grade 6 Subjects:
+      - Mathematics: Fractions, Decimals, Ratios
+      - Science: Simple Machines, Living Things
+      - English: Reading Comprehension, Creative Writing
+      - Geography: Continents and Oceans
+    `;
+      break;
+    case 'grade-4':
+      context = `Grade 4 Subjects:
+      - Mathematics: Addition, Subtraction, Introduction to Multiplication
+      - Science: Animals, Plants, Environment
+      - English: Vocabulary Building, Sentence Formation
+      - Social Studies: Communities and Citizenship
+    `;
+      break;
+    default:
+      context = `The student is in an unspecified grade, please provide answer based on the best information you know.`;
+      break;
+  }
+  const {output} = await prompt({...input, context});
   return output!;
 });
