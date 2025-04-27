@@ -339,7 +339,6 @@ const LessonPlannerPage = () => {
                 <div className="mb-4 border p-4 rounded">
                   <ScrollArea className="h-[400px] w-full rounded-md border">
                   {lessonPlanData.lessonPlan.map((item, index) => (
-                    
                       <div key={index} className="mb-4  p-4 rounded">
                         <h3 className="text-lg font-semibold">Week {item.week}</h3>
                         <p><strong>Topic:</strong> {item.topic}</p>
@@ -353,7 +352,6 @@ const LessonPlannerPage = () => {
                          Generate Flashcards
                         </Button>
                       </div>
-                    
                   ))}
                   </ScrollArea>
                 </div>
@@ -369,14 +367,12 @@ const LessonPlannerPage = () => {
                         <Card key={index} className="border p-4 rounded shadow">
                           <CardContent className='p-4'>
                                 <p>{flashcard}</p>
-                            
                           </CardContent>
                          </Card>
                       ))}
                     </div>
                   </div>
                 )}
-
               </div>
             </div>
           )}
@@ -406,16 +402,17 @@ const LessonPlannerPage = () => {
                       <p className="text-sm text-muted-foreground">
                         Grade Level: {plan.gradeLevel}
                       </p>
-                      <Button variant="secondary" onClick={() => handleViewLessonPlan(plan)}>
-                        View Details
-                      </Button>
-                                            <Button
-                                                variant="destructive"
-                                                onClick={() => handleDeleteLessonPlan(plan.id)}
-                                                className="ml-2"
-                                            >
-                                                Delete
-                                            </Button>
+                      <div className="flex justify-between items-center">
+                        <Button variant="secondary" onClick={() => handleViewLessonPlan(plan)}>
+                            View Details
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => handleDeleteLessonPlan(plan.id)}
+                        >
+                            Delete
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
