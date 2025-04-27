@@ -1,7 +1,7 @@
 'use client';
 
 import {useState, useEffect} from "react";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {Card, CardContent, CardHeader, CardTitle, CardDescription} from "@/components/ui/card";
 import {generateOverview, GenerateOverviewOutput} from "@/ai/flows/generate-overview";
 import {useAuth} from "@/components/auth-provider";
 import {db} from "@/lib/firebase";
@@ -51,7 +51,7 @@ const OverviewPage = () => {
               lastActivity: string;
             }[] = snapshot.docs.map((doc) => ({
             id: doc.id,
-            ...(doc.data() as any),
+            ...doc.data(),
           })) as any;
           setStudentData(studentsData);
           
@@ -59,6 +59,7 @@ const OverviewPage = () => {
           generateOverview({
             teacherId: user.uid,
             studentData: studentDataString,
+            grade: selectedClass,
           }).then(result => setOverview(result));
         });
         return unsubscribe;
@@ -135,13 +136,6 @@ const OverviewPage = () => {
             {error && <p className="text-red-500">{error}</p>}
             {isLoading ? (
               <p>Loading recent activities...</p>
-            ) : studentData.length > 0 ? (
-              <ul>
-                <li>{`${studentData[0].name} completed assignment A.`}</li>
-                <li>{`${studentData[1].name} scored 85% in quiz B.`}</li>
-                <li>{`${studentData[2].name} started lesson C.`}</li>
-                <li>{`${studentData[3].name} added to the class ${studentData[3].class}`}</li>               
-              </ul>
             ) : overview && overview.recentActivities.length > 0 ? (
               <ul>
                 {overview.recentActivities.map((activity, index) => (
@@ -160,11 +154,12 @@ const OverviewPage = () => {
             <CardTitle>Performance Summary</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center">
-            {overview && (
+            {overview ? (
               <>
                 <div className="text-4xl font-bold">{avgPerformance.toFixed(2)}%</div>
-                <p className="text-green-500">+8% from last week</p>
               </>
+            ) : (
+              <p>No data available to generate insights.</p>
             )}
           </CardContent>
         </Card>
