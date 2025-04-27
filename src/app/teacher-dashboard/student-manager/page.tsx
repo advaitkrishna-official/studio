@@ -1,232 +1,237 @@
-'use client';
+"use client";
 
-import {useState, useEffect} from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Card,
-  CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import {useAuth} from '@/components/auth-provider';
-import {db} from '@/lib/firebase';
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import { useAuth } from "@/components/auth-provider";
+import { db } from "@/lib/firebase";
 import {
   collection,
-  getDocs,
-  doc,
-  updateDoc,
   query,
   where,
   onSnapshot,
-  Unsubscribe,
   getDoc,
-} from 'firebase/firestore';
-import {Button} from '@/components/ui/button';
-import {Icons} from '@/components/icons';
-import {Input} from '@/components/ui/input';
-import {Textarea} from '@/components/ui/textarea';
+  getDocs,
+  doc,
+  updateDoc,
+  DocumentData,
+} from "firebase/firestore";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Icons } from "@/components/icons";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogTrigger,
   DialogContent,
+  DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogHeader,
   DialogFooter,
   DialogClose,
-} from '@/components/ui/dialog';
-import {Label} from '@/components/ui/label';
-import {useToast} from '@/hooks/use-toast';
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
+  SelectTrigger,
   SelectContent,
   SelectItem,
-  SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import {Progress} from '@/components/ui/progress';
-import {ScrollArea} from '@/components/ui/scroll-area';
+} from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-const StudentManagerPage = () => {
-  const [students, setStudents] = useState<any[]>([]);
+type Student = {
+  id: string;
+  email: string;
+  class: string;
+  studentNumber: string;
+  role: string;
+  lastMessage?: string;
+  progress?: Record<string, number>;
+};
+
+type Grade = {
+  taskName: string;
+  score: number;
+  feedback: string;
+};
+
+type StudentDetails = Student & {
+  grades: Grade[];
+};
+
+const StudentManagerPage: React.FC = () => {
+  const { user, userClass } = useAuth();
+  const { toast } = useToast();
+  const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const {user, userClass} = useAuth();
-  const {toast} = useToast();
-  const [selectedClass, setSelectedClass] = useState(userClass || ''); // Initialize with userClass
-  const [classes, setClasses] = useState<string[]>(['Grade 8', 'Grade 6', 'Grade 4']); // Static class options
-  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [selectedClass, setSelectedClass] = useState<string>(userClass ?? "");
+  const [classes] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]);
+  const [selectedStudent, setSelectedStudent] = useState<StudentDetails | null>(null);
 
+  // Listen for students in the selected class
   useEffect(() => {
-    let unsubscribe: Unsubscribe | null = null;
+    if (!user) return;
+    setIsLoading(true);
+    setError(null);
 
-    const fetchStudents = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        if (!user) {
-          setError('User not logged in.');
-          return;
-        }
+    const q = query(
+      collection(db, "users"),
+      where("class", "==", selectedClass),
+      where("role", "==", "student")
+    );
 
-        // Fetch student data from Firestore, filtered by selected class
-        const studentsCollection = collection(db, 'users');
-        const q = query(
-          studentsCollection,
-          where('class', '==', selectedClass),
-          where('role', '==', 'student')
-        );
-        unsubscribe = onSnapshot(q, snapshot => {
-          const studentsData: any[] = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setStudents(studentsData);
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => {
+          const doc = d.data() as DocumentData;
+          return {
+            id: d.id,
+            email: doc.email,
+            class: doc.class,
+            studentNumber: doc.studentNumber,
+            role: doc.role,
+            lastMessage: doc.lastMessage,
+            progress: (doc.progress as Record<string, number>) ?? {},
+          };
         });
-      } catch (e: any) {
-        setError(e.message || 'An error occurred while fetching students.');
-      } finally {
+        setStudents(data);
+        setIsLoading(false);
+      },
+      (e) => {
+        setError(e.message);
         setIsLoading(false);
       }
-    };
+    );
 
-    fetchStudents();
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    return () => unsubscribe();
   }, [user, selectedClass]);
 
+  // View detailed student info + grades
   const handleViewDetails = async (studentId: string) => {
+    if (!user) return;
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setIsLoading(true);
-      setError(null);
+      // Fetch the student doc
+      const studentRef = doc(db, "users", studentId);
+      const snap = await getDoc(studentRef);
+      if (!snap.exists()) throw new Error("Student not found.");
 
-      const studentDocRef = doc(db, 'users', studentId);
-      const docSnap = await getDoc(studentDocRef);
+      const data = snap.data() as DocumentData;
 
-      if (docSnap.exists()) {
-        const studentData = docSnap.data();
-        // Fetch grades for the student
-        const gradesSnapshot = await getDocs(collection(studentDocRef.ref, 'grades'));
-        const grades = gradesSnapshot.docs.map(gradeDoc => gradeDoc.data());
-        setSelectedStudent({...studentData, grades}); // Store student data and grades
-      } else {
-        setError('Could not find student details.');
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Could not find student details.',
-        });
-      }
-    } catch (e: any) {
-      setError(e.message || 'An error occurred while fetching student details.');
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'An error occurred while fetching student details.',
+      // Fetch their grades subcollection
+      const gradesSnap = await getDocs(collection(studentRef, "grades"));
+      const grades: Grade[] = gradesSnap.docs.map((g) => {
+        const gd = g.data() as DocumentData;
+        return {
+          taskName: gd.taskName,
+          score: Number(gd.score ?? 0),
+          feedback: gd.feedback,
+        };
       });
+
+      // Build full StudentDetails object
+      setSelectedStudent({
+        id: studentId,
+        email: data.email,
+        class: data.class,
+        studentNumber: data.studentNumber,
+        role: data.role,
+        lastMessage: data.lastMessage,
+        progress: (data.progress as Record<string, number>) ?? {},
+        grades,
+      });
+    } catch (e: any) {
+      setError(e.message);
+      toast({ variant: "destructive", title: "Error", description: e.message });
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Update a single subject’s progress
   const handleUpdateProgress = async (
     studentId: string,
     subject: string,
     newProgress: number
   ) => {
     try {
-      setIsLoading(true);
-      setError(null);
-      const studentDocRef = doc(db, 'users', studentId);
-
-      // Prepare the update: use dot notation to update nested field
-      const updatePayload: {[key: string]: any} = {};
-      updatePayload[`progress.${subject}`] = newProgress; // e.g., 'progress.Math': 85
-
-      await updateDoc(studentDocRef, updatePayload);
-
-      // Update the local state
-      setStudents(prevStudents =>
-        prevStudents.map(student => {
-          if (student.id === studentId) {
-            return {
-              ...student,
-              progress: {
-                ...student.progress,
-                [subject]: newProgress,
-              },
-            };
-          }
-          return student;
-        })
+      const studentRef = doc(db, "users", studentId);
+      await updateDoc(studentRef, {
+        [`progress.${subject}`]: newProgress,
+      });
+      // Update local state
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === studentId
+            ? {
+                ...s,
+                progress: { ...(s.progress ?? {}), [subject]: newProgress },
+              }
+            : s
+        )
       );
-
       toast({
-        title: 'Progress Updated',
-        description: `Student progress in ${subject} updated successfully.`,
+        title: "Progress Updated",
+        description: `${subject} set to ${newProgress}%`,
       });
     } catch (e: any) {
-      setError(e.message || 'An error occurred while updating progress.');
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: e.message || 'Failed to update student progress.',
-      });
-    } finally {
-      setIsLoading(false);
+      toast({ variant: "destructive", title: "Error", description: e.message });
     }
   };
 
+  // “Send” a message by writing lastMessage
   const handleSendMessage = async (studentId: string, message: string) => {
     try {
-      setIsLoading(true);
-      setError(null);
-
-      // In a real application, you would send the message using a messaging service
-      // For this example, we'll just update the student's profile with the message
-
-      const studentDocRef = doc(db, 'users', studentId);
-      await updateDoc(studentDocRef, {lastMessage: message});
-
-      setStudents(prevStudents =>
-        prevStudents.map(student =>
-          student.id === studentId ? {...student, lastMessage: message} : student
+      const studentRef = doc(db, "users", studentId);
+      await updateDoc(studentRef, { lastMessage: message });
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === studentId ? { ...s, lastMessage: message } : s
         )
       );
-
-      toast({
-        title: 'Message Sent',
-        description: 'Message sent to student successfully.',
-      });
+      toast({ title: "Message Sent", description: message });
     } catch (e: any) {
-      setError(e.message || 'An error occurred while sending the message.');
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to send message to student.',
-      });
-    } finally {
-      setIsLoading(false);
+      toast({ variant: "destructive", title: "Error", description: e.message });
     }
   };
 
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-4">Student Manager</h1>
-      <div>Manage your students' profiles and track their progress.</div>
+      <p className="mb-4">Manage your students’ profiles and progress.</p>
 
-      {/* Class Selection Dropdown */}
-      <div className="grid gap-2 mb-4">
-        <label htmlFor="class">Select Class</label>
-        <Select onValueChange={setSelectedClass} defaultValue={userClass || undefined}>
+      {/* Class selector */}
+      <div className="grid gap-2 mb-6">
+        <Label htmlFor="class">Select Class</Label>
+        <Select
+          defaultValue={selectedClass}
+          onValueChange={setSelectedClass}
+        >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a class" />
+            <SelectValue placeholder="Choose class" />
           </SelectTrigger>
           <SelectContent>
-            {classes.map(cls => (
+            {classes.map((cls) => (
               <SelectItem key={cls} value={cls}>
                 {cls}
               </SelectItem>
@@ -235,77 +240,96 @@ const StudentManagerPage = () => {
         </Select>
       </div>
 
-      {isLoading && <p>Loading students...</p>}
+      {isLoading && <p>Loading students…</p>}
       {error && <p className="text-red-500">{error}</p>}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {students.map(student => (
-          <Card key={student.id}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {students.map((s) => (
+          <Card key={s.id}>
             <CardHeader>
-              <CardTitle>{student.email}</CardTitle>
-              <CardDescription>Student Number: {student.studentNumber}</CardDescription>
+              <CardTitle>{s.email}</CardTitle>
+              <CardDescription>
+                Student #: {s.studentNumber}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              <div>
-                {/* Subject-wise progress display */}
-                {student.progress && Object.keys(student.progress).length > 0 ? (
-                  Object.entries(student.progress).map(([subject, progress]) => (
-                    <div key={subject} className="mb-2">
-                      {subject}:
-                      <Progress value={progress as number} />
-                      {(progress as number) || 0}%
+            <CardContent className="flex flex-col gap-4">
+              {/* Progress bars */}
+              {s.progress && Object.keys(s.progress).length > 0 ? (
+                Object.entries(s.progress).map(([subj, val]) => (
+                  <div key={subj}>
+                    <div className="flex justify-between mb-1">
+                      <span>{subj}</span>
+                      <span>{val}%</span>
                     </div>
-                  ))
-                ) : (
-                  <div>No progress data available.</div>
-                )}
-              </div>
+                    <Progress value={val} />
+                  </div>
+                ))
+              ) : (
+                <p>No progress yet.</p>
+              )}
+
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" onClick={() => handleViewDetails(student.id)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleViewDetails(s.id)}
+                >
                   View Details
                 </Button>
                 <EditProgressDialog
-                  studentId={student.id}
-                  currentProgress={student.progress || {}} // Ensure it's an object
+                  studentId={s.id}
+                  currentProgress={s.progress || {}}
                   onUpdateProgress={handleUpdateProgress}
                 />
-                <SendMessageDialog studentId={student.id} onSendMessage={handleSendMessage} />
+                <SendMessageDialog
+                  studentId={s.id}
+                  onSendMessage={handleSendMessage}
+                />
               </div>
-              {student.lastMessage && <p className="mt-2">Last Message: {student.lastMessage}</p>}
+
+              {s.lastMessage && (
+                <p className="text-sm text-muted-foreground">
+                  Last Message: {s.lastMessage}
+                </p>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Details Drawer */}
       <StudentDetailsDialog
         student={selectedStudent}
         isLoading={isLoading}
         error={error}
-        onUpdateProgress={handleUpdateProgress}
         onClose={() => setSelectedStudent(null)}
       />
     </div>
   );
 };
 
+// ——— Edit Progress ———
 interface EditProgressDialogProps {
   studentId: string;
-  currentProgress: {[key: string]: number}; // Subject: Progress
-  onUpdateProgress: (studentId: string, subject: string, newProgress: number) => void;
+  currentProgress: Record<string, number>;
+  onUpdateProgress: (
+    studentId: string,
+    subject: string,
+    newProgress: number
+  ) => void;
 }
-
 const EditProgressDialog: React.FC<EditProgressDialogProps> = ({
   studentId,
   currentProgress,
   onUpdateProgress,
 }) => {
-  const [subject, setSubject] = useState(Object.keys(currentProgress)[0] || 'Math'); // Default subject
+  const [subject, setSubject] = useState(Object.keys(currentProgress)[0] || "Math");
   const [progress, setProgress] = useState(currentProgress[subject] || 0);
+  const subjectOptions = ["Math", "Science", "History", "English"];
 
   useEffect(() => {
     setProgress(currentProgress[subject] || 0);
   }, [currentProgress, subject]);
-
-  const subjectOptions = ['Math', 'Science', 'History', 'English']; // Subject choices
 
   return (
     <Dialog>
@@ -316,48 +340,50 @@ const EditProgressDialog: React.FC<EditProgressDialogProps> = ({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Student Progress</DialogTitle>
-          <DialogDescription>Update the student's progress in {subject}.</DialogDescription>
+          <DialogTitle>Edit {subject} Progress</DialogTitle>
+          <DialogDescription>
+            Update progress percentage for {subject}.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="subject" className="text-right">
               Subject
             </Label>
-            <Select onValueChange={setSubject} defaultValue={subject}>
+            <Select
+              defaultValue={subject}
+              onValueChange={setSubject}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select Subject" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {subjectOptions.map(option => (
-                  <SelectItem key={option} value={option}>
-                    {option}
+                {subjectOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt}>
+                    {opt}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="progress" className="text-right">
               Progress
             </Label>
             <Input
-              type="number"
               id="progress"
-              value={progress.toString()}
-              onChange={e => setProgress(Number(e.target.value))}
+              type="number"
+              value={progress}
+              onChange={(e) => setProgress(Number(e.target.value))}
               className="col-span-3"
             />
           </div>
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="secondary">
-              Cancel
-            </Button>
+            <Button variant="secondary">Cancel</Button>
           </DialogClose>
-          <Button type="button" onClick={() => onUpdateProgress(studentId, subject, progress)}>
+          <Button onClick={() => onUpdateProgress(studentId, subject, progress)}>
             Save
           </Button>
         </DialogFooter>
@@ -366,14 +392,16 @@ const EditProgressDialog: React.FC<EditProgressDialogProps> = ({
   );
 };
 
+// ——— Send Message ———
 interface SendMessageDialogProps {
   studentId: string;
   onSendMessage: (studentId: string, message: string) => void;
 }
-
-const SendMessageDialog: React.FC<SendMessageDialogProps> = ({studentId, onSendMessage}) => {
-  const [message, setMessage] = useState('');
-
+const SendMessageDialog: React.FC<SendMessageDialogProps> = ({
+  studentId,
+  onSendMessage,
+}) => {
+  const [message, setMessage] = useState("");
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -383,29 +411,22 @@ const SendMessageDialog: React.FC<SendMessageDialogProps> = ({studentId, onSendM
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Send Message to Student</DialogTitle>
-          <DialogDescription>Send a message to the student.</DialogDescription>
+          <DialogTitle>Send Message</DialogTitle>
+          <DialogDescription>Type your message below.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="message" className="text-right">
-              Message
-            </Label>
-            <Textarea
-              id="message"
-              value={message}
-              onChange={e => setMessage(e.target.value)}
-              className="col-span-3"
-            />
-          </div>
+          <Label htmlFor="msg">Message</Label>
+          <Textarea
+            id="msg"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="secondary">
-              Cancel
-            </Button>
+            <Button variant="secondary">Cancel</Button>
           </DialogClose>
-          <Button type="button" onClick={() => onSendMessage(studentId, message)}>
+          <Button onClick={() => onSendMessage(studentId, message)}>
             Send
           </Button>
         </DialogFooter>
@@ -414,105 +435,98 @@ const SendMessageDialog: React.FC<SendMessageDialogProps> = ({studentId, onSendM
   );
 };
 
+// ——— Details Drawer ———
 interface StudentDetailsDialogProps {
-  student: any | null;
+  student: StudentDetails | null;
   isLoading: boolean;
   error: string | null;
-  onUpdateProgress: (studentId: string, subject: string, newProgress: number) => void;
   onClose: () => void;
 }
-
 const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
   student,
   isLoading,
   error,
-  onUpdateProgress,
   onClose,
 }) => {
-  if (!student) {
-    return null;
-  }
+  if (!student) return null;
+
   return (
-    <Dialog open={!!student} onOpenChange={onClose}>
+    <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{student.email} Details</DialogTitle>
           <DialogDescription>
-            View and manage student details, track progress, and send messages.
+            View and manage this student’s records.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[500px]">
-          <Card className="mb-4">
+        <ScrollArea className="max-h-[500px] space-y-6">
+          <Card>
             <CardHeader>
-              <CardTitle>Student Information</CardTitle>
-              <CardDescription>Basic student details.</CardDescription>
+              <CardTitle>Info</CardTitle>
+              <CardDescription>Basic profile</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <div>
-                  <strong>Student Number:</strong> {student.studentNumber}
-                </div>
-                <div>
-                  <strong>Class:</strong> {student.class}
-                </div>
-              </div>
+            <CardContent>
+              <p><strong>Student #:</strong> {student.studentNumber}</p>
+              <p><strong>Class:</strong> {student.class}</p>
             </CardContent>
           </Card>
-          <Card className="mb-4">
+
+          <Card>
             <CardHeader>
-              <CardTitle>Subject Progress</CardTitle>
-              <CardDescription>Real-time progress in each subject.</CardDescription>
+              <CardTitle>Progress</CardTitle>
+              <CardDescription>Subject-wise %</CardDescription>
             </CardHeader>
             <CardContent>
               {student.progress && Object.keys(student.progress).length > 0 ? (
-                Object.entries(student.progress).map(([subject, progress]) => (
-                  <div key={subject} className="mb-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor={`progress-${subject}`}>{subject}:</Label>
-                      <span className="text-muted-foreground">{progress || 0}%</span>
+                Object.entries(student.progress).map(([subj, val]) => (
+                  <div key={subj} className="mb-4">
+                    <div className="flex justify-between mb-1">
+                      <span>{subj}</span>
+                      <span>{val}%</span>
                     </div>
-                    <Progress id={`progress-${subject}`} value={progress as number} className="mb-2" />
+                    <Progress value={val} />
                   </div>
                 ))
               ) : (
-                <div>No progress data available.</div>
+                <p>No progress data.</p>
               )}
             </CardContent>
           </Card>
-          {/* Display test/assignment scores */}
-          <Card className="mb-4">
+
+          <Card>
             <CardHeader>
-              <CardTitle>Test/Assignment Scores</CardTitle>
-              <CardDescription>Student's scores on tests and assignments.</CardDescription>
+              <CardTitle>Scores</CardTitle>
+              <CardDescription>Assignment/Test grades</CardDescription>
             </CardHeader>
             <CardContent>
-              {student.grades && student.grades.length > 0 ? (
+              {student.grades.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Task Name</TableHead>
+                      <TableHead>Task</TableHead>
                       <TableHead>Score</TableHead>
                       <TableHead>Feedback</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {student.grades.map((grade, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{grade.taskName}</TableCell>
-                        <TableCell>{grade.score}%</TableCell>
-                        <TableCell>{grade.feedback}</TableCell>
+                    {student.grades.map((g, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{g.taskName}</TableCell>
+                        <TableCell>{g.score}</TableCell>
+                        <TableCell>{g.feedback}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               ) : (
-                <div>No scores available.</div>
+                <p>No grades available.</p>
               )}
             </CardContent>
           </Card>
         </ScrollArea>
+
         <DialogFooter>
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Close
           </Button>
         </DialogFooter>
