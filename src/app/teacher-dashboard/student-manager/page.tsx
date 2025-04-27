@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, doc, updateDoc, query, where, onSnapshot, DocumentData } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, where, onSnapshot, Unsubscribe, getDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { z } from "zod";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const StudentManagerPage = () => {
   const [students, setStudents] = useState<any[]>([]);
@@ -24,9 +25,11 @@ const StudentManagerPage = () => {
   const { toast } = useToast();
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
+    const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
 
   useEffect(() => {
-    const unsubscribe = () => { };
+    let unsubscribe: Unsubscribe | null = null;
+
     const fetchStudents = async () => {
       setIsLoading(true);
       setError(null);
@@ -38,8 +41,8 @@ const StudentManagerPage = () => {
 
         // Fetch student data from Firestore, filtered by selected class
         const studentsCollection = collection(db, "users");
-        const q = query(studentsCollection, where("class", "==", selectedClass));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const q = query(studentsCollection, where("class", "==", selectedClass),where("role", "==", "student"));
+        unsubscribe = onSnapshot(q, (snapshot) => {
           const studentsData: any[] = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
@@ -55,8 +58,42 @@ const StudentManagerPage = () => {
     };
 
     fetchStudents();
-
+        return () => {
+          if (unsubscribe) {
+            unsubscribe();
+          }
+        };
   }, [user, selectedClass]);
+
+    const handleViewDetails = async (studentId: string) => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const studentDocRef = doc(db, "users", studentId);
+        const docSnap = await getDoc(studentDocRef);
+
+        if (docSnap.exists()) {
+            setSelectedStudent(docSnap.data());
+        } else {
+          setError("Could not find student details.");
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not find student details.",
+          });
+        }
+      } catch (e: any) {
+        setError(e.message || "An error occurred while fetching student details.");
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "An error occurred while fetching student details.",
+          });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
   const handleUpdateProgress = async (studentId: string, subject: string, newProgress: number) => {
     try {
@@ -181,6 +218,9 @@ const StudentManagerPage = () => {
                 )}
               </div>
               <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => handleViewDetails(student.id)}>
+                      View Details
+                  </Button>
                 <EditProgressDialog
                   studentId={student.id}
                   currentProgress={student.progress || {}} // Ensure it's an object
@@ -198,6 +238,13 @@ const StudentManagerPage = () => {
           </Card>
         ))}
       </div>
+        <StudentDetailsDialog
+          student={selectedStudent}
+          isLoading={isLoading}
+          error={error}
+          onUpdateProgress={handleUpdateProgress}
+          onClose={() => setSelectedStudent(null)}
+        />
     </div>
   );
 };
@@ -325,6 +372,76 @@ const SendMessageDialog: React.FC<SendMessageDialogProps> = ({ studentId, onSend
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+};
+
+interface StudentDetailsDialogProps {
+  student: any | null;
+  isLoading: boolean;
+  error: string | null;
+  onUpdateProgress: (studentId: string, subject: string, newProgress: number) => void;
+  onClose: () => void;
+}
+
+const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({ student, isLoading, error, onUpdateProgress, onClose }) => {
+  if (!student) {
+    return null;
+  }
+  return (
+      <Dialog open={!!student} onOpenChange={onClose}>
+          <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                  <DialogTitle>{student.email} Details</DialogTitle>
+                  <DialogDescription>
+                      View and manage student details, track progress, and send messages.
+                  </DialogDescription>
+              </DialogHeader>
+              <ScrollArea className="max-h-[500px]">
+              <Card className="mb-4">
+                  <CardHeader>
+                      <CardTitle>Student Information</CardTitle>
+                      <CardDescription>Basic student details.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <div>
+                              <strong>Student Number:</strong> {student.studentNumber}
+                          </div>
+                          <div>
+                              <strong>Class:</strong> {student.class}
+                          </div>
+                      </div>
+                  </CardContent>
+              </Card>
+                <Card className="mb-4">
+                    <CardHeader>
+                        <CardTitle>Subject Progress</CardTitle>
+                        <CardDescription>Real-time progress in each subject.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {student.progress && Object.keys(student.progress).length > 0 ? (
+                            Object.entries(student.progress).map(([subject, progress]) => (
+                                <div key={subject} className="mb-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor={`progress-${subject}`}>{subject}:</Label>
+                                        <span className="text-muted-foreground">{progress || 0}%</span>
+                                    </div>
+                                    <Progress id={`progress-${subject}`} value={progress as number} className="mb-2" />
+                                </div>
+                            ))
+                        ) : (
+                            <div>No progress data available.</div>
+                        )}
+                    </CardContent>
+                </Card>
+              </ScrollArea>
+              <DialogFooter>
+                  <Button type="button" variant="secondary" onClick={onClose}>
+                      Close
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
   );
 };
 
