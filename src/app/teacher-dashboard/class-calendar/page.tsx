@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";//
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from "firebase/firestore";//
+import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, serverTimestamp } from "firebase/firestore";//
 import { useAuth } from "@/components/auth-provider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar as CalendarIcon, X } from "lucide-react";
@@ -19,7 +19,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from "@/components/ui/textarea";
 import { assignTask } from '@/ai/flows/assign-task'; // Import assignTask
 import { Progress } from "@/components/ui/progress";
-const { toast } = useToast();
 
 interface ClassEvent {
   id: string;
@@ -45,6 +44,8 @@ const ClassCalendarPage = () => {
   const [newTaskTitle, setNewTaskTitle] = useState(""); // New state for task title
   const [newTaskDescription, setNewTaskDescription] = useState(""); // New state for task description
   const [newTaskDueDate, setNewTaskDueDate] = useState<Date | undefined>(new Date()); // New state for task due date
+  const { toast } = useToast();
+
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -61,7 +62,7 @@ const ClassCalendarPage = () => {
         const q = query(eventsCollection, where("date", ">=", selectedDate));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-          const eventsData = snapshot.docs.map(doc => ({
+          const eventsData = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...(doc.data() as any),
             date: (doc.data() as any).date.toDate(), // Convert Firebase Timestamp to JavaScript Date

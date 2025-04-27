@@ -191,14 +191,17 @@ const TeachersAssignmentHubPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <Card className="max-w-5xl mx-auto">
-        <CardHeader>
-          <CardTitle>Teachers Assignment Hub</CardTitle>
-          <CardDescription>Create and manage assignments for your class.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-6">
-          
+    <>
+    <div>
+        <div className="container mx-auto py-8">
+        <Card className="max-w-5xl mx-auto">
+          <CardHeader>
+            <CardTitle>Teachers Assignment Hub</CardTitle>
+            <CardDescription>Create and manage assignments for your class.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-6">
+
+
             <Label htmlFor="class">Select Class</Label>
             <Select onValueChange={setSelectedClass} defaultValue={selectedClass}>
               <SelectTrigger className="w-full">
@@ -210,7 +213,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                 ))}
               </SelectContent>
             </Select>
-          
+
             <Button onClick={() => setIsCreateAssignmentOpen(true)}>Create New Assignment</Button>
 
           {assignments.length > 0 ? (
@@ -246,48 +249,52 @@ const TeachersAssignmentHubPage: React.FC = () => {
             <p>No assignments created yet.</p>
           )}
         </CardContent>
-      </Card>
-        <Dialog open={!!selectedAssignment} onOpenChange={() => setSelectedAssignment(null)}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{selectedAssignment?.title}</DialogTitle>
-                    <DialogDescription>{selectedAssignment?.description}</DialogDescription>
-                </DialogHeader>
-                {selectedAssignment && (
-                    <Card className="mt-4">
-                        <CardContent>
-                            <p><strong>Type:</strong> <Badge>{selectedAssignment.type}</Badge></p>
-                            <p><strong>Due Date:</strong> {selectedAssignment.dueDate?.toDate().toLocaleString()}</p>
-                            {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
-                                <div>
-                                    <h4 className="text-lg font-semibold mt-4">MCQ Questions</h4>
-                                    {selectedAssignment.mcqQuestions.map((question, index) => (
-                                        <div key={index}>
-                                            <p className="font-bold">{index + 1}. {question.question}</p>
-                                            <ul>
-                                                {question.options.map((option, i) => (
-                                                    <li key={i}>{String.fromCharCode(65 + i)}. {option}</li>
-                                                ))}
-                                            </ul>
-                                            <p><strong>Correct Answer:</strong> {question.correctAnswer}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
-                <DialogFooter>
-                    <Button type="button" onClick={() => setSelectedAssignment(null)}>Close</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-      <Dialog open={isCreateAssignmentOpen} onOpenChange={setIsCreateAssignmentOpen}>
-        <DialogContent className="md:grid md:grid-cols-2 md:gap-6">
-            <DialogHeader className="md:col-span-2">
-                <DialogTitle className="text-xl font-semibold">Create New Assignment</DialogTitle>
-                <DialogDescription>Create an assignment for your selected class.</DialogDescription>
+        </Card>
+        </div>
+    </div>
+
+    <Dialog open={!!selectedAssignment} onOpenChange={() => setSelectedAssignment(null)}>
+    <DialogContent>
+            <DialogHeader >
+                <DialogTitle>{selectedAssignment?.title}</DialogTitle>
+                <DialogDescription>{selectedAssignment?.description}</DialogDescription>
             </DialogHeader>
+            {selectedAssignment && (
+                <Card className="mt-4">
+                    <CardContent>
+                        <p><strong>Type:</strong> <Badge>{selectedAssignment.type}</Badge></p>
+                        <p><strong>Due Date:</strong> {selectedAssignment.dueDate?.toDate().toLocaleString()}</p>
+                        {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
+                            <div>
+                                <h4 className="text-lg font-semibold mt-4">MCQ Questions</h4>
+                                {selectedAssignment.mcqQuestions.map((question, index) => (
+                                    <div key={index}>
+                                        <p className="font-bold">{index + 1}. {question.question}</p>
+                                        <ul>
+                                            {question.options.map((option, i) => (
+                                                <li key={i}>{String.fromCharCode(65 + i)}. {option}</li>
+                                            ))}
+                                        </ul>
+                                        <p><strong>Correct Answer:</strong> {question.correctAnswer}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+            <DialogFooter>
+                <Button type="button" onClick={() => setSelectedAssignment(null)}>Close</Button>
+            </DialogFooter>
+    </DialogContent>
+    </Dialog>
+    <Dialog open={isCreateAssignmentOpen} onOpenChange={setIsCreateAssignmentOpen}>
+        <DialogContent className="md:grid md:grid-cols-2 md:gap-6">
+        <div>
+        <DialogHeader className="md:col-span-2">
+            <DialogTitle className="text-xl font-semibold">Create New Assignment</DialogTitle>
+            <DialogDescription>Create an assignment for your selected class.</DialogDescription>
+        </DialogHeader>
 
             
                 
@@ -335,87 +342,92 @@ const TeachersAssignmentHubPage: React.FC = () => {
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setNewTaskDueDate(new Date(e.target.value))}
                     />
                 
-            
+            </div>
 
         {newAssignment.type === 'MCQ' && (
-          
-              
-                <Label htmlFor="mcqTopic">MCQ Topic</Label>
-                <Input
-                  id="mcqTopic"
-                  placeholder="Topic for MCQ questions"
-                  value={mcqTopic}
-                  onChange={(e) => setMcqTopic(e.target.value)}
-                />
-              
-              
-                <Label htmlFor="mcqNumQuestions">Number of Questions</Label>
-                <Input
-                  id="mcqNumQuestions"
-                  type="number"
-                  placeholder="Number of questions to generate"
-                  value={mcqNumQuestions.toString()}
-                  onChange={(e) => setMcqNumQuestions(parseInt(e.target.value))}
-                />
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGenerateMCQs}
-                disabled={isGeneratingMCQs}
-              >
-                {isGeneratingMCQs ? "Generating MCQs..." : "Generate MCQs"}
-              </Button>
-              {generatingError && <p className="text-red-500">{generatingError}</p>}
-              {generatedMCQs && generatedMCQs.questions && (
+            <div className="grid gap-4 mt-6">
                 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute left-2 top-1/2 -translate-y-1/2"
-                    onClick={handlePreviousCard}
-                    disabled={currentCardIndex === 0}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                  <Card className="w-full h-auto overflow-hidden">
-                    <CardContent className="flex items-center justify-center h-full">
-                      {generatedMCQs.questions[currentCardIndex] ? (
-                        
-                          <p className="font-bold">{generatedMCQs.questions[currentCardIndex].question}</p>
-                          <ul>
-                            {generatedMCQs.questions[currentCardIndex].options.map((option, i) => (
-                              <li key={i}>{String.fromCharCode(65 + i)}. {option}</li>
-                            ))}
-                          </ul>
-                          <p><strong>Correct Answer:</strong> {generatedMCQs.questions[currentCardIndex].correctAnswer}</p>
-                        
+                  <Label htmlFor="mcqTopic">MCQ Topic</Label>
+                  <Input
+                    id="mcqTopic"
+                    placeholder="Topic for MCQ questions"
+                    value={mcqTopic}
+                    onChange={(e) => setMcqTopic(e.target.value)}
+                  />
+                
+                
+                  <Label htmlFor="mcqNumQuestions">Number of Questions</Label>
+                  <Input
+                    id="mcqNumQuestions"
+                    type="number"
+                    placeholder="Number of questions to generate"
+                    value={mcqNumQuestions.toString()}
+                    onChange={(e) => setMcqNumQuestions(parseInt(e.target.value))}
+                  />
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateMCQs} disabled={isGeneratingMCQs}>
+                  {isGeneratingMCQs ? "Generating MCQs..." : "Generate MCQs"}
+                </Button>
+
+            {generatingError && <p className="text-red-500">{generatingError}</p>}
+            {generatedMCQs && generatedMCQs.questions && (
+                <div className="relative">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute left-2 top-1/2 -translate-y-1/2"
+                        onClick={handlePreviousCard}
+                        disabled={currentCardIndex === 0}
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <Card className="w-full h-auto overflow-hidden">
+                        <CardContent className="flex items-center justify-center h-full">
+                        {generatedMCQs.questions[currentCardIndex] ? (
+                        <div>
+                        <p className="font-bold">
+                        {generatedMCQs.questions[currentCardIndex].question}
+                        </p>
+                        <ul>
+                        {generatedMCQs.questions[currentCardIndex].options.map(
+                        (option, i) => (
+                        <li key={i}>{String.fromCharCode(65 + i)}. {option}</li>
+                        )
+                        )}
+                            </ul>
+                            <p><strong>Correct Answer:</strong> {generatedMCQs.questions[currentCardIndex].correctAnswer}</p>
+                          </div>
+
+
                       ) : (
                         <p>No MCQs generated.</p>
                       )}
-                    </CardContent>
-                  </Card>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-2 top-1/2 -translate-y-1/2"
-                    onClick={handleNextCard}
-                    disabled={currentCardIndex === generatedMCQs.questions.length - 1}
-                  >
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                
-              )}
-          
+                        </CardContent>
+                    </Card>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                        onClick={handleNextCard}
+                        disabled={currentCardIndex === generatedMCQs.questions.length - 1}
+                    >
+                        <ArrowRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
+        </div>
+        
         )}
-        <DialogFooter className="flex justify-end gap-4 mt-8 md:col-span-2">
-          <Button type="button" variant="secondary" onClick={() => setIsCreateAssignmentOpen(false)}>
-            Cancel
-          </Button>
-          <Button type="submit" onClick={handleCreateAssignment}>Create Assignment</Button>
-        </DialogFooter>
-      </Dialog>
-    </div>
+            <DialogFooter className="flex justify-end gap-4 mt-8 md:col-span-2">
+                <Button type="button" variant="secondary" onClick={() => setIsCreateAssignmentOpen(false)}>Cancel</Button>
+                <Button type="submit" onClick={handleCreateAssignment}>Create Assignment</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+    </>
   );
 };
 

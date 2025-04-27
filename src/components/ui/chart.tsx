@@ -1,7 +1,7 @@
 "use client";
 
-import { ResponsiveContainer, Tooltip } from "recharts";
-import * as React from "react";
+import { ResponsiveContainer, Tooltip, Legend, LegendProps } from "recharts";
+import * as React from "react"; // Import React
 
 import { cn } from "@/lib/utils"
 
@@ -19,16 +19,17 @@ export type ChartConfig = {
 }
 
 type ChartContextProps = { config: ChartConfig }
-
 const ChartContext = React.createContext<ChartContextProps | null>(null)
-function useChart() {
 
+function useChart() {
+  const context = React.useContext(ChartContext);
   if (!context) {
     throw new Error("useChart must be used within a <ChartContainer />")
   }
   return context
 }
 
+//This component is responsible for injecting dynamic styles into the chart component.
 const ChartStyle: React.FC<{ id: string; config: ChartConfig }> = ({
   id,
   config,
@@ -43,7 +44,7 @@ const ChartStyle: React.FC<{ id: string; config: ChartConfig }> = ({
       dangerouslySetInnerHTML={{
         __html: Object.entries(THEMES)          
           .map(([theme, prefix]) => {
-            return `${prefix} [data-chart=${id}] {\n${colorConfig
+            return `${prefix} [data-chart=${id}] {\n${colorConfig //Iterates over each color configuration to generate the CSS for that color.
               .map(([key, itemConfig]) => {        
                 const color =
                   itemConfig.theme?.[theme as keyof typeof THEMES] ||
@@ -61,6 +62,7 @@ const ChartStyle: React.FC<{ id: string; config: ChartConfig }> = ({
   )
 }
 
+//This is the main Chart component that renders the chart and its styling.
 export const Chart = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
@@ -75,24 +77,35 @@ export const Chart = React.forwardRef<
     <ChartContext.Provider value={{ config }}>
       <div
         data-chart={chartId}
-        ref={ref} 
+        ref={ref} //Allows getting a ref to the HTML div element.
         className={cn("flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-none [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-sector]:outline-none [&_.recharts-surface]:outline-none",className)}
         {...props}
       >
-        <ChartStyle id={chartId} config={config}/>      
-        <ResponsiveContainer >{children}
-        </ResponsiveContainer>
+        <ChartStyle id={chartId} config={config}/>
+        {children && (
+          <ResponsiveContainer>
+          {React.Children.map(children, (child) =>
+              React.isValidElement(child) ? child : null
+            )}
+          </ResponsiveContainer>
+        )}
+
+
+
+
+        
          </div>
     </ChartContext.Provider>
   )
 });
-Chart.displayName = 'Chart';
+Chart.displayName = "Chart";
+//Define the name of the Component.
+const ChartTooltip = Tooltip;
 
-const ChartTooltip = RechartsPrimitive.Tooltip
 
 const ChartTooltipContent = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
+  HTMLDivElement,  //Ref of the HTML div element that will be used.
+  React.ComponentProps<typeof Tooltip> &
     React.ComponentProps<"div"> & {
       hideLabel?: boolean
       hideIndicator?: boolean
@@ -103,6 +116,7 @@ const ChartTooltipContent = React.forwardRef<
 >(
   (
     {
+      //This parameters, configure the look and the behaviour of the tooltip.
       active,
       payload,
       className,
@@ -125,7 +139,7 @@ const ChartTooltipContent = React.forwardRef<
       if (hideLabel || !payload?.length) {
         return null
       }
-
+      //Extract the first element of the payload.
       const [item] = payload
       const key = `${labelKey || item.dataKey || item.name || "value"}`
       const itemConfig = getPayloadConfigFromPayload(config, item, key)
@@ -170,9 +184,9 @@ const ChartTooltipContent = React.forwardRef<
           className
         )}
       >
-        {!nestLabel ? tooltipLabel : null}
+        {!nestLabel ? tooltipLabel : null} {/* Displays the tooltip label if it is not a nested label. */}
         <div className="grid gap-1.5">
-          {payload.map((item, index) => {
+          {payload.map((item: any, index: number) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
             const indicatorColor = color || item.payload.fill || item.color;
@@ -243,31 +257,33 @@ const ChartTooltipContent = React.forwardRef<
 )
 ChartTooltipContent.displayName = "ChartTooltip"
 
-const ChartLegend = RechartsPrimitive.Legend
-const ChartLegendContent = React.forwardRef<  
-  HTMLDivElement,
-  React.ComponentProps<"div"> &
-    Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
-      hideIcon?: boolean
-      nameKey?: string
-    }
+const ChartLegend = Legend
+
+const ChartLegendContent = React.forwardRef<
+    HTMLDivElement,
+    React.ComponentProps<"div"> &
+        Pick<LegendProps, "payload" | "verticalAlign"> & {
+            hideIcon?: boolean;
+            nameKey?: string;
+        }
 >(({ className, hideIcon = false, payload, verticalAlign = "bottom", nameKey }, ref) => {
     const { config } = useChart()
-    
-    if (!payload?.length) {   
+
+    if (!payload || !Array.isArray(payload) || payload.length === 0) {
       return null
     }
+
 
     return (
       <div
         ref={ref}
         className={cn(
           "flex items-center justify-center gap-4",
-          verticalAlign === "top" ? "pb-3" : "pt-3",
+          verticalAlign === "top" ? "pb-3" : "pt-3",//Determine the vertical alignment of the component.
           className
         )}
       >
-        {payload.map((item) => {
+        {payload.map((item: any) => {
           const key = `${nameKey || item.dataKey || "value"}`
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
 
@@ -303,7 +319,7 @@ ChartLegendContent.displayName = "ChartLegend"
 // Helper to extract item config from a payload. 
 function getPayloadConfigFromPayload(
   config: ChartConfig,
-  payload: any,
+  payload: any, //Define the type of payload as any.
   key: string
 ) {
   if (typeof payload !== "object" || payload === null) {    
@@ -340,7 +356,6 @@ function getPayloadConfigFromPayload(
 }
 
 export {
-  Chart,  
   ChartTooltip,
   ChartTooltipContent,
   ChartLegend,
