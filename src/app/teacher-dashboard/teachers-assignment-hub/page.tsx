@@ -78,6 +78,8 @@ const TeachersAssignmentHubPage: React.FC = () => {
       studentIds: [] as string[],
     },
   });
+    const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+
 
   useEffect(() => {
     if (user && selectedClass) {
@@ -124,6 +126,9 @@ const TeachersAssignmentHubPage: React.FC = () => {
       console.error(error);
     }
   };
+    const handleViewDetails = (assignment: Assignment) => {
+        setSelectedAssignment(assignment);
+    };
 
   return (
     <div className="container mx-auto py-8">
@@ -140,9 +145,9 @@ const TeachersAssignmentHubPage: React.FC = () => {
                 <SelectValue placeholder="Select a class" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Grade 8">Grade 8</SelectItem>
-                <SelectItem value="Grade 6">Grade 6</SelectItem>
-                <SelectItem value="Grade 4">Grade 4</SelectItem>
+                {classes.map((cls) => (
+                  <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -166,7 +171,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                     <TableCell><Badge>{assignment.type}</Badge></TableCell>
                     <TableCell>{assignment.dueDate?.toDate().toLocaleString()}</TableCell>
                     <TableCell>
-                      <Button variant="outline" size="sm">View Details</Button>
+                      <Button variant="outline" size="sm" onClick={() => handleViewDetails(assignment)}>View Details</Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -177,7 +182,41 @@ const TeachersAssignmentHubPage: React.FC = () => {
           )}
         </CardContent>
       </Card>
-
+        <Dialog open={!!selectedAssignment} onOpenChange={() => setSelectedAssignment(null)}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{selectedAssignment?.title}</DialogTitle>
+                    <DialogDescription>{selectedAssignment?.description}</DialogDescription>
+                </DialogHeader>
+                {selectedAssignment && (
+                    <Card className="mt-4">
+                        <CardContent>
+                            <p><strong>Type:</strong> <Badge>{selectedAssignment.type}</Badge></p>
+                            <p><strong>Due Date:</strong> {selectedAssignment.dueDate?.toDate().toLocaleString()}</p>
+                            {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
+                                <div>
+                                    <h4 className="text-lg font-semibold mt-4">MCQ Questions</h4>
+                                    {selectedAssignment.mcqQuestions.map((question, index) => (
+                                        <div key={index} className="mb-4">
+                                            <p>{index + 1}. {question.question}</p>
+                                            <ul>
+                                                {question.options.map((option, i) => (
+                                                    <li key={i}>{String.fromCharCode(65 + i)}. {option}</li>
+                                                ))}
+                                            </ul>
+                                            <p><strong>Correct Answer:</strong> {question.correctAnswer}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+                <DialogFooter>
+                    <Button type="button" onClick={() => setSelectedAssignment(null)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
       <Dialog open={isCreateAssignmentOpen} onOpenChange={setIsCreateAssignmentOpen}>
         <DialogTrigger asChild>
           {/* You can use the same button or a different one */}
@@ -262,7 +301,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                         </Select>
                       </div>
                     </CardContent>
-                  </Card>                      
+                  </Card>
                 ))}
                 <Button variant="outline" size="sm" onClick={() => {
                   setNewAssignment({

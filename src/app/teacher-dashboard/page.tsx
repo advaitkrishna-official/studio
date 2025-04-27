@@ -22,7 +22,7 @@ const TeacherDashboardPage = () => {
     },
     {
       title: 'Teachers Assignment Hub',
-      href: '/teacher-dashboard/teachers-assignment-hub/page',
+      href: '/teacher-dashboard/teachers-assignment-hub',
       description: 'Create and manage assignments.',
     },
     {
