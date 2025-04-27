@@ -63,7 +63,7 @@ interface McqAssignment extends BaseAssignment {
 }
 
 interface NonMcqAssignment extends BaseAssignment {
-    type: Exclude<AssignmentType, 'MCQ'>;
+  type: Exclude<AssignmentType, 'MCQ'>;
   mcqQuestions?: {
     question: string;
     options: string[];
@@ -284,51 +284,61 @@ const TeachersAssignmentHubPage: React.FC = () => {
             </DialogContent>
         </Dialog>
       <Dialog open={isCreateAssignmentOpen} onOpenChange={setIsCreateAssignmentOpen}>
-        <DialogContent className="flex">
-          <DialogHeader>
-            <DialogTitle>Create New Assignment</DialogTitle>
-            <DialogDescription>
-              Create an assignment for your selected class.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="md:grid md:grid-cols-2 md:gap-6">
+            <DialogHeader className="md:col-span-2">
+                <DialogTitle className="text-xl font-semibold">Create New Assignment</DialogTitle>
+                <DialogDescription>Create an assignment for your selected class.</DialogDescription>
+            </DialogHeader>
 
-          <div className="grid gap-4 py-4 w-1/2">
-            <div className="grid gap-2">
-              <Label htmlFor="title">Title</Label>
-              <Input id="title" placeholder="Assignment title" value={newAssignment.title} onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea id="description" placeholder="Assignment description" value={newAssignment.description} onChange={(e) => setNewAssignment({ ...newAssignment, description: e.target.value })} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="type">Type</Label>
-              <Select onValueChange={(value) => setNewAssignment({ ...newAssignment, type: value as AssignmentType })} defaultValue={newAssignment.type}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select assignment type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Written">Written</SelectItem>
-                  <SelectItem value="MCQ">MCQ</SelectItem>
-                  <SelectItem value="Test">Test</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-            </Select>
-            </div>
+            <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                        id="title"
+                        placeholder="Assignment title"
+                        value={newAssignment.title}
+                        onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })}
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                        id="description"
+                        placeholder="Assignment description"
+                        value={newAssignment.description}
+                        onChange={(e) => setNewAssignment({ ...newAssignment, description: e.target.value })}
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="type">Type</Label>
+                    <Select
+                        onValueChange={(value) => setNewAssignment({ ...newAssignment, type: value as AssignmentType })}
+                        defaultValue={newAssignment.type}
+                    >
+                        <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select assignment type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Written">Written</SelectItem>
+                            <SelectItem value="MCQ">MCQ</SelectItem>
+                            <SelectItem value="Test">Test</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="task-due-date">Due Date</Label>
-              <Input
-                id="task-due-date"
-                type="date"
-                value={newTaskDueDate ? format(newTaskDueDate, "yyyy-MM-dd") : ""}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewTaskDueDate(new Date(e.target.value))}
-              />
+                <div className="grid gap-2">
+                    <Label htmlFor="task-due-date">Due Date</Label>
+                    <Input
+                        id="task-due-date"
+                        type="date"
+                        value={newTaskDueDate ? format(newTaskDueDate, "yyyy-MM-dd") : ""}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setNewTaskDueDate(new Date(e.target.value))}
+                    />
+                </div>
             </div>
-          </div>
-
-          {newAssignment.type === 'MCQ' && (
-            <div className="w-1/2">
+        {newAssignment.type === 'MCQ' && (
+          <div className="relative">
               <div className="grid gap-2 mb-4">
                 <Label htmlFor="mcqTopic">MCQ Topic</Label>
                 <Input
@@ -396,16 +406,15 @@ const TeachersAssignmentHubPage: React.FC = () => {
                   </Button>
                 </div>
               )}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setIsCreateAssignmentOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" onClick={handleCreateAssignment}>Create Assignment</Button>
-          </DialogFooter>
-        </DialogContent>
+          </div>
+        )}
+        <DialogFooter className="flex justify-end gap-4 mt-8 md:col-span-2">
+          <Button type="button" variant="secondary" onClick={() => setIsCreateAssignmentOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" onClick={handleCreateAssignment}>Create Assignment</Button>
+        </DialogFooter>
+      </DialogContent>
       </Dialog>
     </div>
   );
