@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,11 +22,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 const TeachersAssignmentHubPage: React.FC = () => {  const { toast } = useToast();
 
   return (
-    <div>
-          <AuthProvider>
+    <div className="container mx-auto py-8">
+          
            <h1>Teacher's Assignment Hub</h1>
             <p>This is the Teacher's Assignment Hub Page. You can add, view, and manage content here.</p>
-        </AuthProvider>
+       
     </div>
   );
 };  
