@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/firebase';
+import { db } from "@/lib/firebase";
 import {
   collection,
   addDoc,
@@ -24,7 +24,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
-import { useAuth } from '@/components/auth-provider';
+import { useAuth } from "@/components/auth-provider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -38,7 +38,7 @@ import { format } from 'date-fns';
 import { CalendarIcon } from "lucide-react";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { assignTask } from '@/ai/flows/assign-task'; // Import assignTask
-import { GenerateMCQOutput } from '@/ai/flows/generate-mcq';
+import { GenerateMCQOutput, generateMCQ } from '@/ai/flows/generate-mcq';
 
 type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other';
 
@@ -92,6 +92,11 @@ const TeachersAssignmentHubPage: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isCreateAssignmentOpen, setIsCreateAssignmentOpen] = useState(false);
   const [newTaskDueDate, setNewTaskDueDate] = useState<Date | undefined>(new Date());
+  const [generatedMCQs, setGeneratedMCQs] = useState<GenerateMCQOutput | null>(null); // AI generated MCQs
+  const [mcqTopic, setMcqTopic] = useState("");
+  const [mcqNumQuestions, setMcqNumQuestions] = useState(5);
+  const [isGeneratingMCQs, setIsGeneratingMCQs] = useState(false);
+  const [generatingError, setGeneratingError] = useState<string | null>(null);
 
   const [newAssignment, setNewAssignment] = useState({
     title: '',
@@ -155,6 +160,26 @@ const TeachersAssignmentHubPage: React.FC = () => {
   };
     const handleViewDetails = (assignment: Assignment) => {
         setSelectedAssignment(assignment);
+    };
+
+    const handleGenerateMCQs = async () => {
+      setIsGeneratingMCQs(true);
+      setGeneratingError(null);
+      try {
+        const result = await generateMCQ({ topic: mcqTopic, numQuestions: mcqNumQuestions });
+        setGeneratedMCQs(result);
+        setNewAssignment({ ...newAssignment, mcqQuestions: result?.questions || [] });
+        toast({ title: 'Success', description: 'MCQs generated successfully. You can assign them directly.' });
+      } catch (e: any) {
+        setGeneratingError(e.message || "An error occurred while generating MCQs.");
+          toast({
+              variant: "destructive",
+              title: "Error",
+              description: "Failed to generate MCQs. Please try again.",
+          });
+      } finally {
+        setIsGeneratingMCQs(false);
+      }
     };
 
   return (
@@ -251,9 +276,6 @@ const TeachersAssignmentHubPage: React.FC = () => {
             </DialogContent>
         </Dialog>
       <Dialog open={isCreateAssignmentOpen} onOpenChange={setIsCreateAssignmentOpen}>
-        <DialogTrigger asChild>
-          {/* You can use the same button or a different one */}
-        </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Assignment</DialogTitle>
@@ -296,64 +318,59 @@ const TeachersAssignmentHubPage: React.FC = () => {
               />
             </div>
 
-            {/* MCQ Builder - Conditionally Rendered */}
-            {newAssignment.type === 'MCQ' && (
-              <div>
-                {newAssignment.mcqQuestions?.map((mcq, index) => (
-                  <Card key={index} className="mb-4">
-                    <CardHeader>
-                      <CardTitle>Question {index + 1}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid gap-2">
-                      <div className="grid gap-1">
-                        <Label htmlFor={`question-${index}`}>Question</Label>
-                        <Input id={`question-${index}`} placeholder="Enter question" value={mcq.question} onChange={(e) => {
-                          const updatedQuestions = [...newAssignment.mcqQuestions];
-                          updatedQuestions[index] = { ...mcq, question: e.target.value };
-                          setNewAssignment({ ...newAssignment, mcqQuestions: updatedQuestions });
-                        }} />
-                      </div>
-                      {/* Correctly mapping 4 options */}
-                      {[0, 1, 2, 3].map((optionIndex) => (
-                        <div className="grid gap-1" key={optionIndex}>
-                          <Label htmlFor={`option-${optionIndex}-${index}`}>Option {String.fromCharCode(65 + optionIndex)}</Label>
-                          <Input id={`option-${optionIndex}-${index}`} placeholder={`Enter option ${String.fromCharCode(65 + optionIndex)}`} value={mcq.options[optionIndex] || ''} onChange={(e) => {
-                            const updatedQuestions = [...newAssignment.mcqQuestions];
-                            const updatedOptions = [...(mcq.options || [])];
-                            updatedOptions[optionIndex] = e.target.value;
-                            updatedQuestions[index] = { ...mcq, options: updatedOptions };
-                            setNewAssignment({ ...newAssignment, mcqQuestions: updatedQuestions });
-                          }} />
-                        </div>
+              {newAssignment.type === 'MCQ' && (
+                <div>
+                  <div className="grid gap-2 mb-4">
+                    <Label htmlFor="mcqTopic">MCQ Topic</Label>
+                    <Input
+                      id="mcqTopic"
+                      placeholder="Topic for MCQ questions"
+                      value={mcqTopic}
+                      onChange={(e) => setMcqTopic(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2 mb-4">
+                    <Label htmlFor="mcqNumQuestions">Number of Questions</Label>
+                    <Input
+                      id="mcqNumQuestions"
+                      type="number"
+                      placeholder="Number of questions to generate"
+                      value={mcqNumQuestions.toString()}
+                      onChange={(e) => setMcqNumQuestions(parseInt(e.target.value))}
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateMCQs}
+                    disabled={isGeneratingMCQs}
+                  >
+                    {isGeneratingMCQs ? "Generating MCQs..." : "Generate MCQs"}
+                  </Button>
+                  {generatingError && <p className="text-red-500">{generatingError}</p>}
+                  {generatedMCQs && generatedMCQs.questions && (
+                    <div className="mt-4">
+                      <h4 className="text-lg font-semibold">Generated MCQs</h4>
+                      {generatedMCQs.questions.map((mcq, index) => (
+                        <Card key={index} className="mb-4">
+                          <CardHeader>
+                            <CardTitle>Question {index + 1}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p>{mcq.question}</p>
+                            <ul>
+                              {mcq.options.map((option, i) => (
+                                <li key={i}>{String.fromCharCode(65 + i)}. {option}</li>
+                              ))}
+                            </ul>
+                            <p><strong>Correct Answer:</strong> {mcq.correctAnswer}</p>
+                          </CardContent>
+                        </Card>
                       ))}
-                      <div className="grid gap-1">
-                        <Label htmlFor={`correctAnswer-${index}`}>Correct Answer</Label>
-                        <Select onValueChange={(value) => {
-                          const updatedQuestions = [...newAssignment.mcqQuestions];
-                          updatedQuestions[index] = { ...mcq, correctAnswer: value };
-                          setNewAssignment({ ...newAssignment, mcqQuestions: updatedQuestions });
-                        }} defaultValue={mcq.correctAnswer}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select correct answer" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[0, 1, 2, 3].map((optionIndex) => (
-                              <SelectItem value={String.fromCharCode(65 + optionIndex)} key={optionIndex}>{String.fromCharCode(65 + optionIndex)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                <Button variant="outline" size="sm" onClick={() => {
-                  setNewAssignment({
-                    ...newAssignment,
-                    mcqQuestions: [...newAssignment.mcqQuestions, { question: '', options: ['', '', '', ''], correctAnswer: '' }],
-                  });
-                }}>+ Add Question</Button>
-              </div>
-            )}
+                    </div>
+                  )}
+                </div>
+              )}
 
           </div>
 
