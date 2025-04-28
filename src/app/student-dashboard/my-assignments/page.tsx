@@ -81,7 +81,7 @@ const StudentAssignmentsPage: React.FC = () => {
 
   useEffect(() => {
     const fetchAssignments = async () => {
-      if (user?.uid) {
+      if (user?.uid && userClass) {
         const q = query(
           collection(db, 'assignments'),
           where('assignedTo.classId', '==', userClass)
@@ -177,7 +177,7 @@ const StudentAssignmentsPage: React.FC = () => {
               <h3 className="text-lg font-semibold">{selectedAssignment.title}</h3>
               <p>{selectedAssignment.description}</p>
               <Badge>{selectedAssignment.type}</Badge>
-              <p>Due: {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? selectedAssignment.dueDate.toLocaleString() : (selectedAssignment.dueDate.toDate ? selectedAssignment.dueDate.toDate().toLocaleString() : 'No due date')) : 'No due date'}</p>
+              <p>Due: {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? selectedAssignment.dueDate.toLocaleString() : (selectedAssignment.dueDate && typeof selectedAssignment.dueDate.toDate === 'function' ? selectedAssignment.dueDate.toDate().toLocaleString() : 'No due date')) : 'No due date'}</p>
               {selectedAssignment.type === 'MCQ' &&
                 selectedAssignment.mcqQuestions &&
                 selectedAssignment.mcqQuestions.map((question, index) => (
@@ -224,7 +224,7 @@ const StudentAssignmentsPage: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <Badge>{assignment.type}</Badge>
-                  <p>Due: {assignment.dueDate ? (assignment.dueDate instanceof Date ? assignment.dueDate.toLocaleString() : (assignment.dueDate.toDate ? assignment.dueDate.toDate().toLocaleString() : 'No due date')) : 'No due date'}</p>
+                  <p>Due: {assignment.dueDate ? (assignment.dueDate instanceof Date ? assignment.dueDate.toLocaleString() : (assignment.dueDate && typeof assignment.dueDate.toDate === 'function' ? assignment.dueDate.toDate().toLocaleString() : 'No due date')) : 'No due date'}</p>
                   <Button onClick={() => handleStartAssignment(assignment)} disabled={submission?.status === "Submitted"}>
                       {submission?.status === "Submitted" ? "Continue" : "Start"}
                     </Button>

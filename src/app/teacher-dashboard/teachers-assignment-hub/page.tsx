@@ -22,6 +22,8 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
+  getDocs,
+  Timestamp,
 } from 'firebase/firestore';
 import { useAuth } from "@/components/auth-provider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,7 +39,6 @@ import { Calendar as CalendarIcon, ArrowLeft, ArrowRight } from "lucide-react";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { assignTask } from '@/ai/flows/assign-task'; // Import assignTask
 import { generateMCQ, GenerateMCQOutput } from '@/ai/flows/generate-mcq';
-import { Timestamp } from 'firebase/firestore';
 
 type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other';
 
@@ -188,9 +189,8 @@ const TeachersAssignmentHubPage: React.FC = () => {
     };
 
   return (
-    <>
-    <div>
-        <div className="container mx-auto py-8">
+    
+        
         <Card className="max-w-5xl mx-auto">
           <CardHeader>
             <CardTitle>Teachers Assignment Hub</CardTitle>
@@ -214,44 +214,56 @@ const TeachersAssignmentHubPage: React.FC = () => {
             <Button onClick={() => setIsCreateAssignmentOpen(true)}>Create New Assignment</Button>
 
           {assignments.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            
+              
+                
+                  
+                    Title
+                  
+                  
+                    Type
+                  
+                  
+                    Due Date
+                  
+                  
+                    Actions
+                  
+                
+              
+              
                 {assignments.map((assignment) => (
-                  <TableRow key={assignment.id}>
-                    <TableCell>{assignment.title}</TableCell>
-                    <TableCell><Badge>{assignment.type}</Badge></TableCell>
-                    <TableCell>
+                  
+                    
+                      {assignment.title}
+                    
+                    
+                      <Badge>{assignment.type}</Badge>
+                    
+                    
                       {assignment.dueDate ? (
-                        (assignment.dueDate instanceof Date ? format(assignment.dueDate, "PPP") : (assignment.dueDate && assignment.dueDate.toDate ? format(assignment.dueDate.toDate(), "PPP") : 'No due date'))
-                      ) : (
-                        'No due date'
+                        (assignment.dueDate instanceof Date ? format(assignment.dueDate, "PPP") : (assignment.dueDate && assignment.dueDate.toDate ? format(assignment.dueDate.toDate(), "PPP") : 'No due date')) : 'No due date'
                       )}
-                    </TableCell>
-                    <TableCell>
+                    
+                    
                       <Button variant="outline" size="sm" onClick={() => handleViewDetails(assignment)}>View Details</Button>
-                    </TableCell>
-                  </TableRow>
+                    
+                  
                 ))}
-              </TableBody>
-            </Table>
+              
+            
           ) : (
             <p>No assignments created yet.</p>
           )}
         </CardContent>
         </Card>
-        </div>
-    </div>
+        
+    
 
-    <Dialog open={!!selectedAssignment} onOpenChange={() => setSelectedAssignment(null)}>
-    <DialogContent>
+
+    
+      
+        <DialogContent className="max-w-[90%] md:max-w-[80%] lg:max-w-[60%] xl:max-w-[50%]">
             <DialogHeader >
                 <DialogTitle>{selectedAssignment?.title}</DialogTitle>
                 <DialogDescription>{selectedAssignment?.description}</DialogDescription>
@@ -262,20 +274,21 @@ const TeachersAssignmentHubPage: React.FC = () => {
                         <p><strong>Type:</strong> <Badge>{selectedAssignment.type}</Badge></p>
                         <p><strong>Due Date:</strong> {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? format(selectedAssignment.dueDate, "PPP") : (selectedAssignment.dueDate && selectedAssignment.dueDate.toDate ? format(selectedAssignment.dueDate.toDate(), "PPP") : 'No due date')) : 'No due date'}</p>
                         {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
-                            <div>
-                                <h4 className="text-lg font-semibold mt-4">MCQ Questions</h4>
+                            
+                                
                                 {selectedAssignment.mcqQuestions.map((question, index) => (
-                                    <div key={index}>
+                                    
                                         <p className="font-bold">{index + 1}. {question.question}</p>
-                                        <ul>
+                                        
                                             {question.options.map((option, i) => (
                                                 <li key={i}>{String.fromCharCode(65 + i)}. {option}</li>
                                             ))}
-                                        </ul>
-                                        <p><strong>Correct Answer:</strong> {question.correctAnswer}</p>
-                                    </div>
+                                        
+                                        
+                                       Correct Answer: {question.correctAnswer}
+                                    
                                 ))}
-                            </div>
+                            
                         )}
                     </CardContent>
                 </Card>
@@ -285,146 +298,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
             </DialogFooter>
     </DialogContent>
     </Dialog>
-    <Dialog open={isCreateAssignmentOpen} onOpenChange={setIsCreateAssignmentOpen}>
-        <DialogContent className="md:grid md:grid-cols-2 md:gap-6">
-        <div>
-        <DialogHeader className="md:col-span-2">
-            <DialogTitle className="text-xl font-semibold">Create New Assignment</DialogTitle>
-            <DialogDescription>Create an assignment for your selected class.</DialogDescription>
-        </DialogHeader>
-
-            
-                
-                    <Label htmlFor="title">Title</Label>
-                    <Input
-                        id="title"
-                        placeholder="Assignment title"
-                        value={newAssignment.title}
-                        onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })}
-                    />
-                
-                
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                        id="description"
-                        placeholder="Assignment description"
-                        value={newAssignment.description}
-                        onChange={(e) => setNewAssignment({ ...newAssignment, description: e.target.value })}
-                    />
-                
-                
-                    <Label htmlFor="type">Type</Label>
-                    <Select
-                        onValueChange={(value) => setNewAssignment({ ...newAssignment, type: value as AssignmentType })}
-                        defaultValue={newAssignment.type}
-                    >
-                        <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select assignment type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Written">Written</SelectItem>
-                            <SelectItem value="MCQ">MCQ</SelectItem>
-                            <SelectItem value="Test">Test</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                    </Select>
-                
-
-                
-                    <Label htmlFor="task-due-date">Due Date</Label>
-                    <Input
-                        id="task-due-date"
-                        type="date"
-                        value={newTaskDueDate ? format(newTaskDueDate, "yyyy-MM-dd") : ""}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => setNewTaskDueDate(new Date(e.target.value))}
-                    />
-                
-            </div>
-
-        {newAssignment.type === 'MCQ' && (
-            <div className="grid gap-4 mt-6">
-                
-                  <Label htmlFor="mcqTopic">MCQ Topic</Label>
-                  <Input
-                    id="mcqTopic"
-                    placeholder="Topic for MCQ questions"
-                    value={mcqTopic}
-                    onChange={(e) => setMcqTopic(e.target.value)}
-                  />
-                
-                
-                  <Label htmlFor="mcqNumQuestions">Number of Questions</Label>
-                  <Input
-                    id="mcqNumQuestions"
-                    type="number"
-                    placeholder="Number of questions to generate"
-                    value={mcqNumQuestions.toString()}
-                    onChange={(e) => setMcqNumQuestions(parseInt(e.target.value))}
-                  />
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGenerateMCQs} disabled={isGeneratingMCQs}>
-                  {isGeneratingMCQs ? "Generating MCQs..." : "Generate MCQs"}
-                </Button>
-
-            {generatingError && <p className="text-red-500">{generatingError}</p>}
-            {generatedMCQs && generatedMCQs.questions && (
-                <div className="relative">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute left-2 top-1/2 -translate-y-1/2"
-                        onClick={handlePreviousCard}
-                        disabled={currentCardIndex === 0}
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                    <Card className="w-full h-auto overflow-hidden">
-                        <CardContent className="flex items-center justify-center h-full">
-                        {generatedMCQs.questions[currentCardIndex] ? (
-                        <div>
-                        <p className="font-bold">
-                        {generatedMCQs.questions[currentCardIndex].question}
-                        </p>
-                        <ul>
-                        {generatedMCQs.questions[currentCardIndex].options.map(
-                        (option, i) => (
-                        <li key={i}>{String.fromCharCode(65 + i)}. {option}</li>
-                        )
-                        )}
-                            </ul>
-                            <p><strong>Correct Answer:</strong> {generatedMCQs.questions[currentCardIndex].correctAnswer}</p>
-                          </div>
-
-
-                      ) : (
-                        <p>No MCQs generated.</p>
-                      )}
-                        </CardContent>
-                    </Card>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-2 top-1/2 -translate-y-1/2"
-                        onClick={handleNextCard}
-                        disabled={currentCardIndex === generatedMCQs.questions.length - 1}
-                    >
-                        <ArrowRight className="h-4 w-4" />
-                    </Button>
-                </div>
-            )}
-        </div>
-        
-        )}
-            <DialogFooter className="flex justify-end gap-4 mt-8 md:col-span-2">
-                <Button type="button" variant="secondary" onClick={() => setIsCreateAssignmentOpen(false)}>Cancel</Button>
-                <Button type="submit" onClick={handleCreateAssignment}>Create Assignment</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
-    </>
+    
   );
 };
 
