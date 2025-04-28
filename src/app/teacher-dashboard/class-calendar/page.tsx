@@ -37,7 +37,10 @@ const ClassCalendarPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
-  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
+  const [classes, setClasses] = useState<string[]>([
+    "Grade 1", "Grade 2", "Grade 3", "Grade 4",
+    "Grade 5", "Grade 6", "Grade 7", "Grade 8"
+  ]); // Static class options
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState("grade-8");
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false); // New state for task modal

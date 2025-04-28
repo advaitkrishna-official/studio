@@ -206,7 +206,7 @@ const StudentAssignmentsPage: React.FC = () => {
                 Due:{' '}
                 {selectedAssignment.dueDate
                   ? selectedAssignment.dueDate instanceof Date
-                    ? assignment.dueDate.toLocaleString()
+                    ? selectedAssignment.dueDate.toLocaleString()
                     : 'Invalid Date'
                   : 'No due date'}
               </p>

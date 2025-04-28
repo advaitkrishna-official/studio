@@ -86,10 +86,16 @@ const LessonPlannerPage = () => {
 
   const [selectedGrade, setSelectedGrade] = useState<string>("grade-8");
   const [selectedClass, setSelectedClass] = useState<string>(userClass || "");
-  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]);
+  const [classes, setClasses] = useState<string[]>([
+        "Grade 1", "Grade 2", "Grade 3", "Grade 4",
+        "Grade 5", "Grade 6", "Grade 7", "Grade 8"
+  ]);
   const [flashcards, setFlashcards] = useState<string[]>([]);
   const subjectOptions = ['Math', 'Science', 'History', 'English'];
-  const gradeLevelOptions = ['Grade 4', 'Grade 6', 'Grade 8'];
+  const gradeLevelOptions = [
+        'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4',
+        'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8'
+  ];
 
   const [openViewPlans, setOpenViewPlans] = useState(false);
   const [userLessonPlans, setUserLessonPlans] = useState<any[]>([]);
