@@ -23,7 +23,7 @@ import {
   doc,
   serverTimestamp,
   getDocs,
-  Timestamp,
+  Timestamp, orderBy
 } from 'firebase/firestore';
 import {useAuth} from "@/components/auth-provider";
 import {
@@ -253,9 +253,8 @@ const TeachersAssignmentHubPage: React.FC = () => {
                     <TableCell>{assignment.title}</TableCell>
                     <TableCell><Badge>{assignment.type}</Badge></TableCell>
                     <TableCell>
-                      {assignment.dueDate ? (
-                        (assignment.dueDate instanceof Date ? format(assignment.dueDate, "PPP") : (typeof assignment.dueDate?.toDate === 'function' ? format((assignment.dueDate as any).toDate(), "PPP") : 'No due date')) : 'No due date'}
-                    </TableCell>
+                      {assignment.dueDate ? (assignment.dueDate instanceof Date ? format(assignment.dueDate, "PPP") : format((assignment.dueDate as Timestamp).toDate(), "PPP")) : 'No due date'}
+                      )</TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" onClick={() => handleViewDetails(assignment)}>View Details</Button>
                     </TableCell>
@@ -279,10 +278,10 @@ const TeachersAssignmentHubPage: React.FC = () => {
             <Card className="mt-4">
               <CardContent>
                 <p><strong>Type:</strong> <Badge>{selectedAssignment.type}</Badge></p>
-                <p><strong>Due Date:</strong> {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? format(selectedAssignment.dueDate, "PPP") : (typeof selectedAssignment.dueDate?.toDate === 'function' ? format((selectedAssignment.dueDate as any).toDate(), "PPP") : 'No due date')) : 'No due date'}</p>
+                <p><strong>Due Date:</strong> {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? format(selectedAssignment.dueDate, "PPP") : format((selectedAssignment.dueDate as Timestamp).toDate(), "PPP")) : 'No due date'}</p>
                 {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
                   <div>
-                    <h4 className="text-lg font-semibold mt-4">MCQ Questions</h4>
+                    <h4 className="text-lg font-semibold mt-4">MCQ Questions</h4>   
                     <ul>
                       {selectedAssignment.mcqQuestions.map((question, index) => (
                         <li key={index} className="mb-4">

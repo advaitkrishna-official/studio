@@ -8,10 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   generateMCQ,
   GenerateMCQOutput,
@@ -27,6 +27,8 @@ import {
 import { GenerateQuizInput } from "@/ai/flows/generate-quiz";
 
 import { generateQuiz, GenerateQuizOutput } from '@/ai/flows/generate-quiz';
+import { db } from "@/lib/firebase";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
 const QuizBuilderPage = () => {
   const [topic, setTopic] = useState('');
@@ -92,6 +94,23 @@ const QuizBuilderPage = () => {
         });
         return;
       }
+
+      // Fetch student IDs for the selected class
+      const studentsQuery = query(collection(db, "users"), where("class", "==", selectedClass), where("role", "==", "student"));
+      const studentsSnapshot = await getDocs(studentsQuery);
+      const studentIds = studentsSnapshot.docs.map(doc => doc.id);
+        
+      if (studentIds.length === 0) {
+           setError("No students found in the selected class.");
+            toast({
+              variant: "destructive",
+              title: "Error",
+              description: "No students found in the selected class.",
+            });
+            return;
+      }
+
+
       const quizData = JSON.stringify(quiz);
       const result = await assignMCQ({
         classId: selectedClass,
