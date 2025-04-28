@@ -56,7 +56,6 @@ import {format} from 'date-fns';
 import {Calendar as CalendarIcon, ArrowLeft, ArrowRight} from "lucide-react";
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -255,7 +254,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                     <TableCell><Badge>{assignment.type}</Badge></TableCell>
                     <TableCell>
                       {assignment.dueDate ? (
-                        (assignment.dueDate instanceof Date ? format(assignment.dueDate, "PPP") : (assignment.dueDate && typeof assignment.dueDate.toDate === 'function' ? format((assignment.dueDate as any).toDate(), "PPP") : 'No due date')) : 'No due date'}
+                        (assignment.dueDate instanceof Date ? format(assignment.dueDate, "PPP") : (typeof assignment.dueDate?.toDate === 'function' ? format((assignment.dueDate as any).toDate(), "PPP") : 'No due date')) : 'No due date'}
                     </TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" onClick={() => handleViewDetails(assignment)}>View Details</Button>
@@ -280,7 +279,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
             <Card className="mt-4">
               <CardContent>
                 <p><strong>Type:</strong> <Badge>{selectedAssignment.type}</Badge></p>
-                <p><strong>Due Date:</strong> {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? format(selectedAssignment.dueDate, "PPP") : ((selectedAssignment.dueDate as any) && (typeof (selectedAssignment.dueDate as any).toDate === 'function' ? format((selectedAssignment.dueDate as any).toDate(), "PPP") : 'No due date')) : 'No due date'}</p>
+                <p><strong>Due Date:</strong> {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? format(selectedAssignment.dueDate, "PPP") : (typeof selectedAssignment.dueDate?.toDate === 'function' ? format((selectedAssignment.dueDate as any).toDate(), "PPP") : 'No due date')) : 'No due date'}</p>
                 {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
                   <div>
                     <h4 className="text-lg font-semibold mt-4">MCQ Questions</h4>
