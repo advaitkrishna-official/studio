@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import {
@@ -230,7 +230,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                     <TableCell><Badge>{assignment.type}</Badge></TableCell>
                     <TableCell>
                       {assignment.dueDate ? (
-                        (assignment.dueDate instanceof Date ? format(assignment.dueDate, "Pp") : (assignment.dueDate.toDate ? format(assignment.dueDate.toDate(), "Pp") : 'No due date'))
+                        (assignment.dueDate instanceof Date ? format(assignment.dueDate, "PPP") : (assignment.dueDate && assignment.dueDate.toDate ? format(assignment.dueDate.toDate(), "PPP") : 'No due date'))
                       ) : (
                         'No due date'
                       )}
@@ -260,7 +260,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                 <Card className="mt-4">
                     <CardContent>
                         <p><strong>Type:</strong> <Badge>{selectedAssignment.type}</Badge></p>
-                        <p><strong>Due Date:</strong> {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? format(assignment.dueDate, "PPP") : (selectedAssignment.dueDate.toDate ? format(selectedAssignment.dueDate.toDate(), "PPP") : 'No due date')) : 'No due date'}</p>
+                        <p><strong>Due Date:</strong> {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? format(selectedAssignment.dueDate, "PPP") : (selectedAssignment.dueDate && selectedAssignment.dueDate.toDate ? format(selectedAssignment.dueDate.toDate(), "PPP") : 'No due date')) : 'No due date'}</p>
                         {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
                             <div>
                                 <h4 className="text-lg font-semibold mt-4">MCQ Questions</h4>
