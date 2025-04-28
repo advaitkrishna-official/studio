@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
+import React, {useState, useEffect, ChangeEvent, useRef} from 'react';
 import {
   Card,
   CardContent,
@@ -8,11 +8,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from '@/hooks/use-toast';
-import { db } from "@/lib/firebase";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
+import {useToast} from '@/hooks/use-toast';
+import {db} from "@/lib/firebase";
 import {
   collection,
   addDoc,
@@ -25,20 +25,47 @@ import {
   getDocs,
   Timestamp,
 } from 'firebase/firestore';
-import { useAuth } from "@/components/auth-provider";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from '@/components/ui/textarea';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";//
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format } from 'date-fns';
-import { Calendar as CalendarIcon, ArrowLeft, ArrowRight } from "lucide-react";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { assignTask } from '@/ai/flows/assign-task'; // Import assignTask
-import { generateMCQ, GenerateMCQOutput } from '@/ai/flows/generate-mcq';
+import {useAuth} from "@/components/auth-provider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {Textarea} from '@/components/ui/textarea';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import {Calendar} from "@/components/ui/calendar";
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
+import {cn} from "@/lib/utils";
+import {Badge} from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {format} from 'date-fns';
+import {Calendar as CalendarIcon, ArrowLeft, ArrowRight} from "lucide-react";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {assignTask} from '@/ai/flows/assign-task'; // Import assignTask
+import {generateMCQ, GenerateMCQOutput} from '@/ai/flows/generate-mcq';
 
 type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other';
 
@@ -85,8 +112,8 @@ interface Submission {
 }
 
 const TeachersAssignmentHubPage: React.FC = () => {
-  const { toast } = useToast();
-  const { user, userClass } = useAuth();
+  const {toast} = useToast();
+  const {user, userClass} = useAuth();
   const [selectedClass, setSelectedClass] = useState(userClass || "");
   const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -109,9 +136,9 @@ const TeachersAssignmentHubPage: React.FC = () => {
       studentIds: [] as string[],
     },
   });
-    const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
-    const [currentCardIndex, setCurrentCardIndex] = useState(0); // Track the current card index
-    const cardRef = useRef<HTMLDivElement>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  const [currentCardIndex, setCurrentCardIndex] = useState(0); // Track the current card index
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user && selectedClass) {
@@ -124,7 +151,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const assignmentsData = snapshot.docs.map((doc) => {
           const data = doc.data();
-            const dueDate = data.dueDate ? (data.dueDate instanceof Timestamp ? data.dueDate.toDate() : data.dueDate) : null;
+          const dueDate = data.dueDate ? (data.dueDate instanceof Timestamp ? (data.dueDate as Timestamp).toDate() : data.dueDate) : null;
           return {
             id: doc.id,
             ...data,
@@ -156,149 +183,131 @@ const TeachersAssignmentHubPage: React.FC = () => {
         createdAt: serverTimestamp(),
       });
 
-      toast({ title: 'Success', description: 'Assignment created successfully.' });
+      toast({title: 'Success', description: 'Assignment created successfully.'});
       setIsCreateAssignmentOpen(false);
     } catch (error: any) {
-      toast({ title: 'Error', description: 'Failed to create assignment.' });
+      toast({title: 'Error', description: 'Failed to create assignment.'});
       console.error(error);
     }
   };
-    const handleViewDetails = (assignment: Assignment) => {
-        setSelectedAssignment(assignment);
-    };
+  const handleViewDetails = (assignment: Assignment) => {
+    setSelectedAssignment(assignment);
+  };
 
-    const handleGenerateMCQs = async () => {
-      setIsGeneratingMCQs(true);
-      setGeneratingError(null);
-      try {
-        const result = await generateMCQ({ topic: mcqTopic, numQuestions: mcqNumQuestions });
-        setGeneratedMCQs(result);
-        setNewAssignment({ ...newAssignment, mcqQuestions: result?.questions || [] });
-        toast({ title: 'Success', description: 'MCQs generated successfully. You can assign them directly.' });
-        setCurrentCardIndex(0); // Reset card index after generating new MCQs
-      } catch (e: any) {
-        setGeneratingError(e.message || "An error occurred while generating MCQs.");
-          toast({
-              variant: "destructive",
-              title: "Error",
-              description: "Failed to generate MCQs. Please try again.",
-          });
-      } finally {
-        setIsGeneratingMCQs(false);
-      }
-    };
+  const handleGenerateMCQs = async () => {
+    setIsGeneratingMCQs(true);
+    setGeneratingError(null);
+    try {
+      const result = await generateMCQ({topic: mcqTopic, numQuestions: mcqNumQuestions});
+      setGeneratedMCQs(result);
+      setNewAssignment({...newAssignment, mcqQuestions: result?.questions || []});
+      toast({title: 'Success', description: 'MCQs generated successfully. You can assign them directly.'});
+      setCurrentCardIndex(0); // Reset card index after generating new MCQs
+    } catch (e: any) {
+      setGeneratingError(e.message || "An error occurred while generating MCQs.");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to generate MCQs. Please try again.",
+      });
+    } finally {
+      setIsGeneratingMCQs(false);
+    }
+  };
 
   return (
-    
-        
-        <Card className="max-w-5xl mx-auto">
-          <CardHeader>
-            <CardTitle>Teachers Assignment Hub</CardTitle>
-            <CardDescription>Create and manage assignments for your class.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-6">
+    <div className="container mx-auto py-8">
+      <Card className="max-w-5xl mx-auto">
+        <CardHeader>
+          <CardTitle>Teachers Assignment Hub</CardTitle>
+          <CardDescription>Create and manage assignments for your class.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6">
 
+          <Label htmlFor="class">Select Class</Label>
+          <Select onValueChange={setSelectedClass} defaultValue={selectedClass}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a class"/>
+            </SelectTrigger>
+            <SelectContent>
+              {classes.map((cls) => (
+                <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-            <Label htmlFor="class">Select Class</Label>
-            <Select onValueChange={setSelectedClass} defaultValue={selectedClass}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a class" />
-              </SelectTrigger>
-              <SelectContent>
-                {classes.map((cls) => (
-                  <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Button onClick={() => setIsCreateAssignmentOpen(true)}>Create New Assignment</Button>
+          <Button onClick={() => setIsCreateAssignmentOpen(true)}>Create New Assignment</Button>
 
           {assignments.length > 0 ? (
-            
-              
-                
-                  
-                    Title
-                  
-                  
-                    Type
-                  
-                  
-                    Due Date
-                  
-                  
-                    Actions
-                  
-                
-              
-              
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {assignments.map((assignment) => (
-                  
-                    
-                      {assignment.title}
-                    
-                    
-                      <Badge>{assignment.type}</Badge>
-                    
-                    
+                  <TableRow key={assignment.id}>
+                    <TableCell>{assignment.title}</TableCell>
+                    <TableCell><Badge>{assignment.type}</Badge></TableCell>
+                    <TableCell>
                       {assignment.dueDate ? (
-                        (assignment.dueDate instanceof Date ? format(assignment.dueDate, "PPP") : (assignment.dueDate && assignment.dueDate.toDate ? format(assignment.dueDate.toDate(), "PPP") : 'No due date')) : 'No due date'
-                      )}
-                    
-                    
+                        (assignment.dueDate instanceof Date ? format(assignment.dueDate, "PPP") : (assignment.dueDate && typeof assignment.dueDate.toDate === 'function' ? format((assignment.dueDate as any).toDate(), "PPP") : 'No due date')) : 'No due date'}
+                    </TableCell>
+                    <TableCell>
                       <Button variant="outline" size="sm" onClick={() => handleViewDetails(assignment)}>View Details</Button>
-                    
-                  
+                    </TableCell>
+                  </TableRow>
                 ))}
-              
-            
+              </TableBody>
+            </Table>
           ) : (
             <p>No assignments created yet.</p>
           )}
         </CardContent>
-        </Card>
-        
-    
+      </Card>
 
-
-    
-      
-        <DialogContent className="max-w-[90%] md:max-w-[80%] lg:max-w-[60%] xl:max-w-[50%]">
-            <DialogHeader >
-                <DialogTitle>{selectedAssignment?.title}</DialogTitle>
-                <DialogDescription>{selectedAssignment?.description}</DialogDescription>
-            </DialogHeader>
-            {selectedAssignment && (
-                <Card className="mt-4">
-                    <CardContent>
-                        <p><strong>Type:</strong> <Badge>{selectedAssignment.type}</Badge></p>
-                        <p><strong>Due Date:</strong> {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? format(selectedAssignment.dueDate, "PPP") : (selectedAssignment.dueDate && selectedAssignment.dueDate.toDate ? format(selectedAssignment.dueDate.toDate(), "PPP") : 'No due date')) : 'No due date'}</p>
-                        {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
-                            
-                                
-                                {selectedAssignment.mcqQuestions.map((question, index) => (
-                                    
-                                        <p className="font-bold">{index + 1}. {question.question}</p>
-                                        
-                                            {question.options.map((option, i) => (
-                                                <li key={i}>{String.fromCharCode(65 + i)}. {option}</li>
-                                            ))}
-                                        
-                                        
-                                       Correct Answer: {question.correctAnswer}
-                                    
-                                ))}
-                            
-                        )}
-                    </CardContent>
-                </Card>
-            )}
-            <DialogFooter>
-                <Button type="button" onClick={() => setSelectedAssignment(null)}>Close</Button>
-            </DialogFooter>
-    </DialogContent>
-    </Dialog>
-    
+      <Dialog open={!!selectedAssignment} onOpenChange={() => setSelectedAssignment(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedAssignment?.title}</DialogTitle>
+            <DialogDescription>{selectedAssignment?.description}</DialogDescription>
+          </DialogHeader>
+          {selectedAssignment && (
+            <Card className="mt-4">
+              <CardContent>
+                <p><strong>Type:</strong> <Badge>{selectedAssignment.type}</Badge></p>
+                <p><strong>Due Date:</strong> {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? format(selectedAssignment.dueDate, "PPP") : ((selectedAssignment.dueDate as any) && (typeof (selectedAssignment.dueDate as any).toDate === 'function' ? format((selectedAssignment.dueDate as any).toDate(), "PPP") : 'No due date')) : 'No due date'}</p>
+                {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
+                  <div>
+                    <h4 className="text-lg font-semibold mt-4">MCQ Questions</h4>
+                    <ul>
+                      {selectedAssignment.mcqQuestions.map((question, index) => (
+                        <li key={index} className="mb-4">
+                          <p className="font-bold">{index + 1}. {question.question}</p>
+                          <ul>
+                            {question.options.map((option, i) => (
+                              <li key={i}>{String.fromCharCode(65 + i)}. {option}</li>
+                            ))}
+                          </ul>
+                          <p className="mt-2">Correct Answer: {question.correctAnswer}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          <DialogFooter>
+            <Button type="button" onClick={() => setSelectedAssignment(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
