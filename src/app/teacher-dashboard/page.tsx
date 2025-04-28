@@ -8,7 +8,7 @@ import { auth, db } from '@/lib/firebase';
 import { collection, query, onSnapshot, where, DocumentData, getDocs, QuerySnapshot } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { format } from 'date-fns';
-import {
+import { 
   Card,
   CardHeader,
   CardTitle,
@@ -92,7 +92,7 @@ interface Assignment {
   description: string;
   type: string;
   dueDate: Date;
-  assignedTo: {
+  assignedTo: { 
       classId: string;
       studentIds: string[];
   };
@@ -179,15 +179,12 @@ export default function TeacherDashboardPage(): JSX.Element {
       const q = query(col, where('createdBy', '==', user.uid), where('assignedTo.classId', '==', userClass));
 
         onSnapshot(q, (snap) => {
-        const data = snap.docs.map((d) => {
-          const raw = d.data() as Assignment;
-          return {
-            id: d.id,            
-                        ...raw,
-                        dueDate: (raw.dueDate as any)?.toDate ? (raw.dueDate as any).toDate() : (raw.dueDate instanceof Date) ? raw.dueDate : new Date(),
-
-
-                    } as Assignment;
+        const data = snap.docs.map((d) => {          
+          const { id, ...raw } = d.data() as Assignment;
+            return {
+             id, ...raw,
+             dueDate: (raw.dueDate as any)?.toDate ? (raw.dueDate as any).toDate() : (raw.dueDate instanceof Date) ? raw.dueDate : new Date()
+              } as Assignment
         });
         setAssignments(data);
 
@@ -400,7 +397,7 @@ export default function TeacherDashboardPage(): JSX.Element {
             <p className="text-red-500">{errorMessage}</p>
           ) : (assignments && assignments.length > 0) ? (
             <ul className="divide-y">
-              {assignments.map((t) => (
+              {assignments.map((t) => (                 
                    <li
                   key={t.id}
                   className="py-2 flex justify-between items-center"

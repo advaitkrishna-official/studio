@@ -54,7 +54,7 @@ if (getApps().length === 0) {
 
 async function createUserDocument(userId: string, email: string, studentNumber: string, role: "teacher" | "student", selectedClass: string ) {
     try {
-        const userDocRef = doc(db, 'users', userId); 
+        const userDocRef = doc(db, 'Users', userId); 
         let userData: Student | Teacher;
 
         if (role === "teacher") {
@@ -82,7 +82,7 @@ async function createUserDocument(userId: string, email: string, studentNumber: 
 
 async function getStudentData(userId: string) {
   try {
-    const studentDocRef = doc(db, 'users', userId); 
+    const studentDocRef = doc(db, 'Users', userId); 
     const docSnap = await getDoc(studentDocRef);
     if (docSnap.exists()) {
         return docSnap.data() as Student;
@@ -97,7 +97,7 @@ async function getStudentData(userId: string) {
 
 async function getUserDataByUid(userId: string): Promise<Student | Teacher | null> {
   try {
-    const userDocRef = doc(db, 'users', userId); 
+    const userDocRef = doc(db, 'Users', userId); 
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
@@ -135,7 +135,7 @@ async function getUserData(userId: string) {
   const studentData = await getStudentData(userId)
   if (studentData) return studentData
   try {
-    const teacherDocRef = doc(db, 'users', userId); 
+    const teacherDocRef = doc(db, 'Users', userId); 
     const teacherData = await getDocumentData<Teacher>(teacherDocRef);
     return teacherData;
   } catch (error: any) {
@@ -149,7 +149,7 @@ async function saveGrade(studentId: string, taskName: string, score: number, fee
         const studentData = await getStudentData(studentId);
         const studentClass = studentData?.class;
 
-    const gradesCollection = collection(db, 'users', studentId, 'grades'); 
+    const gradesCollection = collection(db, 'Users', studentId, 'grades'); 
     await addDoc(gradesCollection, {
       taskName: taskName,
       score: score,
@@ -167,4 +167,4 @@ async function saveGrade(studentId: string, taskName: string, score: number, fee
 
 
 
-export { app, auth, db, getUserData, createUserDocument, saveGrade,  getUserDataByUid };
+export { app, auth, db, getUserData, createUserDocument, saveGrade, getUserDataByUid };

@@ -13,6 +13,7 @@ import { collection, doc, setDoc } from "firebase/firestore"; // Added for Fires
 import Link from "next/link";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+
 const RegisterPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,6 +21,7 @@ const RegisterPage = () => {
   const [grade, setGrade] = useState<string | null>(null);
   const [secretCode, setSecretCode] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [teacherGrade, setTeacherGrade] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -53,6 +55,7 @@ const RegisterPage = () => {
           uid: user.uid,
           email: user.email,
           grade: grade,
+          teacherGrade: teacherGrade,
           role: role,
         });
 
@@ -138,6 +141,23 @@ const RegisterPage = () => {
             </div>
           )}
 
+         {role === "teacher" && (
+            <div className="grid gap-2">
+              <Label htmlFor="grade">Grade</Label>
+              <Select onValueChange={setTeacherGrade}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select your grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5"].map((gradeOption) => (
+                    <SelectItem key={gradeOption} value={gradeOption}>
+                      {gradeOption}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {role === "teacher" && (
             <div className="grid gap-2">
               <Label htmlFor="secretCode">Secret Code</Label>

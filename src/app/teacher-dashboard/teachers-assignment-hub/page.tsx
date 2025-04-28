@@ -37,6 +37,7 @@ import { Calendar as CalendarIcon, ArrowLeft, ArrowRight } from "lucide-react";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { assignTask } from '@/ai/flows/assign-task'; // Import assignTask
 import { generateMCQ, GenerateMCQOutput } from '@/ai/flows/generate-mcq';
+import { Timestamp } from 'firebase/firestore';
 
 type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other';
 
@@ -120,11 +121,15 @@ const TeachersAssignmentHubPage: React.FC = () => {
       );
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const assignmentsData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          dueDate: doc.data().dueDate ? (doc.data().dueDate instanceof Date ? doc.data().dueDate : doc.data().dueDate.toDate()) : null,
-        })) as Assignment[];
+        const assignmentsData = snapshot.docs.map((doc) => {
+          const data = doc.data();
+            const dueDate = data.dueDate ? (data.dueDate instanceof Timestamp ? data.dueDate.toDate() : data.dueDate) : null;
+          return {
+            id: doc.id,
+            ...data,
+            dueDate: dueDate,
+          } as Assignment;
+        }) as Assignment[];
         setAssignments(assignmentsData);
       });
 
@@ -182,14 +187,6 @@ const TeachersAssignmentHubPage: React.FC = () => {
       }
     };
 
-  const handlePreviousCard = () => {
-    setCurrentCardIndex((prevIndex) => Math.max(prevIndex - 1, 0));
-  };
-
-  const handleNextCard = () => {
-    setCurrentCardIndex((prevIndex) => Math.min(prevIndex + 1, (generatedMCQs?.questions?.length || 1) - 1));
-  };
-
   return (
     <>
     <div>
@@ -233,7 +230,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                     <TableCell><Badge>{assignment.type}</Badge></TableCell>
                     <TableCell>
                       {assignment.dueDate ? (
-                        (assignment.dueDate instanceof Date ? assignment.dueDate : assignment.dueDate.toDate()).toLocaleString()
+                        (assignment.dueDate instanceof Date ? format(assignment.dueDate, "Pp") : (assignment.dueDate.toDate ? format(assignment.dueDate.toDate(), "Pp") : 'No due date'))
                       ) : (
                         'No due date'
                       )}
@@ -263,7 +260,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                 <Card className="mt-4">
                     <CardContent>
                         <p><strong>Type:</strong> <Badge>{selectedAssignment.type}</Badge></p>
-                        <p><strong>Due Date:</strong> {selectedAssignment.dueDate?.toDate().toLocaleString()}</p>
+                        <p><strong>Due Date:</strong> {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? format(assignment.dueDate, "PPP") : (selectedAssignment.dueDate.toDate ? format(selectedAssignment.dueDate.toDate(), "PPP") : 'No due date')) : 'No due date'}</p>
                         {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
                             <div>
                                 <h4 className="text-lg font-semibold mt-4">MCQ Questions</h4>
