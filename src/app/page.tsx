@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from "@/components/auth-provider";
-import { seedInitialData } from "@/lib/firebase";
+//import { seedInitialData } from "@/lib/firebase";
 
 const ClientComponent = () => {
   const router = useRouter();
@@ -13,7 +13,7 @@ const ClientComponent = () => {
 
   useEffect(() => {
     // Seed the database with initial data
-    seedInitialData();
+    //seedInitialData();
 
     if (!loading) {
       if (!user) {

@@ -11,7 +11,7 @@ interface Student {
   email: string;
   studentNumber: string;
   class: string;
-  progress: number;
+  progress?: number;
   role: 'student';
 }
 interface Teacher { id: string, email: string, role: 'teacher', class: string }
@@ -52,9 +52,9 @@ if (getApps().length === 0) {
 }
 
 
-async function createUserDocument(userId: string, email: string, studentNumber: string, role: "teacher" | "student", selectedClass: string) {
+async function createUserDocument(userId: string, email: string, studentNumber: string, role: "teacher" | "student", selectedClass: string ) {
     try {
-        const userDocRef = doc(db, 'users', userId);
+        const userDocRef = doc(db, 'users', userId); 
         let userData: Student | Teacher;
 
         if (role === "teacher") {
@@ -62,7 +62,6 @@ async function createUserDocument(userId: string, email: string, studentNumber: 
                 id: userId,
                 email: email,
                 role: "teacher",
-                class: selectedClass,
             } as Teacher;
         } else {
             userData = {
@@ -83,7 +82,7 @@ async function createUserDocument(userId: string, email: string, studentNumber: 
 
 async function getStudentData(userId: string) {
   try {
-    const studentDocRef = doc(db, 'users', userId);
+    const studentDocRef = doc(db, 'users', userId); 
     const docSnap = await getDoc(studentDocRef);
     if (docSnap.exists()) {
         return docSnap.data() as Student;
@@ -96,6 +95,25 @@ async function getStudentData(userId: string) {
   }
 }
 
+async function getUserDataByUid(userId: string): Promise<Student | Teacher | null> {
+  try {
+    const userDocRef = doc(db, 'users', userId); 
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      if (userData.role === 'student') {
+        return userData as Student;
+      } else if (userData.role === 'teacher') {
+        return userData as Teacher;
+      }
+    }
+    return null;
+  } catch (error: any) {
+    console.error('Error fetching user data:', error.message);
+    return null;
+  }
+}
 // Helper function to get document data with type checking
 async function getDocumentData<T>(docRef: any): Promise<T | null> {
   try {
@@ -117,7 +135,7 @@ async function getUserData(userId: string) {
   const studentData = await getStudentData(userId)
   if (studentData) return studentData
   try {
-    const teacherDocRef = doc(db, 'users', userId);
+    const teacherDocRef = doc(db, 'users', userId); 
     const teacherData = await getDocumentData<Teacher>(teacherDocRef);
     return teacherData;
   } catch (error: any) {
@@ -131,7 +149,7 @@ async function saveGrade(studentId: string, taskName: string, score: number, fee
         const studentData = await getStudentData(studentId);
         const studentClass = studentData?.class;
 
-    const gradesCollection = collection(db, 'users', studentId, 'grades');
+    const gradesCollection = collection(db, 'users', studentId, 'grades'); 
     await addDoc(gradesCollection, {
       taskName: taskName,
       score: score,
@@ -147,108 +165,6 @@ async function saveGrade(studentId: string, taskName: string, score: number, fee
   }
 }
 
-// Function to retrieve grades for a student
-async function getGrades(studentId: string) {
-  try {
-    const gradesCollection = collection(db, 'users', studentId, 'grades');
-		const q = query(gradesCollection);
-    const gradesSnapshot = await getDocs(q);
-    const gradesData = gradesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    return gradesData;
-  } catch (error: any) {
-    console.error("Error fetching grades:", error.message);
-    return [];
-  }
-}
 
-async function addMockData() {
-  try {
-    const data = [
-      {
-        name: 'Alice Smith',
-        class: 'Grade 8',
-        progress: 75,
-        lastActivity: 'Completed assignment A',
-      },
-      {
-        name: 'Bob Johnson',
-        class: 'Grade 8',
-        progress: 90,
-        lastActivity: 'Scored 95% in quiz B',
-      },
-      {
-        name: 'Charlie Brown',
-        class: 'Grade 6',
-        progress: 60,
-        lastActivity: 'Completed lesson 3',
-      },
-      {
-        name: 'David Lee',
-        class: 'Grade 6',
-        progress: 80,
-        lastActivity: 'Scored 85% in quiz C',
-      },
-    ];
-    for(const item of data){
-      await addDoc(collection(db, "users"),item)
-    }
-  } catch(error: any) {
-    console.log(error.message)
-  }
-}
-// Function to seed initial student data
-async function seedInitialData() {
-  try {
-    const usersCollection = collection(db, 'users');
 
-    // Sample student data
-    const students = [
-      {
-        id: 'student1',
-        email: 'student1@example.com',
-        studentNumber: '1001',
-        class: 'Grade 8',
-        progress: 75,
-        role: 'student'
-      },
-      {
-        id: 'student2',
-        email: 'student2@example.com',
-        studentNumber: '1002',
-        class: 'Grade 8',
-        progress: 50,
-        role: 'student'
-      },
-      {
-        id: 'student3',
-        email: 'student3@example.com',
-        studentNumber: '1003',
-        class: 'Grade 6',
-        progress: 60,
-        role: 'student'
-      },
-      {
-        id: 'student4',
-        email: 'student4@example.com',
-        studentNumber: '1004',
-        class: 'Grade 4',
-        progress: 80,
-        role: 'student'
-      }
-    ];
-
-    // Add each student to the users collection
-    for (const student of students) {
-      const studentDocRef = doc(usersCollection, student.id);
-      await setDoc(studentDocRef, student);
-      console.log(`Added student: ${student.email}`);
-    }
-  } catch (error: any) {
-    console.error("Error seeding initial data:", error.message);
-  }
-}
-
-export { app, auth, db, getUserData, createUserDocument, saveGrade, getGrades, seedInitialData, addMockData };
+export { app, auth, db, getUserData, createUserDocument, saveGrade,  getUserDataByUid };

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState } from "react";
 import { useRouter } from 'next/navigation';
@@ -8,9 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth, db, getUserData } from "@/lib/firebase";
+import { auth, db, getUserDataByUid } from "@/lib/firebase";
 import Link from 'next/link';
-import { useEffect } from "react";
+
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -44,43 +44,46 @@ const Login = () => {
       }
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-
+        
       if (user) {
-        // Retrieve user data from Firestore
-        const userData = await getUserData(user.uid);
-
+        const userData = await getUserDataByUid(user.uid);
+        
         if (userData) {
-          toast({
-            title: "Login Successful",
-            description: "You have successfully logged in.",
-          });
-
-          // Redirect based on user type and class
-          if (userData.role === 'teacher') {
-            router.push(`/teacher-dashboard?class=${userData.class}`); // Redirect to teacher dashboard with class
-          } else {
-            router.push(`/student-dashboard`); // Redirect to student dashboard
-          }
-        } else {
-          setError("Failed to retrieve user data.");
+           
+          // Redirect based on user role
+          if (userData.role) {
+              if (userData.role === "teacher") {
+                router.replace(`/teacher-dashboard`);
+              } else if (userData.role === "student") {
+                router.replace(`/student-dashboard`);
+              }
+            }
+        }  else {
+          // User data not found
           toast({
             variant: "destructive",
             title: "Login Failed",
             description: "Failed to retrieve user data. Please try again.",
           });
         }
+      } else {
+        // User not found       
+        toast({
+          variant: "destructive",
+          description: "User not found",
+          title: "Login failed",
+        });
       }
     } catch (e: any) {
-      setError(e.message || "An error occurred during login.");
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: e.message || "Invalid credentials. Please try again.",
-      });
-    } finally {
-      setIsLoading(false);
+        toast({
+          variant: "destructive",
+          title: "Login Failed",
+          description: e.message || "Invalid credentials. Please try again.",
+        });
+      } finally {
+        setIsLoading(false);
     }
-  };
+    };
 
   return (
     <div className="container mx-auto py-8">
@@ -116,24 +119,13 @@ const Login = () => {
             {isLoading ? "Logging In..." : "Login"}
           </Button>
           <p className="text-sm text-muted-foreground">
-            Don't have an account? <Link href="/register" className="text-primary">Register</Link>
-          </p>
+            Don't have an account? <Link href="/register" className="text-primary underline">Register</Link>
+          </p>        
         </CardContent>
       </Card>
     </div>
   );
 };
 
-const LoginPage = () => {
-  return (
-    <ClientComponent />
-  )
-}
+export default Login;
 
-const ClientComponent = () => {
-  return (
-    <Login />
-  )
-}
-
-export default LoginPage;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { ChangeEvent, useState } from "react";
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,73 +8,67 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db, createUserDocument } from "@/lib/firebase";
-import Link from 'next/link';
-import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import { collection, doc, setDoc } from "firebase/firestore"; // Added for Firestore saving
+import Link from "next/link";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const Register = () => {
+const RegisterPage = () => {
   const [email, setEmail] = useState("");
-  const [studentNumber, setStudentNumber] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"teacher" | "student" | null>(null);
+  const [grade, setGrade] = useState<string | null>(null);
+  const [secretCode, setSecretCode] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
-  const [selectedClass, setSelectedClass] = useState("");
 
-  const handleSubmit = async () => {
+  const roles = [
+    { value: "teacher", label: "Teacher" },
+    { value: "student", label: "Student" },
+  ];
+
+  const handleRegister = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      if (!auth) {
-        setError("Authentication is not properly initialized.");
-        toast({
-          variant: "destructive",
-          title: "Authentication Error",
-          description: "Authentication is not properly initialized.",
-        });
-        return;
+      if (!email || !password || !role) {
+        throw new Error("All fields are required.");
       }
-      if (!db) {
-        setError("Database is not properly initialized.");
-        toast({
-          variant: "destructive",
-          title: "Database Error",
-          description: "Database is not properly initialized.",
-        });
-        return;
-      }
+
+      if (!auth) throw new Error("Authentication is not initialized");
+
+        if(role === "teacher" && secretCode !== "1111") {
+           throw new Error("Incorrect secret code for teacher.");
+        }
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
       const user = userCredential.user;
 
       if (user) {
-        // Determine user type (teacher/student) based on email
-        const isTeacher = email.endsWith('@teacher.com');
-          
-        if (isTeacher && !selectedClass) {
-            setError("Teachers must be assigned to a class.");
-            setIsLoading(false);
-            return;
-        }
-
-
-        // Create a user document in Firestore
-        await createUserDocument(user.uid, email, studentNumber, isTeacher ? "teacher" : "student", selectedClass); // Corrected function call
+        const userDocRef = doc(collection(db, "Users"), user.uid);
+        await setDoc(userDocRef, {
+          uid: user.uid,
+          email: user.email,
+          grade: grade,
+          role: role,
+        });
 
         toast({
           title: "Registration Successful",
           description: "You have successfully registered. Please log in.",
         });
-        router.push('/login');
+        router.push("/login");
       }
     } catch (e: any) {
-      setError(e.message || "An error occurred during registration.");
+      const message = e.message || "An error occurred during registration.";
+      setError(message);
       toast({
         variant: "destructive",
         title: "Registration Failed",
-        description: e.message || "Invalid credentials. Please try again.",
+        description: message,
       });
     } finally {
       setIsLoading(false);
@@ -86,9 +80,7 @@ const Register = () => {
       <Card className="max-w-3xl mx-auto">
         <CardHeader>
           <CardTitle>Register</CardTitle>
-          <CardDescription>
-            Enter your details to create an account.
-          </CardDescription>
+          <CardDescription>Enter your details to create an account.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-2">
@@ -98,19 +90,10 @@ const Register = () => {
               placeholder="Enter your email..."
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="studentNumber">Student Number</Label>
-            <Input
-              id="studentNumber"
-              placeholder="Enter your student number..."
-              type="text"
-              value={studentNumber}
-              onChange={(e) => setStudentNumber(e.target.value)}
-            />
-          </div>
+
           <div className="grid gap-2">
             <Label htmlFor="password">Password</Label>
             <Input
@@ -118,45 +101,70 @@ const Register = () => {
               placeholder="Enter your password..."
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
             />
           </div>
-           <div className="grid gap-2">
-            <Label htmlFor="class">Class</Label>
-            <Select onValueChange={setSelectedClass}>
+
+          <div className="grid gap-2">
+            <Label htmlFor="role">Role</Label>
+            <Select onValueChange={(value: string) => setRole(value as "teacher" | "student")}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a class" />
+                <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
-                {classes.map((cls) => (
-                  <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                {roles.map((roleOption) => (
+                  <SelectItem key={roleOption.value} value={roleOption.value}>
+                    {roleOption.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleSubmit} disabled={isLoading || (email.endsWith('@teacher.com') && !selectedClass)}>
+          {role === "student" && (
+            <div className="grid gap-2">
+              <Label htmlFor="grade">Grade</Label>
+              <Select onValueChange={setGrade}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select your grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5"].map((gradeOption) => (
+                    <SelectItem key={gradeOption} value={gradeOption}>
+                      {gradeOption}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {role === "teacher" && (
+            <div className="grid gap-2">
+              <Label htmlFor="secretCode">Secret Code</Label>
+              <Input
+                id="secretCode"
+                placeholder="Enter secret code..."
+                type="password"
+                value={secretCode}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setSecretCode(e.target.value)}
+              />
+            </div>
+          )}
+
+          <Button onClick={handleRegister} disabled={isLoading}>
             {isLoading ? "Registering..." : "Register"}
           </Button>
+
           {error && <p className="text-red-500">{error}</p>}
-          <p className="text-sm text-muted-foreground">
-            Already have an account? <Link href="/login" className="text-primary">Login</Link>
+
+          <p className="text-sm text-muted-foreground mt-2">
+            Already have an account?{" "}
+            <Link href="/login" className="text-primary underline">Login</Link>
           </p>
         </CardContent>
       </Card>
     </div>
   );
 };
-
-const RegisterPage = () => {
-  return (
-    <ClientComponent />
-  )
-}
-
-const ClientComponent = () => {
-  return (
-    <Register />
-  )
-}
 
 export default RegisterPage;
