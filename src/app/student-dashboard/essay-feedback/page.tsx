@@ -11,9 +11,13 @@ import { useAuth } from "@/components/auth-provider";
 import { saveGrade, getGrades } from "@/lib/firebase";
 import { useEffect } from 'react';
 
-type Grade = {
+
+type GradeData = {
   id: string;
+  taskName: string;
   score: number;
+  feedback: string;
+  timestamp: Date;
 }
 
 const EssayFeedbackPage = () => {
@@ -28,13 +32,15 @@ const EssayFeedbackPage = () => {
 
     useEffect(() => {
         if (user) {
-            getGrades(user.uid).then(grades => {
-              const gradesData = grades as Grade[];
-              if (gradesData.length > 0) {
-                const sum = gradesData.reduce((acc, grade) => acc + grade.score, 0);
+            getGrades(user.uid)
+            .then((grades) => {
+              const typedGrades = grades as GradeData[]
+                
+                if (typedGrades.length > 0) {
+                const sum = typedGrades.reduce((acc, grade) => acc + grade.score, 0);
                   setTotalScore(sum);
               }
-            }).catch(e => {
+            }).catch((e: any) => {
                 console.error("Error fetching grades:", e);
                 setError(e.message || "An error occurred while fetching grades.");
             });

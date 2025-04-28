@@ -27,7 +27,7 @@ import {
 import { GenerateQuizInput } from "@/ai/flows/generate-quiz";
 
 import { generateQuiz, GenerateQuizOutput } from '@/ai/flows/generate-quiz';
-import { db } from "@/lib/firebase";
+import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 const QuizBuilderPage = () => {
@@ -42,7 +42,8 @@ const QuizBuilderPage = () => {
   const [selectedClass, setSelectedClass] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
   const {user, userClass} = useAuth();
-  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
+  //Static class options
+  const [classes, setClasses] = useState<string[]>(["Grade 1","Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8"]);
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -111,16 +112,17 @@ const QuizBuilderPage = () => {
       }
 
 
-      const quizData = JSON.stringify(quiz);
+      const quizData = JSON.stringify(quiz.questions);
       const result = await assignMCQ({
         classId: selectedClass,
         mcqData: quizData,
         grade: selectedClass,
       });
-      if (result.success) {
+      if (result?.success) {
         toast({
           title: "Quiz Assigned",
           description: result.message,
+          duration: 3000
         });
       } else {
         setError(result.message || "Failed to assign Quiz.");
@@ -249,7 +251,7 @@ const QuizBuilderPage = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleAssign} disabled={isAssigning || !selectedClass}>
+              <Button onClick={handleAssign} disabled={isAssigning || !selectedClass} >
                 {isAssigning ? "Assigning Quizs..." : "Assign Quizs to Class"}
               </Button>
             </div>

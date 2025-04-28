@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   Card,
   CardContent,
@@ -8,9 +8,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/firebase';
+import {Button} from '@/components/ui/button';
+import {useToast} from '@/hooks/use-toast';
+import {db} from '@/lib/firebase';
 import {
   collection,
   query,
@@ -21,10 +21,11 @@ import {
   serverTimestamp,
   getDoc,
 } from 'firebase/firestore';
-import { useAuth } from '@/components/auth-provider';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
+import {useAuth} from '@/components/auth-provider';
+import {Badge} from '@/components/ui/badge';
+import {Textarea} from '@/components/ui/textarea';
+import {Input} from '@/components/ui/input';
+import {format} from 'date-fns';
 
 type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other';
 
@@ -38,7 +39,7 @@ interface BaseAssignment {
     studentIds: string[];
   };
   createdBy: string;
-    createdAt: any;
+  createdAt: any;
 }
 
 interface McqAssignment extends BaseAssignment {
@@ -51,7 +52,7 @@ interface McqAssignment extends BaseAssignment {
 }
 
 interface NonMcqAssignment extends BaseAssignment {
-    type: Exclude<AssignmentType, 'MCQ'>;
+  type: Exclude<AssignmentType, 'MCQ'>;
   mcqQuestions?: {
     question: string;
     options: string[];
@@ -74,8 +75,8 @@ const StudentAssignmentsPage: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [submission, setSubmission] = useState<Submission | null>(null);
-  const { toast } = useToast();
-  const { user, userClass } = useAuth();
+  const {toast} = useToast();
+  const {user, userClass} = useAuth();
   const [mcqAnswers, setMcqAnswers] = useState<string[]>([]);
   const [responseText, setResponseText] = useState('');
 
@@ -87,17 +88,36 @@ const StudentAssignmentsPage: React.FC = () => {
           where('assignedTo.classId', '==', userClass)
         );
         const querySnapshot = await getDocs(q);
-        const assignmentsData = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-            dueDate: doc.data().dueDate ? (doc.data().dueDate instanceof Date ? doc.data().dueDate : doc.data().dueDate.toDate()) : null,
-        })) as Assignment[];
-        setAssignments(assignmentsData);
+        const assignmentsData = querySnapshot.docs.map((doc) => {
+          const dueDate = doc.data().dueDate ? (doc.data().dueDate.toDate ? doc.data().dueDate.toDate() : doc.data().dueDate) : null;
+          return {
+            id: doc.id,
+            ...doc.data(),
+            dueDate: dueDate,
+          } as Assignment;
+        });
+
+        // Filter for tasks assigned to this student and not yet submitted, or are overdue
+        const filteredAssignments = assignmentsData.filter(assignment => {
+          const isAssignedToStudent = assignment.assignedTo.studentIds
+            ? assignment.assignedTo.studentIds.includes(user.uid)
+            : true; // If no studentIds array, it's for the whole class
+
+          // Check submission status
+          const isSubmitted = submission?.status === 'Submitted';
+
+          // Check if overdue
+          const isOverdue = assignment.dueDate && assignment.dueDate < new Date() && !isSubmitted;
+
+          return isAssignedToStudent && (!isSubmitted || isOverdue);
+        });
+
+        setAssignments(filteredAssignments);
       }
     };
 
     fetchAssignments();
-  }, [user, userClass]);
+  }, [user, userClass, submission]);
 
   const handleStartAssignment = async (assignment: Assignment) => {
     setSelectedAssignment(assignment);
@@ -109,7 +129,12 @@ const StudentAssignmentsPage: React.FC = () => {
       user!.uid
     );
     const submissionSnap = await getDoc(submissionRef);
-    setSubmission(submissionSnap.data() as Submission);
+    const fetchedSubmission = submissionSnap.data() as Submission;
+    if (fetchedSubmission) {
+      console.log("Submission data:", fetchedSubmission);
+      setSubmission(fetchedSubmission);
+    }
+
     setMcqAnswers([]);
     setResponseText('');
   };
@@ -129,20 +154,20 @@ const StudentAssignmentsPage: React.FC = () => {
       'submissions',
       user!.uid
     );
-      const submissionData: Submission = {
-          status: 'Submitted',
-          submittedAt: serverTimestamp(),
-      };
-      if (selectedAssignment.type === 'MCQ') {
-          submissionData.answers = mcqAnswers;
-      } else {
-          submissionData.responseText = responseText;
-      }
+    const submissionData: Submission = {
+      status: 'Submitted',
+      submittedAt: serverTimestamp(),
+    };
+    if (selectedAssignment.type === 'MCQ') {
+      submissionData.answers = mcqAnswers;
+    } else {
+      submissionData.responseText = responseText;
+    }
 
-      await setDoc(submissionRef, submissionData);
-    setSubmission({ status: 'Submitted', submittedAt: serverTimestamp(), answers: mcqAnswers });
+    await setDoc(submissionRef, submissionData);
+    setSubmission({status: 'Submitted', submittedAt: serverTimestamp(), answers: mcqAnswers});
     setSelectedAssignment(null);
-    toast({ title: 'Success', description: 'MCQ submitted successfully.' });
+    toast({title: 'Success', description: 'MCQ submitted successfully.'});
   };
 
   const handleSubmitResponse = async () => {
@@ -159,9 +184,9 @@ const StudentAssignmentsPage: React.FC = () => {
       submittedAt: serverTimestamp(),
       responseText,
     });
-    setSubmission({ status: 'Submitted', submittedAt: serverTimestamp(), responseText: responseText });
+    setSubmission({status: 'Submitted', submittedAt: serverTimestamp(), responseText: responseText});
     setSelectedAssignment(null);
-    toast({ title: 'Success', description: 'Response submitted successfully.' });
+    toast({title: 'Success', description: 'Response submitted successfully.'});
   };
 
   return (
@@ -177,7 +202,14 @@ const StudentAssignmentsPage: React.FC = () => {
               <h3 className="text-lg font-semibold">{selectedAssignment.title}</h3>
               <p>{selectedAssignment.description}</p>
               <Badge>{selectedAssignment.type}</Badge>
-              <p>Due: {selectedAssignment.dueDate ? (selectedAssignment.dueDate instanceof Date ? selectedAssignment.dueDate.toLocaleString() : (selectedAssignment.dueDate && typeof selectedAssignment.dueDate.toDate === 'function' ? selectedAssignment.dueDate.toDate().toLocaleString() : 'No due date')) : 'No due date'}</p>
+              <p>
+                Due:{' '}
+                {selectedAssignment.dueDate
+                  ? selectedAssignment.dueDate instanceof Date
+                    ? assignment.dueDate.toLocaleString()
+                    : 'Invalid Date'
+                  : 'No due date'}
+              </p>
               {selectedAssignment.type === 'MCQ' &&
                 selectedAssignment.mcqQuestions &&
                 selectedAssignment.mcqQuestions.map((question, index) => (
@@ -198,39 +230,49 @@ const StudentAssignmentsPage: React.FC = () => {
                     ))}
                   </div>
                 ))}
-                {selectedAssignment.type !== 'MCQ' && (
-                  <div className="grid gap-2">
-                    <Textarea
-                      value={responseText}
-                      onChange={(e) => setResponseText(e.target.value)}
-                      placeholder="Your response here"
-                    />
-                    <Input placeholder="Link" />
-                  </div>
-                )}
+              {selectedAssignment.type !== 'MCQ' && (
+                <div className="grid gap-2">
+                  <Textarea
+                    value={responseText}
+                    onChange={(e) => setResponseText(e.target.value)}
+                    placeholder="Your response here"
+                  />
+                  <Input placeholder="Link" />
+                </div>
+              )}
               {selectedAssignment.type === 'MCQ' ? (
                 <Button onClick={handleSubmitMcq}>Submit MCQ</Button>
               ) : (
                 <Button onClick={handleSubmitResponse}>Submit Response</Button>
               )}
-              {submission?.status === "Submitted" ? <Badge>Submitted</Badge> : null}
+              {submission?.status === 'Submitted' ? <Badge>Submitted</Badge> : null}
             </>
           ) : (
-            <div className='grid gap-4'>
-            {assignments.map((assignment) => (
-              <Card key={assignment.id} className="border">
-                <CardHeader>
-                  <CardTitle>{assignment.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Badge>{assignment.type}</Badge>
-                  <p>Due: {assignment.dueDate ? (assignment.dueDate instanceof Date ? assignment.dueDate.toLocaleString() : (assignment.dueDate && typeof assignment.dueDate.toDate === 'function' ? assignment.dueDate.toDate().toLocaleString() : 'No due date')) : 'No due date'}</p>
-                  <Button onClick={() => handleStartAssignment(assignment)} disabled={submission?.status === "Submitted"}>
-                      {submission?.status === "Submitted" ? "Continue" : "Start"}
+            <div className="grid gap-4">
+              {assignments.map((assignment) => (
+                <Card key={assignment.id} className="border">
+                  <CardHeader>
+                    <CardTitle>{assignment.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Badge>{assignment.type}</Badge>
+                    <p>
+                      Due:{' '}
+                      {assignment.dueDate
+                        ? assignment.dueDate instanceof Date
+                          ? format(assignment.dueDate, 'PPP')
+                          : 'Invalid Date'
+                        : 'No due date'}
+                    </p>
+                    <Button
+                      onClick={() => handleStartAssignment(assignment)}
+                      disabled={submission?.status === 'Submitted'}
+                    >
+                      {submission?.status === 'Submitted' ? 'Continue' : 'Start'}
                     </Button>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </CardContent>

@@ -9,5 +9,5 @@ import './flows/generate-overview';
 import './flows/assign-mcq';
 import './flows/generate-lesson-plan';
 import './flows/generate-quiz';
-import './flows/content-repository';
+import './content-repository-tool';
 import './flows/assign-task';

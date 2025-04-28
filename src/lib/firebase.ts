@@ -1,20 +1,23 @@
 'use client';
 
-import { FirebaseApp, initializeApp, getApps, deleteApp } from "firebase/app";
-import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth } from "firebase/auth";
-import { getFirestore, Firestore, collection, doc, setDoc, getDoc, DocumentData, addDoc, query, where, getDocs } from "firebase/firestore";
-import {useEffect, useState} from 'react';
-
+import { FirebaseApp, initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth } from 'firebase/auth';
+import { getFirestore, Firestore, collection, doc, setDoc, getDoc, DocumentData, addDoc, query, where, getDocs, DocumentReference } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
 
 interface Student {
   id: string;
   email: string;
-  studentNumber: string;
-  class: string;
+  studentNumber?: string;
+  class?: string;
   progress?: number;
   role: 'student';
 }
-interface Teacher { id: string, email: string, role: 'teacher', class: string }
+interface Teacher {
+  id: string,
+  email: string,
+  role: 'teacher', class: string
+}
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -26,12 +29,10 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-let app: FirebaseApp;
-let auth: Auth | undefined;
-let db: Firestore;
+let app: FirebaseApp, auth: Auth, db: Firestore;
 
 if (getApps().length === 0) {
-  try {
+   try {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
 
@@ -44,34 +45,66 @@ if (getApps().length === 0) {
     console.error("Firebase initialization error:", error.message);
   }
 } else {
-  app = getApps()[0];
-  db = getFirestore(app);
-  if (typeof window !== 'undefined') {
+    app = getApp();
+     db = getFirestore(app);
+  
+     if (typeof window !== 'undefined') {
+      
     auth = getAuth(app);
   }
 }
+async function generateUniqueStudentId(): Promise<string> {
+  let studentId = "";
+  let isUnique = false;
+  while (!isUnique) {
+    studentId = Math.floor(100000 + Math.random() * 900000).toString();//I had to add this in order to fix the typing errors
+    const docRef = doc(db, 'Users', studentId);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      isUnique = true;
+    }
+  }
+  return studentId;
+}
 
 
-async function createUserDocument(userId: string, email: string, studentNumber: string, role: "teacher" | "student", selectedClass: string ) {
+
+async function getGrades(userId: string) {
     try {
-        const userDocRef = doc(db, 'Users', userId); 
-        let userData: Student | Teacher;
+        const gradesCollection = collection(db, 'Users', userId, 'grades');
+        const gradesSnapshot = await getDocs(gradesCollection);
+        const grades = gradesSnapshot.docs.map(doc => ({ id: doc.id, score: doc.data().score, ...doc.data() }));
+        return grades;
+    } catch (error: any) {
+        console.error('Error fetching grades:', error.message);
+        return []; // Return an empty array in case of error
+    }
+}
 
-        if (role === "teacher") {
+async function createUserDocument(userId: string, email: string, studentNumber: string, role: "teacher" | "student", selectedClass: string) {
+    try {
+        const userDocRef = doc(db, 'Users', userId);
+        let userData: Student | Teacher;
+        if (role === "teacher") {           
             userData = {
                 id: userId,
                 email: email,
                 role: "teacher",
             } as Teacher;
-        } else {
+        } else if (role === "student") {
             userData = {
                 id: userId,
                 email: email,
-                studentNumber: studentNumber,
-                class: selectedClass,
+                studentNumber: studentNumber || undefined,
+                class: selectedClass || undefined,
+
+                studentId: await generateUniqueStudentId(),
+                
                 progress: 0,
                 role: "student",
-            } as Student;
+            } as Student;          
+        } else {
+            throw new Error("Invalid role provided.");
         }
         await setDoc(userDocRef, userData);
         console.log(`User document created for user ${userId} with role ${role}`);
@@ -81,90 +114,87 @@ async function createUserDocument(userId: string, email: string, studentNumber: 
 }
 
 async function getStudentData(userId: string) {
-  try {
-    const studentDocRef = doc(db, 'Users', userId); 
-    const docSnap = await getDoc(studentDocRef);
-    if (docSnap.exists()) {
-        return docSnap.data() as Student;
-    } else {
-        console.log("No such student document!");
+    try {
+        const studentDocRef = doc(db, 'Users', userId);
+        const docSnap = await getDoc(studentDocRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as Student;
+        } else {
+            console.log("No such student document!");
+            return null;
+        }
+    } catch (error: any) {
+        console.error("Error creating user document:", error.message);
+    }
+}
+async function getUserDataByUid(userId: string): Promise<Student | Teacher | null> {
+    try {
+        const userDocRef = doc(db, 'Users', userId);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.role === 'student') {
+                return userData as Student;
+            } else if (userData.role === 'teacher') {
+                return userData as Teacher;
+            }
+        }
+        return null;
+    } catch (error: any) {
+        console.error('Error fetching user data:', error.message);
         return null;
     }
-  } catch (error: any) {
-    console.error("Error creating user document:", error.message);
-  }
-}
-
-async function getUserDataByUid(userId: string): Promise<Student | Teacher | null> {
-  try {
-    const userDocRef = doc(db, 'Users', userId); 
-    const userDoc = await getDoc(userDocRef);
-
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-      if (userData.role === 'student') {
-        return userData as Student;
-      } else if (userData.role === 'teacher') {
-        return userData as Teacher;
-      }
-    }
-    return null;
-  } catch (error: any) {
-    console.error('Error fetching user data:', error.message);
-    return null;
-  }
 }
 // Helper function to get document data with type checking
-async function getDocumentData<T>(docRef: any): Promise<T | null> {
-  try {
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return docSnap.data() as T;
-    } else {
-      console.log("No such document!");
-      return null;
+async function getDocumentData<T>(docRef: DocumentReference): Promise<T | null> {
+    try {
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as T;
+        } else {
+            console.log("No such document!");
+            return null;
+        }
+    } catch (error: any) {
+        console.error("Error fetching document:", error.message);
+        return null;
     }
-  } catch (error: any) {
-    console.error("Error fetching document:", error.message);
-    return null;
-  }
 }
 
 // Function to get user data from Firestore
 async function getUserData(userId: string) {
-  const studentData = await getStudentData(userId)
-  if (studentData) return studentData
-  try {
-    const teacherDocRef = doc(db, 'Users', userId); 
-    const teacherData = await getDocumentData<Teacher>(teacherDocRef);
-    return teacherData;
-  } catch (error: any) {
-    return null;
-  }
+    const studentData = await getStudentData(userId);
+    if (studentData) return studentData
+    try {
+        const teacherDocRef = doc(db, 'Users', userId);
+        const teacherData = await getDocumentData<Teacher>(teacherDocRef);
+        return teacherData;
+    } catch (error) {
+        return null;
+    } 
 }
 
 // Function to save a grade for a student
 async function saveGrade(studentId: string, taskName: string, score: number, feedback: string) {
-  try {
+    try {
         const studentData = await getStudentData(studentId);
-        const studentClass = studentData?.class;
-
-    const gradesCollection = collection(db, 'Users', studentId, 'grades'); 
-    await addDoc(gradesCollection, {
-      taskName: taskName,
-      score: score,
-      feedback: feedback,
-      timestamp: new Date(),
-      ...(studentClass && {
-        class: studentClass,
-      })
-    });
-    console.log(`Grade saved for student ${studentId} on task ${taskName}`);
-  } catch (error: any) {
-    console.error("Error saving grade:", error.message);
-  }
+        const additionalData: Record<string, any> = {};
+        if (studentData && studentData.class && typeof studentData.class === 'string') {
+            additionalData.class = studentData.class;
+        }
+        const gradesCollection = collection(db, 'Users', studentId, 'grades');
+        await addDoc(gradesCollection, {
+            taskName: taskName,
+            score: score,
+            feedback: feedback,
+            timestamp: new Date(),
+            ...additionalData
+        })
+        console.log(`Grade saved for student ${studentId} on task ${taskName}`);
+    } catch (error: any) {
+        console.error("Error saving grade:", error.message);
+    }
 }
 
-
-
-export { app, auth, db, getUserData, createUserDocument, saveGrade, getUserDataByUid };
+export {  getUserData, createUserDocument, saveGrade, getUserDataByUid, auth, db, getGrades };
