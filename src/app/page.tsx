@@ -4,61 +4,61 @@ import Link from 'next/link';
 import { useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from "@/components/auth-provider";
-// Removed import: import { seedInitialData } from "@/lib/firebase";
 
 const ClientComponent = () => {
   const router = useRouter();
   const { user, loading, userType, userClass } = useAuth();
-
+  const [redirecting, setRedirecting] = useState(true); // Add state to track redirection
 
   useEffect(() => {
-    // Seed the database with initial data
-    // If seeding is needed, ensure the function exists and is imported correctly,
-    // or call a specific seeding endpoint/script.
-    // Example: initializeDataIfNeeded();
-
+    // Only proceed if loading is complete
     if (!loading) {
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+      let targetPath = "/login"; // Default redirect path
 
-      if (userType === 'teacher') {
-        // Ensure userClass is available before redirecting
-        if (userClass) {
-          router.push(`/teacher-dashboard?class=${userClass}`);
+      if (user) {
+        // User is logged in, determine dashboard based on role
+        if (userType === 'teacher') {
+          targetPath = '/teacher-dashboard';
+          // Optionally add class query param if needed, but ensure userClass is stable
+          // if (userClass) targetPath += `?class=${userClass}`;
+        } else if (userType === 'student') {
+          targetPath = '/student-dashboard';
         } else {
-          // Handle case where teacher class is not yet loaded or available
-          console.log("Teacher class not found, redirecting to teacher dashboard base.");
-          router.push(`/teacher-dashboard`);
+          // Unknown role or still loading role, maybe default to login or a loading page
+          // Keep targetPath as '/login' or handle appropriately
+          console.warn("User logged in but role is unknown or loading, redirecting to login.");
         }
-      } else if (userType === 'student') {
-        router.push(`/student-dashboard`);
-      } else {
-        // Fallback if userType is null or unexpected
-        console.log("User type unknown, redirecting to login.");
-        router.push("/login");
       }
-    };
-  }, [user, loading, userType, userClass, router]); // Add userClass to dependency array
+      // Perform redirection only once
+      // Check if the current path is already the target path to avoid unnecessary replace calls
+      if (redirecting && router.pathname !== targetPath) {
+        console.log(`Redirecting to: ${targetPath}`);
+        router.replace(targetPath);
+        // No need to setRedirecting(false) here, as the component will unmount or re-render with new props
+      } else if (router.pathname === targetPath) {
+        // If already at the target path, stop the redirection attempt
+         setRedirecting(false);
+      }
+    }
+  }, [user, loading, userType, userClass, router, redirecting]); // Add redirecting to dependencies
 
-  if (loading)  {
+
+  // Show loader only while loading or initial redirection is pending
+  if (loading || (redirecting && (!user || (userType !== 'teacher' && userType !== 'student')))) {
+     // Keep showing loader if loading, or if redirecting and user/role is not yet determined for dashboard access
     return (
       <div className="flex items-center justify-center min-h-screen">
-         {/* You can replace this with a more sophisticated loader */}
          <span className="loader"></span>
       </div>
     );
   }
 
-    // Render null or a minimal placeholder while redirecting
-    // This prevents flashing content before redirection completes
-    return null;
+
+  // Render null or minimal content after redirection attempt
+  // This prevents flashing content if the user somehow lands back here
+  return null;
 }
 
-
-// Add loader CSS to a global scope or within a style tag if needed locally
-// Ensure globals.css or another appropriate CSS file includes the loader styles
 
 export default function Home() {
   return <ClientComponent />;
