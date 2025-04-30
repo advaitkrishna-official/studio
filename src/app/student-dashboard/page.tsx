@@ -70,7 +70,7 @@ function Sidebar() {
     { name: 'Home', Icon: Home, link: '/student-dashboard' },
     { name: 'Assignments', Icon: ListChecks, link: '/student-dashboard/my-assignments' },
     { name: 'Flashcards', Icon: BookOpenCheck, link: '/student-dashboard/flashcards' },
-    { name: 'MCQs', Icon: LayoutGrid, link: '/student-dashboard/mcqs' },
+    { name: 'MCQs', Icon: LayoutGrid, link: '/student-dashboard/mcq' }, // Fixed link
     { name: 'Essay Feedback', Icon: PencilRuler, link: '/student-dashboard/essay-feedback' },
     { name: 'Progress', Icon: LineChart, link: '/student-dashboard/progress' },
     { name: 'Learning Path', Icon: BookOpen, link: '/student-dashboard/learning-path' },
@@ -108,7 +108,6 @@ export default function StudentDashboardPage() {
   const { user, userClass } = useAuth();
   const router = useRouter();
 
-  const [searchQuery, setSearchQuery] = useState('');
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
 
@@ -142,9 +141,7 @@ export default function StudentDashboardPage() {
     return () => unsub();
   }, [user, userClass, router]);
 
-  const handleSearch = () => {
-    router.push(`/student-dashboard?search=${encodeURIComponent(searchQuery)}`);
-  };
+
 
   if (!user) {
     return (
@@ -176,15 +173,7 @@ export default function StudentDashboardPage() {
         <header className="p-4 border-b border-gray-200 flex items-center justify-between">
           <h1 className="text-3xl font-bold">Student Dashboard</h1>
           <div className="flex items-center gap-4">
-            <Input
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="max-w-xs"
-            />
-            <Button onClick={handleSearch}>
-              <Search className="h-4 w-4 mr-2" /> Search
-            </Button>
+            {/* Search removed as requested */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="p-0">
@@ -195,7 +184,7 @@ export default function StudentDashboardPage() {
                         ?.split(' ')
                         .map((n) => n.charAt(0))
                         .join('')
-                        .toUpperCase()}
+                        .toUpperCase() || 'U'}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -210,30 +199,61 @@ export default function StudentDashboardPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-8 space-y-12">
+           {/* Personalized Greeting */}
+          <h2 className="text-2xl font-semibold">Welcome back, {user.displayName || user.email}!</h2>
+
+          {/* Quick Overview Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             {/* Today's Tasks */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Today's Tasks</CardTitle>
+                 <CardDescription>Assignments due soon.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingTasks ? (
+                   <p>Loading tasks...</p>
+                 ) : assignments.length > 0 ? (
+                   <ul className="space-y-2">
+                     {assignments
+                      .filter(a => new Date(a.dueDate).toDateString() === new Date().toDateString()) // Filter for today's tasks
+                      .map((a) => (
+                        <li key={a.id} className="flex justify-between items-center">
+                          <span>{a.title}</span>
+                           <Badge variant="outline">{a.type}</Badge>
+                         </li>
+                       ))}
+                     {assignments.filter(a => new Date(a.dueDate).toDateString() === new Date().toDateString()).length === 0 && (
+                       <p>No tasks due today.</p>
+                      )}
+                   </ul>
+                 ) : (
+                   <p>No assignments found.</p>
+                 )}
+              </CardContent>
+            </Card>
+
+             {/* AI Tutor Tip */}
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Tutor Tip</CardTitle>
+                 <CardDescription>Quick tip for your learning.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm">"Break down complex problems into smaller steps. It makes them easier to tackle!"</p>
+                {/* Add button to interact with AI Tutor */}
+                 <Button variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/ai-tutor')}>Ask AI Tutor</Button>
+              </CardContent>
+            </Card>
+          </div>
+
+
           {/* Assignments Grid */}
-          {loadingTasks ? (
-            <p>Loading your assignments…</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {assignments.map((a) => (
-                <Card key={a.id}>
-                  <CardHeader>
-                    <CardTitle>{a.title}</CardTitle>
-                    <CardDescription>{a.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">
-                      Due: {format(a.dueDate, 'dd/MM/yyyy')}
-                    </span>
-                    <Badge variant="outline">{a.type}</Badge>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          {/* Removed to place MyAssignments component below */}
 
           {/* Detailed “My Assignments” page */}
           <MyAssignments />
+
         </main>
       </div>
     </div>
