@@ -59,7 +59,7 @@ const MCQPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await generateMCQ({ topic, numQuestions });
+      const result = await generateMCQ({ topic, numQuestions, grade: selectedGrade }); // Pass grade here
       setMcq(result);
       setAnswers(Array(result?.questions?.length || 0).fill(""));
       setShowAnswers(false);
