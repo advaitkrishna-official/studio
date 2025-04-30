@@ -1,6 +1,6 @@
 'use client';
 
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   Card,
   CardContent,
@@ -20,11 +20,15 @@ import {
   setDoc,
   serverTimestamp,
   getDoc,
+  Timestamp,
+  DocumentData,
 } from 'firebase/firestore';
 import {useAuth} from '@/components/auth-provider';
 import {Badge} from '@/components/ui/badge';
 import {Textarea} from '@/components/ui/textarea';
 import {Input} from '@/components/ui/input';
+import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group';
+import {Label} from '@/components/ui/label';
 import {format} from 'date-fns';
 
 type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other';
@@ -33,40 +37,38 @@ interface BaseAssignment {
   id: string;
   title: string;
   description: string;
-  dueDate: any;
+  dueDate: Timestamp | Date | null; // Allow Date type for local state consistency
   assignedTo: {
     classId: string;
     studentIds: string[];
   };
   createdBy: string;
-  createdAt: any;
+  createdAt: Timestamp;
+}
+
+interface McqQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: string;
 }
 
 interface McqAssignment extends BaseAssignment {
   type: 'MCQ';
-  mcqQuestions: {
-    question: string;
-    options: string[];
-    correctAnswer: string;
-  }[];
+  mcqQuestions: McqQuestion[];
 }
 
 interface NonMcqAssignment extends BaseAssignment {
   type: Exclude<AssignmentType, 'MCQ'>;
-  mcqQuestions?: {
-    question: string;
-    options: string[];
-    correctAnswer: string;
-  }[];
+  mcqQuestions?: McqQuestion[];
 }
 
 type Assignment = McqAssignment | NonMcqAssignment;
 
 interface Submission {
   status: 'Not Started' | 'Submitted' | 'Overdue';
-  submittedAt?: any;
-  answers?: string[];
-  responseText?: string;
+  submittedAt?: Timestamp | Date; // Allow Date type for local state consistency
+  answers?: string[]; // For MCQ
+  responseText?: string; // For written/other
   grade?: string;
   feedback?: string;
 }
@@ -75,202 +77,345 @@ const StudentAssignmentsPage: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [submission, setSubmission] = useState<Submission | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const {toast} = useToast();
   const {user, userClass} = useAuth();
   const [mcqAnswers, setMcqAnswers] = useState<string[]>([]);
   const [responseText, setResponseText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchAssignmentsAndSubmissions = useCallback(async () => {
+    if (!user?.uid || !userClass) {
+      setError('User not logged in or class not defined.');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Query for assignments assigned to the student's class
+      const assignmentsQuery = query(
+        collection(db, 'assignments'),
+        where('assignedTo.classId', '==', userClass)
+        // Add orderBy('dueDate', 'asc') if needed
+      );
+      const assignmentsSnapshot = await getDocs(assignmentsQuery);
+
+      const assignmentsData: Assignment[] = [];
+      const submissionPromises = [];
+
+      for (const docSnap of assignmentsSnapshot.docs) {
+        const data = docSnap.data() as DocumentData;
+        let dueDate = null;
+        if (data.dueDate) {
+          dueDate = data.dueDate instanceof Timestamp ? data.dueDate.toDate() : (typeof data.dueDate === 'string' ? new Date(data.dueDate) : null);
+        }
+
+
+        const assignment: Assignment = {
+          id: docSnap.id,
+          title: data.title,
+          description: data.description,
+          type: data.type,
+          dueDate: dueDate,
+          assignedTo: data.assignedTo,
+          createdBy: data.createdBy,
+          createdAt: data.createdAt,
+          mcqQuestions: data.type === 'MCQ' ? data.mcqQuestions : undefined,
+        } as Assignment;
+
+        // Check if assignment is assigned to this specific student (if studentIds exist)
+        // Note: If assignedTo.studentIds is empty, it implies assignment to the whole class
+        const isAssigned = !assignment.assignedTo?.studentIds?.length ||
+                           assignment.assignedTo.studentIds.includes(user.uid);
+
+        if (isAssigned) {
+          assignmentsData.push(assignment);
+          // Prepare to fetch submission status for this assignment
+          const submissionRef = doc(db, 'assignments', assignment.id, 'submissions', user.uid);
+          submissionPromises.push(getDoc(submissionRef).then(subSnap => ({assignmentId: assignment.id, submissionData: subSnap.data() as Submission | undefined})));
+        }
+      }
+
+      // Fetch all submissions in parallel
+      const submissionResults = await Promise.all(submissionPromises);
+      const submissionsMap = new Map<string, Submission>();
+      submissionResults.forEach(result => {
+        if (result.submissionData) {
+          submissionsMap.set(result.assignmentId, result.submissionData);
+        }
+      });
+
+      // Filter assignments to show only those not yet submitted
+      const filteredAssignments = assignmentsData.filter(a => {
+         const sub = submissionsMap.get(a.id);
+         return !sub || sub.status !== 'Submitted';
+      });
+
+      setAssignments(filteredAssignments);
+
+    } catch (e: any) {
+      console.error('Error fetching assignments:', e);
+      setError('Failed to load assignments. Please try again.');
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not fetch assignments.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, userClass, toast]);
 
   useEffect(() => {
-    const fetchAssignments = async () => {
-      if (user?.uid && userClass) {
-        const q = query(
-          collection(db, 'assignments'),
-          where('assignedTo.classId', '==', userClass)
-        );
-        const querySnapshot = await getDocs(q);
-        const assignmentsData = querySnapshot.docs.map((doc) => {
-          const dueDate = doc.data().dueDate ? (doc.data().dueDate.toDate ? doc.data().dueDate.toDate() : doc.data().dueDate) : null;
-          return {
-            id: doc.id,
-            ...doc.data(),
-            dueDate: dueDate,
-          } as Assignment;
-        });
+    fetchAssignmentsAndSubmissions();
+  }, [fetchAssignmentsAndSubmissions]); // Depend on the memoized fetch function
 
-        // Filter for tasks assigned to this student and not yet submitted, or are overdue
-        const filteredAssignments = assignmentsData.filter(assignment => {
-          const isAssignedToStudent = assignment.assignedTo.studentIds
-            ? assignment.assignedTo.studentIds.includes(user.uid)
-            : true; // If no studentIds array, it's for the whole class
-
-          // Check submission status
-          const isSubmitted = submission?.status === 'Submitted';
-
-          // Check if overdue
-          const isOverdue = assignment.dueDate && assignment.dueDate < new Date() && !isSubmitted;
-
-          return isAssignedToStudent && (!isSubmitted || isOverdue);
-        });
-
-        setAssignments(filteredAssignments);
-      }
-    };
-
-    fetchAssignments();
-  }, [user, userClass, submission]);
 
   const handleStartAssignment = async (assignment: Assignment) => {
     setSelectedAssignment(assignment);
-    const submissionRef = doc(
-      db,
-      'assignments',
-      assignment.id,
-      'submissions',
-      user!.uid
-    );
-    const submissionSnap = await getDoc(submissionRef);
-    const fetchedSubmission = submissionSnap.data() as Submission;
-    if (fetchedSubmission) {
-      console.log("Submission data:", fetchedSubmission);
-      setSubmission(fetchedSubmission);
-    }
-
-    setMcqAnswers([]);
+    // Reset previous submission state
+    setSubmission(null);
+    setMcqAnswers(Array(assignment.type === 'MCQ' && assignment.mcqQuestions ? assignment.mcqQuestions.length : 0).fill(''));
     setResponseText('');
+
+    // Check if there's an existing submission to load (e.g., if they started but didn't finish)
+    // This part can be enhanced if saving progress is needed.
+    // For now, we just fetch the final submission status if it exists.
+    try {
+      const submissionRef = doc(db, 'assignments', assignment.id, 'submissions', user!.uid);
+      const submissionSnap = await getDoc(submissionRef);
+      if (submissionSnap.exists()) {
+         const fetchedSubmission = submissionSnap.data() as Submission;
+         // We primarily care about the status to disable submission if already submitted
+         setSubmission(fetchedSubmission);
+         if(fetchedSubmission.status === 'Submitted') {
+            toast({ title: 'Already Submitted', description: 'You have already submitted this assignment.' });
+         } else if (fetchedSubmission.responseText) {
+            setResponseText(fetchedSubmission.responseText);
+         } else if (fetchedSubmission.answers) {
+            setMcqAnswers(fetchedSubmission.answers);
+         }
+
+      } else {
+         // Default status if no submission doc exists
+         setSubmission({ status: 'Not Started' });
+      }
+    } catch (e) {
+      console.error("Error fetching submission status:", e);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch submission status.' });
+      setSubmission({ status: 'Not Started' }); // Assume not started on error
+    }
   };
+
 
   const handleMcqAnswerChange = (questionIndex: number, answer: string) => {
-    const newAnswers = [...mcqAnswers];
-    newAnswers[questionIndex] = answer;
-    setMcqAnswers(newAnswers);
+    setMcqAnswers((prevAnswers) => {
+        const newAnswers = [...prevAnswers];
+        newAnswers[questionIndex] = answer;
+        return newAnswers;
+     });
   };
 
-  const handleSubmitMcq = async () => {
-    if (!selectedAssignment) return;
-    const submissionRef = doc(
-      db,
-      'assignments',
-      selectedAssignment.id,
-      'submissions',
-      user!.uid
-    );
-    const submissionData: Submission = {
-      status: 'Submitted',
-      submittedAt: serverTimestamp(),
-    };
-    if (selectedAssignment.type === 'MCQ') {
-      submissionData.answers = mcqAnswers;
-    } else {
-      submissionData.responseText = responseText;
+  const handleSubmitAssignment = async () => {
+     if (!selectedAssignment || !user) return;
+
+     setIsSubmitting(true);
+     setError(null);
+
+     const submissionRef = doc(
+       db,
+       'assignments',
+       selectedAssignment.id,
+       'submissions',
+       user.uid
+     );
+
+     const submissionData: Partial<Submission> = { // Use Partial for initial data
+       status: 'Submitted',
+       submittedAt: serverTimestamp(), // Use server timestamp
+     };
+
+     if (selectedAssignment.type === 'MCQ') {
+       // Ensure all questions are answered (optional, depends on requirements)
+       if (mcqAnswers.some(answer => answer === '')) {
+         toast({ variant: 'destructive', title: 'Incomplete', description: 'Please answer all MCQ questions.' });
+         setIsSubmitting(false);
+         return;
+       }
+       submissionData.answers = mcqAnswers;
+     } else {
+       if (!responseText.trim()) {
+         toast({ variant: 'destructive', title: 'Incomplete', description: 'Please provide a response.' });
+         setIsSubmitting(false);
+         return;
+       }
+       submissionData.responseText = responseText;
+     }
+
+     try {
+       // Use setDoc with merge: true if you want to update existing fields or create if not exists
+       await setDoc(submissionRef, submissionData, { merge: true });
+
+       setSubmission({ // Update local state immediately
+           ...submission, // Keep existing grade/feedback if any
+           status: 'Submitted',
+           submittedAt: new Date(), // Approximate with client time for UI
+           answers: selectedAssignment.type === 'MCQ' ? mcqAnswers : undefined,
+           responseText: selectedAssignment.type !== 'MCQ' ? responseText : undefined,
+       });
+       toast({title: 'Success', description: 'Assignment submitted successfully.'});
+       setSelectedAssignment(null); // Close the detail view
+       fetchAssignmentsAndSubmissions(); // Re-fetch to update the list
+     } catch (error: any) {
+       console.error('Error submitting assignment:', error);
+       setError('Failed to submit assignment. Please try again.');
+       toast({
+         variant: 'destructive',
+         title: 'Error',
+         description: 'Could not submit assignment.',
+       });
+     } finally {
+       setIsSubmitting(false);
+     }
+   };
+
+
+  const formatDueDate = (dueDate: Timestamp | Date | null): string => {
+    if (!dueDate) return 'No due date';
+    const date = dueDate instanceof Timestamp ? dueDate.toDate() : dueDate;
+    // Ensure 'date' is a valid Date object before formatting
+    if (date instanceof Date && !isNaN(date.getTime())) {
+      return format(date, 'PPP p'); // Format like 'Jun 20, 2024 5:00 PM'
     }
-
-    await setDoc(submissionRef, submissionData);
-    setSubmission({status: 'Submitted', submittedAt: serverTimestamp(), answers: mcqAnswers});
-    setSelectedAssignment(null);
-    toast({title: 'Success', description: 'MCQ submitted successfully.'});
+    return 'Invalid date';
   };
 
-  const handleSubmitResponse = async () => {
-    if (!selectedAssignment) return;
-    const submissionRef = doc(
-      db,
-      'assignments',
-      selectedAssignment.id,
-      'submissions',
-      user!.uid
-    );
-    await setDoc(submissionRef, {
-      status: 'Submitted',
-      submittedAt: serverTimestamp(),
-      responseText,
-    });
-    setSubmission({status: 'Submitted', submittedAt: serverTimestamp(), responseText: responseText});
-    setSelectedAssignment(null);
-    toast({title: 'Success', description: 'Response submitted successfully.'});
-  };
+  if (isLoading) {
+     // Optional: Add a loading spinner or skeleton UI here
+    return <div className="container mx-auto py-8 text-center">Loading assignments...</div>;
+  }
 
   return (
     <div className="container mx-auto py-8">
-      <Card className="max-w-3xl mx-auto">
-        <CardHeader>
-          <CardTitle>My Assignments</CardTitle>
-          <CardDescription>List of assignments for your class.</CardDescription>
+      <Card className="max-w-4xl mx-auto shadow-lg rounded-lg">
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="text-2xl font-semibold">My Assignments</CardTitle>
+          <CardDescription>View and complete your assigned tasks.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4">
+        <CardContent className="p-6">
+          {error && <p className="text-red-500 mb-4">{error}</p>}
+
           {selectedAssignment ? (
-            <>
-              <h3 className="text-lg font-semibold">{selectedAssignment.title}</h3>
-              <p>{selectedAssignment.description}</p>
-              <Badge>{selectedAssignment.type}</Badge>
-              <p>
-                Due:{' '}
-                {selectedAssignment.dueDate
-                  ? selectedAssignment.dueDate instanceof Date
-                    ? selectedAssignment.dueDate.toLocaleString()
-                    : 'Invalid Date'
-                  : 'No due date'}
-              </p>
-              {selectedAssignment.type === 'MCQ' &&
-                selectedAssignment.mcqQuestions &&
-                selectedAssignment.mcqQuestions.map((question, index) => (
-                  <div key={index} className="mb-4">
-                    <p className="font-medium">{question.question}</p>
-                    {question.options.map((option) => (
-                      <div key={option} className="flex items-center space-x-2">
-                        <input
-                          type="radio"
-                          id={`${question.question}-${option}`}
-                          name={`question-${index}`}
-                          value={option}
-                          checked={mcqAnswers[index] === option}
-                          onChange={() => handleMcqAnswerChange(index, option)}
-                        />
-                        <label htmlFor={`${question.question}-${option}`}>{option}</label>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              {selectedAssignment.type !== 'MCQ' && (
-                <div className="grid gap-2">
-                  <Textarea
-                    value={responseText}
-                    onChange={(e) => setResponseText(e.target.value)}
-                    placeholder="Your response here"
-                  />
-                  <Input placeholder="Link" />
-                </div>
-              )}
-              {selectedAssignment.type === 'MCQ' ? (
-                <Button onClick={handleSubmitMcq}>Submit MCQ</Button>
-              ) : (
-                <Button onClick={handleSubmitResponse}>Submit Response</Button>
-              )}
-              {submission?.status === 'Submitted' ? <Badge>Submitted</Badge> : null}
-            </>
-          ) : (
-            <div className="grid gap-4">
-              {assignments.map((assignment) => (
-                <Card key={assignment.id} className="border">
-                  <CardHeader>
-                    <CardTitle>{assignment.title}</CardTitle>
+            <div className="space-y-6">
+               <Button variant="outline" size="sm" onClick={() => setSelectedAssignment(null)} className="mb-4">
+                 &larr; Back to List
+               </Button>
+              <Card className="border rounded-lg shadow-sm overflow-hidden">
+                  <CardHeader className="bg-muted/50 p-4 border-b">
+                     <CardTitle className="text-xl">{selectedAssignment.title}</CardTitle>
+                      <Badge variant={selectedAssignment.type === 'MCQ' ? 'secondary' : 'outline'} className="w-fit">
+                         {selectedAssignment.type}
+                      </Badge>
                   </CardHeader>
-                  <CardContent>
-                    <Badge>{assignment.type}</Badge>
-                    <p>
-                      Due:{' '}
-                      {assignment.dueDate
-                        ? assignment.dueDate instanceof Date
-                          ? format(assignment.dueDate, 'PPP')
-                          : 'Invalid Date'
-                        : 'No due date'}
-                    </p>
-                    <Button
-                      onClick={() => handleStartAssignment(assignment)}
-                      disabled={submission?.status === 'Submitted'}
-                    >
-                      {submission?.status === 'Submitted' ? 'Continue' : 'Start'}
-                    </Button>
-                  </CardContent>
+                  <CardContent className="p-4 space-y-4">
+                    <p className="text-muted-foreground">{selectedAssignment.description}</p>
+                    <p className="text-sm font-medium">
+                        Due: {formatDueDate(selectedAssignment.dueDate)}
+                     </p>
+
+                    {/* Submission Area */}
+                    {submission?.status !== 'Submitted' && (
+                      <>
+                        {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
+                          <div className="space-y-6 mt-4">
+                            <h4 className="font-semibold text-lg">Questions:</h4>
+                            {selectedAssignment.mcqQuestions.map((question, index) => (
+                              <div key={index} className="p-4 border rounded-md bg-background">
+                                <p className="font-medium mb-3">{index + 1}. {question.question}</p>
+                                <RadioGroup
+                                  value={mcqAnswers[index]}
+                                  onValueChange={(value) => handleMcqAnswerChange(index, value)}
+                                >
+                                  {question.options.map((option, i) => (
+                                    <div key={option + i} className="flex items-center space-x-2">
+                                      <RadioGroupItem value={option} id={`q-${index}-option-${i}`} />
+                                      <Label htmlFor={`q-${index}-option-${i}`}>{option}</Label>
+                                    </div>
+                                  ))}
+                                </RadioGroup>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {selectedAssignment.type !== 'MCQ' && (
+                          <div className="grid gap-2 mt-4">
+                             <Label htmlFor="responseText" className="font-semibold text-lg">Your Response:</Label>
+                            <Textarea
+                              id="responseText"
+                              value={responseText}
+                              onChange={(e) => setResponseText(e.target.value)}
+                              placeholder="Type your response here..."
+                              rows={8}
+                              className="resize-none"
+                            />
+                            {/* Optional: Input for link if needed */}
+                            {/* <Input placeholder="Optional: Link to your work (e.g., Google Doc)" className="mt-2" /> */}
+                          </div>
+                        )}
+
+                        <Button
+                          onClick={handleSubmitAssignment}
+                          disabled={isSubmitting}
+                          className="mt-6 w-full"
+                         >
+                          {isSubmitting ? 'Submitting...' : 'Submit Assignment'}
+                        </Button>
+                       </>
+                     )}
+
+                    {/* Display if already submitted */}
+                    {submission?.status === 'Submitted' && (
+                       <div className="mt-6 p-4 border border-green-300 bg-green-50 rounded-md text-green-700">
+                          <p className="font-semibold">Assignment Submitted</p>
+                           {submission.submittedAt && <p className="text-sm">Submitted on: {formatDueDate(submission.submittedAt)}</p>}
+                           {/* Optionally display submitted answers/response */}
+                           {submission.answers && <p className="text-sm mt-2">Your answers: {submission.answers.join(', ')}</p>}
+                           {submission.responseText && <p className="text-sm mt-2">Your response: {submission.responseText}</p>}
+                           {submission.grade && <p className="text-sm mt-2 font-semibold">Grade: {submission.grade}</p>}
+                           {submission.feedback && <p className="text-sm mt-2">Feedback: {submission.feedback}</p>}
+                       </div>
+                    )}
+                   </CardContent>
+                 </Card>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {assignments.length === 0 && !isLoading && (
+                <p className="text-center text-muted-foreground">No assignments due at the moment.</p>
+              )}
+              {assignments.map((assignment) => (
+                <Card key={assignment.id} className="border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+                  <CardHeader className="flex flex-row justify-between items-start p-4">
+                      <div>
+                         <CardTitle className="text-lg font-medium">{assignment.title}</CardTitle>
+                         <Badge variant={assignment.type === 'MCQ' ? 'secondary' : 'outline'} className="mt-1 w-fit">{assignment.type}</Badge>
+                      </div>
+                     <Button variant="outline" size="sm" onClick={() => handleStartAssignment(assignment)}>
+                       Start
+                     </Button>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                     <p className="text-sm text-muted-foreground">
+                        Due: {formatDueDate(assignment.dueDate)}
+                     </p>
+                     {/* Optional: Add a brief description snippet */}
+                     {/* <p className="text-sm mt-1 line-clamp-1">{assignment.description}</p> */}
+                   </CardContent>
                 </Card>
               ))}
             </div>
