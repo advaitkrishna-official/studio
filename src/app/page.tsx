@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from "@/components/auth-provider";
-//import { seedInitialData } from "@/lib/firebase";
+// Removed import: import { seedInitialData } from "@/lib/firebase";
 
 const ClientComponent = () => {
   const router = useRouter();
@@ -13,36 +13,52 @@ const ClientComponent = () => {
 
   useEffect(() => {
     // Seed the database with initial data
-    //seedInitialData();
+    // If seeding is needed, ensure the function exists and is imported correctly,
+    // or call a specific seeding endpoint/script.
+    // Example: initializeDataIfNeeded();
 
     if (!loading) {
       if (!user) {
         router.push("/login");
         return;
       }
-    
+
       if (userType === 'teacher') {
-        router.push(`/teacher-dashboard?class=${userClass}`);
-      } else {
+        // Ensure userClass is available before redirecting
+        if (userClass) {
+          router.push(`/teacher-dashboard?class=${userClass}`);
+        } else {
+          // Handle case where teacher class is not yet loaded or available
+          console.log("Teacher class not found, redirecting to teacher dashboard base.");
+          router.push(`/teacher-dashboard`);
+        }
+      } else if (userType === 'student') {
         router.push(`/student-dashboard`);
+      } else {
+        // Fallback if userType is null or unexpected
+        console.log("User type unknown, redirecting to login.");
+        router.push("/login");
       }
     };
-  }, [user, loading, userType, router]);
+  }, [user, loading, userType, userClass, router]); // Add userClass to dependency array
 
   if (loading)  {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Loading...</p>
+         {/* You can replace this with a more sophisticated loader */}
+         <span className="loader"></span>
       </div>
     );
   }
 
-    return (
-        <div className="flex items-center justify-center min-h-screen">
-            <p>Redirecting...</p>
-        </div>
-    );
+    // Render null or a minimal placeholder while redirecting
+    // This prevents flashing content before redirection completes
+    return null;
 }
+
+
+// Add loader CSS to a global scope or within a style tag if needed locally
+// Ensure globals.css or another appropriate CSS file includes the loader styles
 
 export default function Home() {
   return <ClientComponent />;
