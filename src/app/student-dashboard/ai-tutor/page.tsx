@@ -1,22 +1,13 @@
+
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-
-// Mock AI response function (replace with actual AI call)
-const getAIResponse = async (prompt: string): Promise<string> => {
-  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
-  if (prompt.toLowerCase().includes('hello')) {
-    return "Hello! How can I help you with your studies today?";
-  } else if (prompt.toLowerCase().includes('photosynthesis')) {
-    return "Photosynthesis is the process used by plants, algae and cyanobacteria to convert light energy into chemical energy, through a process that converts water and carbon dioxide into oxygen and energy-rich organic compounds.";
-  }
-  return "I'm sorry, I can't help with that specific question right now. Try asking something about photosynthesis or say hello!";
-};
+import { aiTutor } from '@/ai/flows/ai-tutor-flow'; // Import the new Genkit flow
 
 export default function AITutorPage() {
   const [input, setInput] = useState('');
@@ -28,16 +19,22 @@ export default function AITutorPage() {
 
     const userMessage = { sender: 'user' as const, text: input };
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input; // Capture input before clearing
     setInput('');
     setIsLoading(true);
 
     try {
-      const aiText = await getAIResponse(input);
-      const aiMessage = { sender: 'ai' as const, text: aiText };
+      // Call the Genkit flow
+      const aiResult = await aiTutor({ prompt: currentInput });
+      const aiMessage = { sender: 'ai' as const, text: aiResult.response };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error("Error getting AI response:", error);
-      const errorMessage = { sender: 'ai' as const, text: "Sorry, I encountered an error. Please try again." };
+      let errorMessageText = "Sorry, I encountered an error. Please try again.";
+      if (error instanceof Error && error.message.includes('Quota')) {
+          errorMessageText = "Sorry, I've reached my processing limit for now. Please try again later.";
+      }
+      const errorMessage = { sender: 'ai' as const, text: errorMessageText };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);

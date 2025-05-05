@@ -1,3 +1,4 @@
+
 import './flows/generate-mcq';
 import './flows/provide-essay-feedback';
 import './flows/generate-long-answer-questions';
@@ -11,3 +12,6 @@ import './flows/generate-lesson-plan';
 import './flows/generate-quiz';
 import './content-repository-tool';
 import './flows/assign-task';
+import './flows/content-repository';
+import './flows/ai-tutor-flow'; // Add the new flow
+
