@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react"; // Added useEffect
@@ -9,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { personalizeLearningPath } from "@/ai/flows/personalize-learning-path";
 import { useAuth } from '@/components/auth-provider'; // Import useAuth
 import { useToast } from "@/hooks/use-toast"; // Import useToast
+import { motion } from 'framer-motion'; // For animations
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // For potential charts
 
 interface Recommendations {
   recommendedTopics: { topic: string; reason: string; }[];
@@ -23,19 +26,41 @@ const LearningPathPage = () => {
   const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user, userClass } = useAuth(); // Get user and userClass
+  const { user, userClass, loading: authLoading } = useAuth(); // Get user, userClass, and auth loading state
   const { toast } = useToast(); // Use the toast hook
 
-  // Removed studentId state as we get it from useAuth
-  // Removed selectedGrade state as we get it from useAuth (userClass)
+  // Handle performance data input (basic validation for JSON structure)
+  const handlePerformanceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+     setPerformanceData(e.target.value);
+     // Basic JSON validation feedback (optional)
+     try {
+       if (e.target.value.trim()) JSON.parse(e.target.value);
+       setError(null); // Clear error if JSON is valid
+     } catch (jsonError) {
+       setError("Performance data must be valid JSON.");
+     }
+  };
+
 
   const handleSubmit = async () => {
     // Ensure user and userClass are available
+    if (authLoading) {
+      toast({ variant: 'destructive', title: 'Loading', description: 'Please wait for user data to load.' });
+      return;
+    }
     if (!user || !userClass) {
         setError("User information is not available. Please log in again.");
         toast({ variant: 'destructive', title: 'Error', description: 'User information missing.' });
         return;
     }
+    // Validate performance data JSON before submitting
+     try {
+       if (performanceData.trim()) JSON.parse(performanceData);
+     } catch (jsonError) {
+       setError("Performance data must be valid JSON.");
+       toast({ variant: 'destructive', title: 'Invalid Input', description: 'Performance data must be valid JSON.' });
+       return;
+     }
 
     setIsLoading(true);
     setError(null);
@@ -56,84 +81,126 @@ const LearningPathPage = () => {
     }
   };
 
+   // Disable button state
+   const isSubmitDisabled = isLoading || authLoading || !user || !userClass || !performanceData.trim() || (error && error.includes("JSON"));
+
+
   return (
-    <div className="container mx-auto py-8">
-        <Card className="max-w-3xl mx-auto">
-            <CardHeader>
-                <CardTitle>Personalized Learning Path</CardTitle>
-                <CardDescription>
-                    Enter your performance data and optional learning style to get AI-driven recommendations.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-                {/* Removed Student ID input */}
-                <div className="grid gap-2">
-                    <Label htmlFor="performanceData">Performance Data (JSON)</Label>
-                    <Textarea
-                        id="performanceData"
-                        placeholder='Example: {"topics": {"Algebra": 75, "Geometry": 50}, "questionTypes": {"MCQ": 80, "LongAnswer": 60}}'
-                        value={performanceData}
-                        onChange={(e) => setPerformanceData(e.target.value)}
-                        rows={5}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                        Provide data on topics/questions attempted and accuracy (%).
-                    </p>
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="learningStyle">Learning Style (Optional)</Label>
-                    <Input
-                        id="learningStyle"
-                        placeholder="e.g., visual, auditory, kinesthetic"
-                        value={learningStyle}
-                        onChange={(e) => setLearningStyle(e.target.value)}
-                    />
-                </div>
-                {/* Removed Grade Selector */}
+     // Container and layout handled by src/app/student-dashboard/layout.tsx
+    <>
+        <h1 className="text-3xl font-bold mb-4">Personalized Learning Path</h1>
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-8"
+        >
+            {/* Input Card */}
+            <Card className="shadow-lg border border-gray-200">
+                <CardHeader>
+                    <CardTitle>Generate Your Path</CardTitle>
+                    <CardDescription>
+                        Enter your performance data and optional learning style to get AI-driven recommendations.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-6">
+                    <div className="grid gap-2">
+                        <Label htmlFor="performanceData" className="font-medium">Performance Data (JSON Format)</Label>
+                        <Textarea
+                            id="performanceData"
+                            placeholder='Example: {"topics": {"Algebra": 75, "Geometry": 50}, "questionTypes": {"MCQ": 80, "LongAnswer": 60}}'
+                            value={performanceData}
+                            onChange={handlePerformanceChange} // Use handler for validation
+                            rows={6} // Increased rows
+                            className={`border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 ${error && error.includes("JSON") ? 'border-red-500' : ''}`}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Provide data on topics/questions attempted and accuracy (%). Ensure it's valid JSON.
+                        </p>
+                         {error && error.includes("JSON") && <p className="text-xs text-red-600">{error}</p>}
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="learningStyle" className="font-medium">Learning Style (Optional)</Label>
+                        <Input
+                            id="learningStyle"
+                            placeholder="e.g., visual, auditory, kinesthetic"
+                            value={learningStyle}
+                            onChange={(e) => setLearningStyle(e.target.value)}
+                             className="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                    </div>
 
-                <Button onClick={handleSubmit} disabled={isLoading || !user || !userClass}>
-                    {isLoading ? "Generating Learning Path..." : "Generate Learning Path"}
-                </Button>
-                {error && <p className="text-red-500 mt-2">{error}</p>}
-            </CardContent>
-        </Card>
+                    <Button onClick={handleSubmit} disabled={isSubmitDisabled} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3">
+                        {isLoading ? "Generating Learning Path..." : "Generate Learning Path"}
+                    </Button>
+                    {error && !error.includes("JSON") && <p className="text-red-600 mt-2 text-center">{error}</p>}
+                </CardContent>
+            </Card>
 
-      {recommendations && (
-        <Card className="max-w-3xl mx-auto mt-8">
-           <CardHeader>
-              <CardTitle>Your Personalized Recommendations</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-6">
-                 <div>
-                   <h3 className="text-lg font-semibold mb-2">Summary</h3>
-                   <p className="text-muted-foreground">{recommendations.summary}</p>
-                 </div>
-                 <div className="grid md:grid-cols-2 gap-6">
-                     <div>
-                       <h3 className="text-lg font-semibold mb-2">Recommended Topics</h3>
-                       <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                         {recommendations.recommendedTopics.map((topic, index) => (
-                           <li key={index}>
-                             <strong>{topic.topic}:</strong> {topic.reason}
-                           </li>
-                         ))}
-                       </ul>
-                     </div>
-                     <div>
-                       <h3 className="text-lg font-semibold mb-2">Recommended Question Types</h3>
-                       <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                         {recommendations.recommendedQuestionTypes.map((qt, index) => (
-                           <li key={index}>
-                             <strong>{qt.questionType}:</strong> {qt.reason}
-                           </li>
-                         ))}
-                       </ul>
-                     </div>
-                 </div>
-            </CardContent>
-        </Card>
-      )}
-    </div>
+             {/* Recommendations Card */}
+             {recommendations && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+                    <Card className="shadow-lg border border-gray-200 h-full flex flex-col"> {/* Added h-full and flex */}
+                        <CardHeader>
+                            <CardTitle>Your Personalized Recommendations</CardTitle>
+                             <CardDescription>Focus on these areas to improve.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid gap-6 flex-1"> {/* Added flex-1 */}
+                            <div>
+                                <h3 className="text-lg font-semibold mb-2 text-gray-800">Summary</h3>
+                                <p className="text-muted-foreground text-sm">{recommendations.summary}</p>
+                            </div>
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                 <div>
+                                     <h3 className="text-lg font-semibold mb-2 text-gray-800">Recommended Topics</h3>
+                                     <ul className="list-disc pl-5 space-y-1 text-muted-foreground text-sm">
+                                         {recommendations.recommendedTopics.map((topic, index) => (
+                                             <li key={index}>
+                                                 <strong>{topic.topic}:</strong> {topic.reason}
+                                             </li>
+                                         ))}
+                                     </ul>
+                                 </div>
+                                 <div>
+                                     <h3 className="text-lg font-semibold mb-2 text-gray-800">Recommended Question Types</h3>
+                                     <ul className="list-disc pl-5 space-y-1 text-muted-foreground text-sm">
+                                         {recommendations.recommendedQuestionTypes.map((qt, index) => (
+                                             <li key={index}>
+                                                 <strong>{qt.questionType}:</strong> {qt.reason}
+                                             </li>
+                                         ))}
+                                     </ul>
+                                 </div>
+                             </div>
+                             {/* Optional: Add a simple chart visualization if data allows */}
+                             {/* Example:
+                             <div className="mt-4">
+                                <h3 className="text-lg font-semibold mb-2 text-gray-800">Topic Strength (Example)</h3>
+                                <ResponsiveContainer width="100%" height={150}>
+                                  <BarChart data={[{name: 'Algebra', score: 75}, {name: 'Geometry', score: 50}]}>
+                                    <XAxis dataKey="name" fontSize={10} />
+                                    <YAxis domain={[0, 100]} fontSize={10} />
+                                    <Tooltip />
+                                    <Bar dataKey="score" fill="#4f46e5" />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              </div>
+                              */}
+                        </CardContent>
+                    </Card>
+                </motion.div>
+             )}
+              {/* Placeholder when no recommendations yet */}
+              {!recommendations && !isLoading && (
+                 <Card className="shadow-lg border border-gray-200 h-full flex items-center justify-center">
+                    <CardContent className="text-center text-gray-500">
+                         <p>Enter your data to see recommendations here.</p>
+                    </CardContent>
+                 </Card>
+              )}
+
+        </motion.div>
+    </>
   );
 };
 

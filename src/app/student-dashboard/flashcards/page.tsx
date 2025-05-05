@@ -127,6 +127,7 @@ export default function AnimatedFlashcardPage() {
   const { user, userClass, loading: authLoading } = useAuth(); // Get user, class, and auth loading state
   const { toast } = useToast();
 
+
   const handleGenerate = async () => {
     if (authLoading) {
       toast({
@@ -240,143 +241,140 @@ export default function AnimatedFlashcardPage() {
   if (authLoading) { // Show loader only if auth is loading
     // Show a loading indicator for the entire page while auth is loading
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-100">
+      <div className="flex items-center justify-center min-h-[calc(100vh-100px)]"> {/* Adjust height */}
         <span className="loader"></span>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 md:p-10">
-      {/* Animated Blobs */}
-      <motion.div
-        className="absolute w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply blur-3xl opacity-30 top-0 left-0"
-        animate={{ x: [0, 200, 0], y: [0, 50, 0] }}
-        transition={{ duration: 20, repeat: Infinity }}
-      />
-      <motion.div
-        className="absolute w-56 h-56 bg-pink-300 rounded-full mix-blend-multiply blur-2xl opacity-25 bottom-0 right-0"
-        animate={{ x: [0, -150, 0], y: [0, -50, 0] }}
-        transition={{ duration: 18, repeat: Infinity }}
-      />
-
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6 }}
-        className="relative z-10 max-w-3xl mx-auto bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-6 md:p-8 space-y-6"
-      >
-        {/* Header */}
-        <div className="text-center">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
-            Flashcard Generator
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Enter a topic and number of cards to study.
-          </p>
-          {/* Display User Class or error state */}
-          {userClass ? (
-            <p className="text-sm text-gray-500 mt-1">
-              Grade Level: {userClass}
-            </p>
-          ) : user && !authLoading ? ( // Check user existence and ensure auth is not loading before showing the error
-            <p className="text-sm text-red-500 mt-1">
-              Grade information not loaded. Please log in again.
-            </p>
-          ) : !user ? ( // Message for logged out users
-            <p className="text-sm text-gray-500 mt-1">
-              Please log in to see grade info.
-            </p>
-          ) : (
-            <p className="text-sm text-gray-500 mt-1">
-              Loading grade information...
-            </p> // Show loading message
-          )}
-        </div>
-
-        {/* Controls */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="topic">Topic</Label>
-            <Input
-              id="topic"
-              value={topic}
-              onChange={e => setTopic(e.target.value)}
-              placeholder="e.g., Photosynthesis, World War II"
-              disabled={!userClass && !authLoading} // Disable if userClass missing AND auth finished loading
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="numCards">Number of Cards (1–20)</Label>
-            <Input
-              id="numCards"
-              type="number"
-              value={numCards}
-              onChange={e =>
-                setNumCards(Math.max(1, Math.min(20, +e.target.value)))
-              }
-              min={1}
-              max={20}
-              disabled={!userClass && !authLoading} // Disable if userClass missing AND auth finished loading
-            />
-          </div>
-          <Button
-            onClick={handleGenerate}
-            disabled={isGenerateDisabled} // Use combined disabled state
-            className="md:col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
-          >
-            {isLoading ? 'Generating…' : 'Generate Flashcards'}
-          </Button>
-        </div>
-
-        {/* Progress & Feedback */}
-        {isLoading && <Progress value={progress} className="h-2 w-full" />}
-        {error && <p className="text-red-500 text-center mt-2">{error}</p>}
-
-
-        {/* Flashcard Viewer */}
-        {flashcards?.flashcards && flashcards.flashcards.length > 0 ? (
-          <div className="mt-6">
-            <p className="text-center text-sm text-muted-foreground mb-2">
-              Card {currentCard + 1} of {flashcards.flashcards.length}
-            </p>
-            <div className="flex items-center justify-center space-x-4">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={prevCard}
-                disabled={currentCard === 0}
-                aria-label="Previous Card"
-              >
-                <ArrowLeft />
-              </Button>
-              <AnimatedFlashcard
-                key={currentCard}
-                front={flashcards.flashcards[currentCard].front}
-                back={flashcards.flashcards[currentCard].back}
-                ref={cardRef}
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={nextCard}
-                disabled={currentCard === flashcards.flashcards.length - 1}
-                aria-label="Next Card"
-              >
-                <ArrowRight />
-              </Button>
+    // Container and layout are handled by src/app/student-dashboard/layout.tsx
+    <>
+        <h1 className="text-3xl font-bold mb-4">Flashcard Generator</h1>
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="relative z-10 max-w-3xl mx-auto bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl p-6 md:p-8 space-y-6 border border-gray-200"
+        >
+            {/* Header */}
+            <div className="text-center">
+                <h2 className="text-2xl font-semibold text-gray-800">
+                   Generate Flashcards
+                </h2>
+                <p className="text-gray-600 mt-1">
+                    Enter a topic and number of cards to start studying.
+                </p>
+                {/* Display User Class or error state */}
+                {userClass ? (
+                    <p className="text-sm text-gray-500 mt-1">
+                        Grade Level: <span className="font-medium">{userClass}</span>
+                    </p>
+                ) : user && !authLoading ? (
+                    <p className="text-sm text-red-500 mt-1">
+                        Grade information missing. Please log in again.
+                    </p>
+                ) : !user ? (
+                    <p className="text-sm text-gray-500 mt-1">
+                        Log in to see grade info.
+                    </p>
+                ) : (
+                    <p className="text-sm text-gray-500 mt-1">
+                        Loading grade...
+                    </p>
+                )}
             </div>
-          </div>
-        ) : (
-          !isLoading &&
-          !error &&
-          flashcards === null && ( // Show placeholder only if not loading, no error, and no generation attempt made/failed
-            <p className="text-center text-gray-500 mt-6">
-              Enter a topic above to generate flashcards.
-            </p>
-          )
-        )}
-      </motion.div>
-    </div>
+
+            {/* Controls */}
+            <div className="grid gap-4 md:grid-cols-2 items-end">
+                <div className="space-y-2">
+                    <Label htmlFor="topic" className="font-medium">Topic</Label>
+                    <Input
+                        id="topic"
+                        value={topic}
+                        onChange={e => setTopic(e.target.value)}
+                        placeholder="e.g., Photosynthesis, World War II"
+                        disabled={!userClass && !authLoading} // Disable if userClass missing AND auth finished loading
+                         className="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="numCards" className="font-medium">Number of Cards (1–20)</Label>
+                    <Input
+                        id="numCards"
+                        type="number"
+                        value={numCards}
+                        onChange={e =>
+                            setNumCards(Math.max(1, Math.min(20, +e.target.value)))
+                        }
+                        min={1}
+                        max={20}
+                        disabled={!userClass && !authLoading} // Disable if userClass missing AND auth finished loading
+                        className="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                </div>
+                 <div className="md:col-span-2">
+                    <Button
+                        onClick={handleGenerate}
+                        disabled={isGenerateDisabled} // Use combined disabled state
+                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLoading ? 'Generating…' : 'Generate Flashcards'}
+                    </Button>
+                 </div>
+            </div>
+
+            {/* Progress & Feedback */}
+            {isLoading && <Progress value={progress} className="h-2 w-full mt-4" />}
+            {error && <p className="text-red-500 text-center mt-4">{error}</p>}
+
+            {/* Flashcard Viewer */}
+            {flashcards?.flashcards && flashcards.flashcards.length > 0 ? (
+                <div className="mt-8 border-t pt-6">
+                    <p className="text-center text-sm text-muted-foreground mb-4">
+                        Card {currentCard + 1} of {flashcards.flashcards.length} (Click card to flip)
+                    </p>
+                    <div className="flex items-center justify-center space-x-4">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={prevCard}
+                            disabled={currentCard === 0}
+                            aria-label="Previous Card"
+                            className="rounded-full h-10 w-10"
+                        >
+                            <ArrowLeft className="h-5 w-5"/>
+                        </Button>
+                        <div className="flex-1 max-w-md"> {/* Limit card width */}
+                          <AnimatedFlashcard
+                            key={currentCard} // Ensure re-render on card change
+                            front={flashcards.flashcards[currentCard].front}
+                            back={flashcards.flashcards[currentCard].back}
+                            ref={cardRef}
+                          />
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={nextCard}
+                            disabled={currentCard === flashcards.flashcards.length - 1}
+                            aria-label="Next Card"
+                            className="rounded-full h-10 w-10"
+                        >
+                            <ArrowRight className="h-5 w-5"/>
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                !isLoading &&
+                !error &&
+                flashcards === null && ( // Show placeholder only if not loading, no error, and no generation attempt made/failed
+                    <p className="text-center text-gray-500 mt-8 py-6 border-t">
+                        Enter a topic above to generate flashcards.
+                    </p>
+                )
+            )}
+        </motion.div>
+    </>
   );
 }
