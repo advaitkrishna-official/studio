@@ -22,12 +22,12 @@ export default function AnimatedFlashcardPage() {
   const [topic, setTopic] = useState('');
   const [numCards, setNumCards] = useState(10);
   const [flashcards, setFlashcards] = useState<GenerateFlashcardsOutput | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Loading state for AI generation
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [currentCard, setCurrentCard] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
-  const { user, userClass, loading: authLoading } = useAuth(); // Added authLoading
+  const { user, userClass, loading: authLoading } = useAuth(); // Get user, class, and auth loading state
   const [totalScore, setTotalScore] = useState<number | null>(null);
   const { toast } = useToast();
 
@@ -66,7 +66,10 @@ export default function AnimatedFlashcardPage() {
       return;
     }
     if (!userClass) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Student class information is missing. Cannot generate flashcards.' });
+      // This should ideally not happen if authLoading is false and user exists, but good to check
+      toast({ variant: 'destructive', title: 'Error', description: 'Student grade information is missing. Cannot generate flashcards.' });
+      console.error("Flashcard Generation Error: userClass is null or undefined even though authLoading is false and user exists.");
+      setError("Could not load your grade information. Please try logging out and back in.");
       return;
     }
     if (!topic.trim()) {
@@ -74,7 +77,7 @@ export default function AnimatedFlashcardPage() {
       return;
     }
 
-    setIsLoading(true);
+    setIsLoading(true); // Start loading for AI generation
     setError(null);
     setFlashcards(null);
     setProgress(10);
@@ -84,33 +87,41 @@ export default function AnimatedFlashcardPage() {
       setProgress(50);
       // Prepare grade string for AI (e.g., "Grade 8" -> "grade-8")
       const gradeForAI = userClass.toLowerCase().replace(/\s+/g, '-');
-      console.log(`Generating flashcards for topic "${topic}" and grade "${gradeForAI}"`); // Debug log
+      console.log(`Flashcards: Generating for topic "${topic}" and grade "${gradeForAI}" (Original: ${userClass})`); // Debug log
       const res = await generateFlashcards({ topic, numCards, grade: gradeForAI });
 
-      if (res?.flashcards && Array.isArray(res.flashcards)) {
+      if (res?.flashcards && Array.isArray(res.flashcards) && res.flashcards.length > 0) {
         setFlashcards(res);
         setProgress(100);
         toast({ title: 'Flashcards Generated', description: `${res.flashcards.length} cards ready!` });
-      } else {
+      } else if (res?.flashcards && Array.isArray(res.flashcards) && res.flashcards.length === 0) {
+         setError('No flashcards were generated for this topic and grade.');
+         toast({ variant: 'default', title: 'No Cards Generated', description: 'Try a different topic or number of cards.' });
+         setProgress(0);
+      }
+      else {
+        console.error("Flashcards: Received invalid response structure from AI:", res);
         throw new Error('Received invalid response from AI.');
       }
     } catch (e: any) {
-      console.error("Error generating flashcards:", e); // Log the detailed error
+      console.error("Flashcards: Error generating flashcards:", e); // Log the detailed error
       const msg = e.message?.includes('Quota')
         ? 'API quota limit reached. Please try again later.'
+        : e.message?.includes('invalid response')
+        ? 'The AI returned an unexpected response. Please try again.'
         : e.message || 'An error occurred during generation.';
       setError(msg);
       setProgress(0);
       toast({ variant: 'destructive', title: 'Generation Failed', description: msg });
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Stop AI generation loading
     }
   };
 
   const nextCard = () => setCurrentCard(i => Math.min(i + 1, (flashcards?.flashcards.length || 1) - 1));
   const prevCard = () => setCurrentCard(i => Math.max(i - 1, 0));
 
-  // Disable button if loading, auth loading, user info missing, or topic empty
+  // Disable button if auth is loading, AI is generating, user info missing, or topic empty
   const isGenerateDisabled = isLoading || authLoading || !user || !userClass || !topic.trim();
 
   return (
@@ -137,11 +148,13 @@ export default function AnimatedFlashcardPage() {
         <div className="text-center">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-800">Flashcard Generator</h1>
           <p className="text-gray-600 mt-1">Enter a topic and number of cards to study.</p>
-           {/* Display User Class */}
-          {userClass ? (
+           {/* Display User Class or loading/error state */}
+          {authLoading ? (
+             <p className="text-sm text-gray-500 mt-1 animate-pulse">Loading grade info...</p>
+          ) : userClass ? (
             <p className="text-sm text-gray-500 mt-1">Grade Level: {userClass}</p>
           ) : (
-             !authLoading && <p className="text-sm text-red-500 mt-1">Grade information not loaded.</p>
+             <p className="text-sm text-red-500 mt-1">Grade information not loaded. Please log in again.</p>
           )}
         </div>
 
@@ -154,6 +167,7 @@ export default function AnimatedFlashcardPage() {
               value={topic}
               onChange={e => setTopic(e.target.value)}
               placeholder="e.g., Photosynthesis, World War II"
+              disabled={authLoading || !userClass} // Disable if auth or class info isn't ready
             />
           </div>
           <div className="space-y-2">
@@ -165,11 +179,12 @@ export default function AnimatedFlashcardPage() {
               onChange={e => setNumCards(Math.max(1, Math.min(20, +e.target.value)))}
               min={1}
               max={20}
+               disabled={authLoading || !userClass} // Disable if auth or class info isn't ready
             />
           </div>
           <Button
             onClick={handleGenerate}
-            disabled={isGenerateDisabled}
+            disabled={isGenerateDisabled} // Use combined disabled state
             className="md:col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
           >
             {isLoading ? 'Generating…' : 'Generate Flashcards'}
@@ -178,9 +193,9 @@ export default function AnimatedFlashcardPage() {
 
         {/* Progress & Feedback */}
         {isLoading && <Progress value={progress} className="h-2 w-full" />}
-        {error && <p className="text-red-500 text-center">{error}</p>}
-        {totalScore !== null && (
-          <p className="text-right text-gray-700 font-medium">
+        {error && <p className="text-red-500 text-center mt-2">{error}</p>} {/* Added margin top */}
+        {totalScore !== null && !isLoading && !error && ( // Only show score if not loading/erroring
+          <p className="text-right text-gray-700 font-medium mt-2"> {/* Added margin top */}
             Average Flashcard Score: {totalScore.toFixed(1)}%
           </p>
         )}
@@ -197,6 +212,7 @@ export default function AnimatedFlashcardPage() {
                 size="icon"
                 onClick={prevCard}
                 disabled={currentCard === 0}
+                aria-label="Previous Card"
               >
                 <ArrowLeft />
               </Button>
@@ -211,6 +227,7 @@ export default function AnimatedFlashcardPage() {
                 size="icon"
                 onClick={nextCard}
                 disabled={currentCard === flashcards.flashcards.length - 1}
+                 aria-label="Next Card"
               >
                 <ArrowRight />
               </Button>
@@ -219,7 +236,7 @@ export default function AnimatedFlashcardPage() {
         ) : (
           !isLoading &&
           !error &&
-          flashcards === null && (
+          flashcards === null && ( // Only show placeholder if not loading, no error, and no cards generated yet
             <p className="text-center text-gray-500 mt-6">
               Enter a topic above to generate flashcards.
             </p>
@@ -278,6 +295,7 @@ const AnimatedFlashcard = React.forwardRef<HTMLDivElement, AnimatedFlashcardProp
         ref={ref}
         className="w-full h-56 perspective cursor-pointer"
         onClick={handleClick}
+        aria-live="polite" // Announce content changes for screen readers
       >
         <motion.div
           animate={{ rotateY: isFlipped ? 180 : 0 }}
@@ -286,14 +304,14 @@ const AnimatedFlashcard = React.forwardRef<HTMLDivElement, AnimatedFlashcardProp
         >
           {/* Front Face */}
           <Card className="absolute inset-0 backface-hidden flex items-center justify-center p-6 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-lg shadow-lg">
-            <CardContent>
+            <CardContent className="text-center"> {/* Center align content */}
               <h3 className="text-xl font-semibold text-indigo-800 mb-2">Question</h3>
               <p className="text-lg text-gray-800">{front}</p>
             </CardContent>
           </Card>
           {/* Back Face */}
           <Card className="absolute inset-0 backface-hidden rotate-y-180 flex items-center justify-center p-6 bg-gradient-to-br from-green-100 to-teal-100 rounded-lg shadow-lg">
-            <CardContent>
+            <CardContent className="text-center"> {/* Center align content */}
               <h3 className="text-xl font-semibold text-green-800 mb-2">Answer</h3>
               <p className="text-lg text-gray-800">{back}</p>
             </CardContent>

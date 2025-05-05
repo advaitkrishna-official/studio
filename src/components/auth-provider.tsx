@@ -3,7 +3,7 @@
 import React, { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut as firebaseSignOut, User } from 'firebase/auth';
-import { auth as firebaseAuth, db, getUserData } from '@/lib/firebase'; // Ensure auth and db are imported correctly
+import { auth as firebaseAuth, db } from '@/lib/firebase'; // Ensure auth and db are imported correctly
 import { Auth } from "firebase/auth";
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -38,14 +38,22 @@ export default function AuthProviderComponent({ children }: AuthProviderProps) {
   const router = useRouter();
 
 
-  const fetchUserData = useCallback(async (currentUser: User) => {
+  const fetchUserData = useCallback(async (currentUser: User | null) => {
     // Ensure db is initialized before using it
     if (!db) {
-      console.error("Firestore DB is not initialized");
+      console.error("AuthProvider: Firestore DB is not initialized");
       setUserType(null); // Set defaults if DB fails
       setUserClass(null);
       return;
     }
+    if (!currentUser) {
+        console.log("AuthProvider: No current user, skipping fetchUserData.");
+        setUserType(null);
+        setUserClass(null);
+        return;
+    }
+
+    console.log(`AuthProvider: Fetching data for user ${currentUser.uid}...`);
      try {
        const userDocRef = doc(db, 'Users', currentUser.uid);
        const userDoc = await getDoc(userDocRef);
@@ -57,31 +65,34 @@ export default function AuthProviderComponent({ children }: AuthProviderProps) {
          // Correctly fetch class/grade based on role
          if (role === 'teacher') {
             determinedClass = userData.teacherGrade || null;
+            console.log(`AuthProvider: User is a teacher, grade/class: ${determinedClass}`);
          } else if (role === 'student') {
             determinedClass = userData.class || null; // 'class' field for students
+            console.log(`AuthProvider: User is a student, class: ${determinedClass}`);
+         } else {
+            console.warn(`AuthProvider: User role is unknown or missing: ${role}`);
          }
 
-         console.log(`Fetched user data: Role=${role}, Class/Grade=${determinedClass}`); // Debug log
          setUserType(role);
          setUserClass(determinedClass); // Set the determined class/grade
        } else {
          // Fallback logic if user document doesn't exist (should ideally not happen after registration)
-         console.warn(`User document not found for UID: ${currentUser.uid}`);
+         console.warn(`AuthProvider: User document not found for UID: ${currentUser.uid}`);
          setUserType(null);
          setUserClass(null);
        }
      } catch (error) {
-       console.error('Error fetching user data:', error);
+       console.error('AuthProvider: Error fetching user data:', error);
        setUserType(null); // Reset on error
        setUserClass(null);
      }
-  }, []);
+  }, []); // Removed db from dependencies as it should be stable
 
 
   useEffect(() => {
     // Ensure firebaseAuth is initialized
     if (!firebaseAuth) {
-        console.error("Firebase Auth is not initialized.");
+        console.error("AuthProvider: Firebase Auth is not initialized.");
         setLoading(false); // Stop loading if auth is not available
         setUser(null); // Set user to null explicitly
         setUserType(null);
@@ -89,40 +100,48 @@ export default function AuthProviderComponent({ children }: AuthProviderProps) {
         return;
     }
 
+    console.log("AuthProvider: Setting up onAuthStateChanged listener.");
     const unsubscribe = onAuthStateChanged(firebaseAuth, async firebaseUser => {
-      setLoading(true); // Set loading true when auth state changes
+      console.log(`AuthProvider: onAuthStateChanged triggered. User: ${firebaseUser ? firebaseUser.uid : 'null'}`);
+      setLoading(true); // Set loading true when auth state changes AND before async fetch
       if (!firebaseUser) {
-        console.log("Auth state changed: No user logged in.");
+        console.log("AuthProvider: No user logged in.");
         setUser(null);
         setUserType(null);
         setUserClass(null);
-        // No automatic redirect here, handle in page components or Home page
+        setLoading(false); // Set loading false since no user data fetch is needed
       } else {
-        console.log(`Auth state changed: User ${firebaseUser.uid} logged in.`);
+        console.log(`AuthProvider: User ${firebaseUser.uid} logged in. Fetching data...`);
         setUser(firebaseUser);
         await fetchUserData(firebaseUser); // Fetch associated data
+        console.log("AuthProvider: fetchUserData complete.");
+        setLoading(false); // Set loading false AFTER user and data fetching is done
       }
-      setLoading(false); // Set loading false after processing
     });
 
     // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, [fetchUserData]); // Dependencies
+    return () => {
+        console.log("AuthProvider: Cleaning up onAuthStateChanged listener.");
+        unsubscribe();
+    }
+  }, [fetchUserData]); // fetchUserData is memoized
 
 
   const signOutFunc = async () => {
     if (!firebaseAuth) {
-        console.error("Firebase Auth is not initialized for sign out.");
+        console.error("AuthProvider: Firebase Auth is not initialized for sign out.");
         return;
     }
     try {
+      console.log("AuthProvider: Signing out...");
       await firebaseSignOut(firebaseAuth);
       setUser(null); // Clear user state immediately
       setUserType(null);
       setUserClass(null);
+      console.log("AuthProvider: Sign out successful, redirecting to /login.");
       router.push('/login'); // Redirect after sign out
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('AuthProvider: Error signing out:', error);
       // Optionally show a toast message on error
     }
   };
@@ -134,7 +153,7 @@ export default function AuthProviderComponent({ children }: AuthProviderProps) {
     userType,
     userClass,
     signOut: signOutFunc,
-  }), [user, loading, userType, userClass]);
+  }), [user, loading, userType, userClass, router]); // Include router in dependencies for signOutFunc stability
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -39,42 +39,40 @@ const prompt = ai.definePrompt({
     schema: z.object({
       topic: z.string().describe('The topic for which to generate flashcards.'),
       numCards: z.number().describe('The number of flashcards to generate.'),
-      context: z.string().describe('The context for generating flashcards.'),
+      context: z.string().describe('The context (e.g., grade level) for generating flashcards.'),
     }),
   },
   output: {
     // Specify a more precise output schema for the prompt itself
     schema: z.object({
-      flashcards: z.array(FlashcardSchema).describe('An array of flashcards generated for the topic.'),
+      flashcards: z.array(FlashcardSchema).describe('An array of flashcard objects, each with a "front" and "back" field.'),
     }),
   },
-  prompt: `You are an AI flashcard generator. Generate exactly {{numCards}} flashcards for the given topic based on the context provided.
+  prompt: `You are an AI assistant specialized in creating educational flashcards.
+Generate exactly {{numCards}} flashcards for the topic "{{topic}}" suitable for the following context:
+{{{context}}}
 
-  <CODE_BLOCK>
-  Context:\n
-  {{{context}}}\n
-  Topic: {{{topic}}}\n
-  </CODE_BLOCK>
+Each flashcard MUST have a clear question or term on the front and a concise, accurate answer or definition on the back.
 
-Each flashcard should have a clear question or term on the front and a concise answer or definition on the back.
-Ensure that the flashcards are informative and helpful for studying the topic.
+Your response MUST be a valid JSON object containing ONLY a key named "flashcards".
+The value of "flashcards" MUST be an array of JSON objects.
+Each object in the array represents a single flashcard and MUST contain exactly two string fields: "front" and "back".
 
-Your output MUST be a valid JSON object containing a single key "flashcards" which holds an array of flashcard objects. Each flashcard object must have a "front" and "back" field.
-Here is an example of what the output format should look like:
-
+Example JSON output format:
 {
   "flashcards": [
     {
-      "front": "What is the capital of France?",
-      "back": "Paris"
+      "front": "What is the powerhouse of the cell?",
+      "back": "Mitochondria"
     },
     {
-      "front": "What is the chemical symbol for water?",
-      "back": "H2O"
+      "front": "Define 'photosynthesis'.",
+      "back": "The process used by plants to convert light energy into chemical energy."
     }
   ]
 }`,
 });
+
 
 const generateFlashcardsFlow = ai.defineFlow<
   typeof GenerateFlashcardsInputSchema,
@@ -87,76 +85,82 @@ const generateFlashcardsFlow = ai.defineFlow<
   },
   async input => {
     let context: string = '';
-    // Ensure grade is lowercase for consistent matching
-    const gradeLower = input.grade.toLowerCase();
+    // Ensure grade is lowercase for consistent matching and handle potential null/undefined
+    const gradeInput = input.grade || ''; // Default to empty string if undefined/null
+    const gradeLower = gradeInput.toLowerCase().trim();
 
-    switch (gradeLower) {
-      case 'grade-8':
-        context = `Grade 8 Subjects:
-      - Mathematics: Algebra, Geometry, Data Handling
-      - Science: Physics (Forces, Motion), Chemistry (Elements, Compounds), Biology (Cells, Systems)
-      - English: Literature, Grammar
-      - History: Modern World History
-    `;
-        break;
-      case 'grade-6':
-        context = `Grade 6 Subjects:
-      - Mathematics: Fractions, Decimals, Ratios
-      - Science: Simple Machines, Living Things
-      - English: Reading Comprehension, Creative Writing
-      - Geography: Continents and Oceans
-    `;
-        break;
-      case 'grade-4':
-        context = `Grade 4 Subjects:
-      - Mathematics: Addition, Subtraction, Introduction to Multiplication
-      - Science: Animals, Plants, Environment
-      - English: Vocabulary Building, Sentence Formation
-      - Social Studies: Communities and Citizenship
-    `;
-        break;
-      default:
-         // Handle potentially unexpected grade formats gracefully
-         console.warn(`Received potentially unsupported grade: ${input.grade}. Providing generic context.`);
-         context = `The student is in an unspecified grade (Received: ${input.grade}). Please provide age-appropriate answers based on the topic: ${input.topic}.`;
-    }
+    console.log(`generateFlashcardsFlow: Received grade input: ${input.grade}, Processed as: ${gradeLower}`); // Debug log
+
+    // Define grade contexts (ensure consistency)
+     const gradeContexts: Record<string, string> = {
+       'grade-1': `Grade 1 Subjects: Basic Phonics, Counting, Shapes, Colors, Simple Addition/Subtraction, Animals, Plants. Keep language extremely simple.`,
+       'grade-2': `Grade 2 Subjects: Reading simple sentences, Basic Grammar, Addition/Subtraction (within 100), Telling Time, Money Basics, Life Cycles, Weather. Use simple vocabulary.`,
+       'grade-3': `Grade 3 Subjects: Reading paragraphs, Multiplication/Division basics, Fractions intro, States of Matter, Solar System basics, Community Roles. Slightly more complex sentences.`,
+       'grade-4': `Grade 4 Subjects: Reading comprehension, Multiplication/Division fluency, Fractions, Decimals intro, US Regions/States, Simple Machines, Ecosystems. Clear definitions needed.`,
+       'grade-5': `Grade 5 Subjects: Analyzing text, Fractions operations, Decimals, Geometry basics (angles, shapes), US History (Colonial), Human Body Systems, Matter Properties. Explain concepts clearly.`,
+       'grade-6': `Grade 6 Subjects: Ratios, Proportions, Percentages intro, Algebraic thinking intro, World Geography (Continents/Oceans), Earth Science (Rocks, Plate Tectonics), Ancient Civilizations. Define key terms.`,
+       'grade-7': `Grade 7 Subjects: Pre-Algebra (variables, equations), Geometry (area, volume), Life Science (Cells, Classification), World History (Medieval), English Grammar rules. Use precise language.`,
+       'grade-8': `Grade 8 Subjects: Algebra I (linear equations, inequalities), Physical Science (Forces, Motion, Energy), US History (Constitution, Civil War), English Literature analysis. Assume foundational knowledge.`,
+       // Add more grades as needed
+     };
+
+    context = gradeContexts[gradeLower] || `The student is in an unspecified grade (Received: ${input.grade}). Please provide age-appropriate answers based on the topic: ${input.topic}. Ensure clarity and accuracy.`;
+
+    console.log(`generateFlashcardsFlow: Using context for ${gradeLower}: ${context.substring(0, 100)}...`); // Log the context being used
+
+
     try {
-        const {output} = await prompt({
+        console.log(`generateFlashcardsFlow: Calling AI prompt with topic: ${input.topic}, numCards: ${input.numCards}`);
+        const response = await prompt({
             topic: input.topic,
             numCards: input.numCards,
             context: context,
         });
+        console.log("generateFlashcardsFlow: AI Response received:", response); // Log the raw response
 
-        // Validate the output structure
-        if (!output || !output.flashcards || !Array.isArray(output.flashcards)) {
-            console.error("AI did not return a valid flashcards array:", output);
-            throw new Error("AI did not return valid flashcard data.");
+        // Strict validation of the output structure
+        if (!response || typeof response !== 'object' || !response.output || !response.output.flashcards || !Array.isArray(response.output.flashcards)) {
+             console.error("generateFlashcardsFlow: AI did not return a valid { output: { flashcards: [...] } } structure:", response);
+             throw new Error("AI returned an invalid response structure.");
         }
 
-        // Optionally validate individual flashcards
-        if (output.flashcards.some(card => typeof card.front !== 'string' || typeof card.back !== 'string')) {
-            console.error("Received malformed flashcard objects:", output.flashcards);
+        const flashcardsArray = response.output.flashcards;
+
+        // Validate individual flashcards
+        if (flashcardsArray.some(card => typeof card.front !== 'string' || typeof card.back !== 'string')) {
+            console.error("generateFlashcardsFlow: Received malformed flashcard objects:", flashcardsArray);
             throw new Error("Received malformed flashcard objects from AI.");
         }
 
+        // Check if the expected number of cards was generated (optional, but good sanity check)
+         if (flashcardsArray.length !== input.numCards) {
+            console.warn(`generateFlashcardsFlow: AI generated ${flashcardsArray.length} cards, but ${input.numCards} were requested.`);
+            // Decide how to handle this: proceed, throw error, or just log.
+            // For now, let's proceed but log a warning.
+         }
+
         return {
-          flashcards: output.flashcards,
+          flashcards: flashcardsArray,
           // Keep progress message optional or remove if not needed
-          // progress: `Generated ${output.flashcards.length} flashcards on the topic of ${input.topic}.`,
+          // progress: `Generated ${flashcardsArray.length} flashcards on the topic of ${input.topic}.`,
         };
     } catch (error: any) {
-        console.error("Error in generateFlashcardsFlow:", error);
-        // Handle quota errors specifically if needed, or re-throw
+        console.error("generateFlashcardsFlow: Error during AI call or processing:", error);
+        // Handle specific errors more granularly
         if (error.message.includes('Quota')) {
              throw new Error('API quota limit reached. Please try again later.');
         }
-        // Provide a more user-friendly error for parsing issues
-        if (error.message.includes('JSON')) {
+        if (error instanceof SyntaxError || error.message.toLowerCase().includes('json')) {
+             // This catches errors if the AI response wasn't valid JSON
+             console.error("generateFlashcardsFlow: Failed to parse JSON response from AI.");
              throw new Error('Failed to parse the response from the AI. Please try again.');
         }
+         if (error.message.includes('invalid response structure') || error.message.includes('malformed flashcard objects')) {
+            // Re-throw our custom validation errors
+            throw error;
+        }
+        // Generic fallback error
         throw new Error(`Failed to generate flashcards: ${error.message}`);
     }
   }
 );
-
-    
