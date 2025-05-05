@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -32,7 +33,9 @@ import {
   CalendarDays,
   Lightbulb,
   LineChart,
-  ListChecks
+  ListChecks,
+  Brain,
+  BrainCircuit, // Added BrainCircuit
 } from 'lucide-react';
 import { isTimestamp } from '@/lib/utils'; // Import the type guard
 
@@ -142,7 +145,7 @@ export default function StudentDashboardPage() {
 
         // Wait for all submission checks to complete
         const dueTodayResults = await Promise.all(submissionChecks);
-        countDueToday = dueTodayResults.filter(isDue).length; // Count how many returned true (are due today and not submitted)
+        countDueToday = dueTodayResults.filter(Boolean).length; // Count how many returned true (are due today and not submitted)
 
         console.log(`Calculated dueTodayCount: ${countDueToday}`);
 
@@ -325,6 +328,44 @@ export default function StudentDashboardPage() {
                    </CardContent>
                </Card>
           </section>
+
+            {/* Fixed AI Tutor Button and Panel Container */}
+       <div className="fixed bottom-6 right-6 z-50">
+         {chatOpen && (
+           <motion.div
+             initial={{ opacity: 0, y: 50, scale: 0.9 }}
+             animate={{ opacity: 1, y: 0, scale: 1 }}
+             exit={{ opacity: 0, y: 50, scale: 0.9 }}
+             transition={{ type: "spring", stiffness: 300, damping: 25 }}
+             className="mb-2 w-80 h-96 bg-white shadow-xl rounded-lg border border-gray-200 overflow-hidden flex flex-col"
+             style={{ maxHeight: 'calc(100vh - 90px)' }} // Ensure it doesn't overflow viewport significantly
+           >
+             <div className="flex items-center justify-between bg-indigo-600 p-2 text-white">
+               <span className="font-semibold text-sm ml-1">AI Tutor</span>
+               <button onClick={() => setChatOpen(false)} className="text-indigo-100 hover:text-white hover:bg-indigo-700 rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-white">
+                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                   </svg>
+                 </button>
+             </div>
+             {/* Embedding AITutorPage - ensure it fits */}
+             <div className="flex-1 overflow-auto">
+               <AITutorPage />
+             </div>
+           </motion.div>
+         )}
+         <motion.button
+           onClick={() => setChatOpen(o => !o)}
+           className={`w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+             chatOpen ? 'bg-indigo-700 hover:bg-indigo-800' : 'bg-indigo-600 hover:bg-indigo-700'
+           }`}
+           whileHover={{ scale: 1.1 }}
+           whileTap={{ scale: 0.95 }}
+           aria-label="Toggle AI Tutor Chat"
+         >
+           {chatOpen ? <BrainCircuit size={28} /> : <Brain size={28} />}
+         </motion.button>
+       </div>
 
       </div>
   );
