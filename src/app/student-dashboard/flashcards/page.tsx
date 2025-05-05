@@ -14,6 +14,7 @@ import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { getGrades } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast'; // Import useToast
 
 type Grade = { id: string; score: number };
 
@@ -23,11 +24,12 @@ export default function AnimatedFlashcardPage() {
   const [flashcards, setFlashcards] = useState<GenerateFlashcardsOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(0); // Renamed from loadingProgress for clarity
   const [currentCard, setCurrentCard] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
   const { user, userClass } = useAuth(); // Get userClass (student's grade)
   const [totalScore, setTotalScore] = useState<number | null>(null);
+  const { toast } = useToast(); // Use the toast hook
 
   // Fetch total score
   useEffect(() => {
@@ -40,22 +42,51 @@ export default function AnimatedFlashcardPage() {
     }
   }, [user]);
 
+  // Handle flashcard generation
   const handleGenerate = async () => {
     if (!userClass) {
-        setError("Student grade not found.");
-        return;
+      setError("Student grade not found.");
+      toast({ variant: 'destructive', title: 'Error', description: 'Student grade not found.' });
+      return;
+    }
+    if (!topic.trim()) {
+      setError("Please enter a topic.");
+      toast({ variant: 'destructive', title: 'Error', description: 'Please enter a topic to generate flashcards.' });
+      return;
     }
     setIsLoading(true);
     setError(null);
-    setProgress(0);
+    setFlashcards(null); // Reset previous flashcards
+    setProgress(10); // Initial progress
+    setCurrentCard(0); // Reset card position
+
     try {
-      // Pass the student's grade from userClass
+      // Simulate progress
+      let currentProgress = 10;
+      const interval = setInterval(() => {
+        currentProgress += Math.floor(Math.random() * 10) + 5;
+        if (currentProgress >= 90) {
+          clearInterval(interval); // Stop before reaching 100, wait for AI call
+        } else {
+          setProgress(currentProgress);
+        }
+      }, 200);
+
+      // Call the AI flow
       const res = await generateFlashcards({ topic, numCards, grade: userClass });
+      clearInterval(interval); // Ensure interval is cleared
       setFlashcards(res);
-      setProgress(100);
-      setCurrentCard(0);
+      setProgress(100); // Final progress
+      toast({ title: 'Flashcards Generated', description: `${res.flashcards.length} cards ready!` });
+
     } catch (e: any) {
-      setError(e.message);
+      setError(e.message || 'An error occurred during generation.');
+      setProgress(0); // Reset progress on error
+       toast({
+         variant: 'destructive',
+         title: 'Generation Failed',
+         description: e.message || 'Could not generate flashcards.',
+       });
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +96,7 @@ export default function AnimatedFlashcardPage() {
   const prevCard = () => setCurrentCard(i => Math.max(i - 1, 0));
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-10">
+    <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 md:p-10">
       {/* Animated Blobs */}
       <motion.div className="absolute w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply blur-3xl opacity-30 top-0 left-0"
         animate={{ x: [0, 200, 0], y: [0, 50, 0] }} transition={{ duration: 20, repeat: Infinity }} />
@@ -73,40 +104,60 @@ export default function AnimatedFlashcardPage() {
         animate={{ x: [0, -150, 0], y: [0, -50, 0] }} transition={{ duration: 18, repeat: Infinity }} />
 
       <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6 }}
-        className="relative z-10 max-w-3xl mx-auto bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-8 space-y-6">
+        className="relative z-10 max-w-3xl mx-auto bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-6 md:p-8 space-y-6">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-800">Flashcard Generator</h1>
-          <p className="text-gray-600">Enter a topic and number of cards to study.</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-800">Flashcard Generator</h1>
+          <p className="text-gray-600 mt-1">Enter a topic and number of cards to study.</p>
         </div>
 
         {/* Controls */}
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Topic</Label>
-            <Input value={topic} onChange={e => setTopic(e.target.value)} placeholder="Photosynthesis" />
+            <Label htmlFor="topic">Topic</Label>
+            <Input id="topic" value={topic} onChange={e => setTopic(e.target.value)} placeholder="e.g., Photosynthesis, World War II" />
           </div>
           <div className="space-y-2">
-            <Label>Number of Cards</Label>
-            <Input type="number" value={numCards} onChange={e => setNumCards(+e.target.value)} min="1" max="20" />
+            <Label htmlFor="numCards">Number of Cards</Label>
+            <Input id="numCards" type="number" value={numCards} onChange={e => setNumCards(Math.max(1, Math.min(20, +e.target.value)))} min="1" max="20" />
           </div>
-          {/* Removed Grade Selector */}
-          <Button onClick={handleGenerate} disabled={isLoading || !userClass} className="col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white">
-            {isLoading ? 'Generating...' : 'Generate'}
+          <Button onClick={handleGenerate} disabled={isLoading || !userClass || !topic.trim()} className="md:col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white">
+            {isLoading ? 'Generating...' : 'Generate Flashcards'}
           </Button>
         </div>
 
-        {isLoading && <Progress value={progress} className="h-2" />}
-        {error && <p className="text-red-500">{error}</p>}
-        {totalScore !== null && <p className="text-right text-gray-700">Total Score: {totalScore}%</p>}
+        {/* Progress Bar */}
+        {isLoading && <Progress value={progress} className="h-2 w-full" />}
 
-        {/* Flashcards */}
-        {flashcards && (
-          <div className="mt-6 flex items-center space-x-4">
-            <Button variant="outline" size="icon" onClick={prevCard} disabled={currentCard === 0}><ArrowLeft /></Button>
-            <AnimatedFlashcard front={flashcards.flashcards[currentCard].front} back={flashcards.flashcards[currentCard].back} ref={cardRef} />
-            <Button variant="outline" size="icon" onClick={nextCard} disabled={currentCard === flashcards.flashcards.length - 1}><ArrowRight /></Button>
+        {/* Error Display */}
+        {error && <p className="text-red-500 text-center">{error}</p>}
+
+        {/* Total Score Display */}
+        {totalScore !== null && <p className="text-right text-gray-700 font-medium">Flashcard Score: {totalScore}%</p>}
+
+        {/* Flashcards Display Area */}
+        {flashcards && flashcards.flashcards.length > 0 ? (
+          <div className="mt-6">
+            <p className="text-center text-sm text-muted-foreground mb-2">Card {currentCard + 1} of {flashcards.flashcards.length}</p>
+            <div className="flex items-center justify-center space-x-2 md:space-x-4">
+              <Button variant="outline" size="icon" onClick={prevCard} disabled={currentCard === 0}>
+                <ArrowLeft />
+              </Button>
+              <AnimatedFlashcard
+                key={currentCard} // Add key to force re-render on card change
+                front={flashcards.flashcards[currentCard].front}
+                back={flashcards.flashcards[currentCard].back}
+                ref={cardRef}
+              />
+              <Button variant="outline" size="icon" onClick={nextCard} disabled={currentCard === flashcards.flashcards.length - 1}>
+                <ArrowRight />
+              </Button>
+            </div>
           </div>
+        ) : (
+          !isLoading && flashcards === null && ( // Show only if not loading and no flashcards generated yet
+            <p className="text-center text-gray-500 mt-6">Enter a topic above to generate flashcards.</p>
+          )
         )}
       </motion.div>
     </div>
@@ -119,49 +170,74 @@ interface AnimatedFlashcardProps {
   back: string;
 }
 
-
 const AnimatedFlashcard = React.forwardRef<HTMLDivElement, AnimatedFlashcardProps>(({ front, back }, ref) => {
     const [isFlipped, setIsFlipped] = useState(false);
+    const flipTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Ref to store timeout ID
 
     const handleClick = () => {
-      setIsFlipped(!isFlipped);
-      if (!isFlipped) { // If we are flipping to show the back
-        // Set a timeout to flip back after 5 seconds
-        setTimeout(() => {
+      // Clear any existing timeout if the card is clicked again before 5s
+      if (flipTimeoutRef.current) {
+        clearTimeout(flipTimeoutRef.current);
+        flipTimeoutRef.current = null;
+      }
+
+      const newFlipState = !isFlipped;
+      setIsFlipped(newFlipState);
+
+      // If flipping to show the back, set timeout to flip back
+      if (newFlipState) {
+        flipTimeoutRef.current = setTimeout(() => {
           setIsFlipped(false);
+          flipTimeoutRef.current = null; // Clear the ref after timeout runs
         }, 5000); // 5000 milliseconds = 5 seconds
       }
     };
 
+    // Cleanup timeout on component unmount or when front/back changes
+    useEffect(() => {
+      return () => {
+        if (flipTimeoutRef.current) {
+          clearTimeout(flipTimeoutRef.current);
+        }
+      };
+    }, []);
 
-    // Use useEffect to reset flip state when card content changes (optional, good practice)
+    // Reset flip state when card content changes
     useEffect(() => {
         setIsFlipped(false);
+        // Clear timeout if content changes while timeout is active
+        if (flipTimeoutRef.current) {
+          clearTimeout(flipTimeoutRef.current);
+          flipTimeoutRef.current = null;
+        }
     }, [front, back]);
 
-
     return (
-      <Card ref={ref} onClick={handleClick} className="w-full h-56 perspective cursor-pointer overflow-hidden rounded-lg shadow-lg bg-white hover:shadow-xl transition-shadow duration-300">
+      <div ref={ref} className="w-full h-56 perspective cursor-pointer" onClick={handleClick}>
         <motion.div
           animate={{ rotateY: isFlipped ? 180 : 0 }}
           transition={{ duration: 0.6 }}
-          className="relative w-full h-full preserve-3d" // Added preserve-3d
+          className="relative w-full h-full preserve-3d"
         >
           {/* Front Face */}
-          <div className="absolute inset-0 backface-hidden flex flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-indigo-100 to-blue-100 rounded-lg">
-            <h3 className="text-xl font-semibold text-indigo-800 mb-2">Question</h3>
-            <p className="text-lg text-gray-700">{ front }</p>
-          </div>
+          <Card className="absolute inset-0 backface-hidden flex flex-col items-center justify-center p-4 md:p-6 text-center bg-gradient-to-br from-indigo-100 to-blue-100 rounded-lg shadow-lg">
+            <CardContent className="flex-1 flex flex-col items-center justify-center">
+              <h3 className="text-lg md:text-xl font-semibold text-indigo-800 mb-2">Question</h3>
+              <p className="text-base md:text-lg text-gray-700">{front}</p>
+            </CardContent>
+          </Card>
 
           {/* Back Face */}
-          <div className="absolute inset-0 backface-hidden rotate-y-180 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-green-100 to-teal-100 rounded-lg">
-            <h3 className="text-xl font-semibold text-green-800 mb-2">Answer</h3>
-            <p className="text-lg text-gray-700">{ back }</p>
-          </div>
+          <Card className="absolute inset-0 backface-hidden rotate-y-180 flex flex-col items-center justify-center p-4 md:p-6 text-center bg-gradient-to-br from-green-100 to-teal-100 rounded-lg shadow-lg">
+             <CardContent className="flex-1 flex flex-col items-center justify-center">
+              <h3 className="text-lg md:text-xl font-semibold text-green-800 mb-2">Answer</h3>
+              <p className="text-base md:text-lg text-gray-700">{back}</p>
+            </CardContent>
+          </Card>
         </motion.div>
-      </Card>
+      </div>
     );
 });
 
-
 AnimatedFlashcard.displayName = 'AnimatedFlashcard';
+    
