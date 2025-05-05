@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/components/auth-provider';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, getGrades } from '@/lib/firebase';
 import { collection, query, onSnapshot, where, DocumentData, Timestamp } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { format } from 'date-fns';
@@ -48,22 +48,37 @@ import {
 } from 'lucide-react';
 import MyAssignments from './my-assignments/page'; // Import the assignments component
 import AITutorPage from './ai-tutor/page'; // Import the AI Tutor component
-
+import { Progress } from '@/components/ui/progress';
 
 interface Assignment {
   id: string;
   title: string;
   description: string;
   type: string;
-  dueDate: Timestamp | Date; // Allow Timestamp or Date
+  dueDate: Date; // Ensure dueDate is always a Date object after fetching
+  assignedTo: {
+    classId: string;
+    studentIds: string[];
+  };
 }
 
+interface GradeData {
+    id: string;
+    taskName: string;
+    score: number;
+    feedback: string;
+    timestamp: Timestamp | Date; // Can be Firestore Timestamp or JS Date
+}
+
+
 export default function StudentDashboardPage() {
-  const { user, userClass, userType, signOut } = useAuth();
+  const { user, userClass, userType, signOut: contextSignOut } = useAuth();
   const router = useRouter();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [overallProgress, setOverallProgress] = useState<number>(0);
+  const [loadingProgress, setLoadingProgress] = useState(true);
 
   // Redirect non-students or unauthenticated users
   useEffect(() => {
@@ -77,60 +92,62 @@ export default function StudentDashboardPage() {
     }
   }, [user, userType, router]);
 
-
-  // Fetch assignments
+  // Fetch assignments and grades
   useEffect(() => {
     if (!user || !userClass || userType !== 'student') {
       setLoadingTasks(false);
+      setLoadingProgress(false);
       return; // Exit if not a student or class is unknown
     }
 
     setLoadingTasks(true);
+    setLoadingProgress(true);
     setError(null);
 
+    // Fetch Assignments
     const assignmentsQuery = query(
       collection(db, 'assignments'),
       where('assignedTo.classId', '==', userClass)
+      // Optionally add: where('assignedTo.studentIds', 'array-contains', user.uid) if using specific student IDs
     );
 
-    const unsubscribe = onSnapshot(assignmentsQuery, (snapshot) => {
+    const unsubscribeAssignments = onSnapshot(assignmentsQuery, (snapshot) => {
       const now = new Date();
       const fetchedAssignments = snapshot.docs
-        .map(doc => {
-           const data = doc.data() as DocumentData;
-           let dueDate: Timestamp | Date | null = null;
+        .map(docSnap => {
+          const data = docSnap.data() as DocumentData;
+          let dueDate: Date | null = null;
 
-           // Handle Firestore Timestamp or JS Date conversion
-           if (data.dueDate) {
-              if (data.dueDate instanceof Timestamp) {
-                 dueDate = data.dueDate.toDate();
-              } else if (data.dueDate instanceof Date) {
-                 dueDate = data.dueDate;
-              } else if (typeof data.dueDate === 'string') {
-                 // Attempt to parse if it's a string (less ideal)
-                 dueDate = new Date(data.dueDate);
-              }
-           }
+          if (data.dueDate) {
+            if (data.dueDate instanceof Timestamp) {
+              dueDate = data.dueDate.toDate();
+            } else if (typeof data.dueDate === 'string') {
+              dueDate = new Date(data.dueDate);
+            } else if (data.dueDate instanceof Date) {
+              dueDate = data.dueDate; // Already a Date object
+            }
+          }
 
-           // Filter out assignments with invalid dates
-           if (!dueDate || isNaN(dueDate.getTime())) {
-              console.warn(`Invalid or missing due date for assignment: ${doc.id}`);
-              return null; // Skip this assignment
-           }
+          if (!dueDate || isNaN(dueDate.getTime())) {
+            console.warn(`Invalid or missing due date for assignment: ${docSnap.id}`);
+            return null; // Skip this assignment
+          }
 
-
-            return {
-             id: doc.id,
-             title: data.title ?? 'Untitled Assignment',
-             description: data.description ?? '',
-             type: data.type ?? 'Other',
-             dueDate: dueDate, // Use the converted Date object
-           } as Assignment;
+          return {
+            id: docSnap.id,
+            title: data.title ?? 'Untitled Assignment',
+            description: data.description ?? '',
+            type: data.type ?? 'Other',
+            dueDate: dueDate,
+            assignedTo: data.assignedTo ?? { classId: userClass, studentIds: [] },
+          } as Assignment;
         })
         .filter(Boolean) as Assignment[]; // Filter out nulls
 
-        // Filter for tasks due today or later
-        const upcomingOrDueAssignments = fetchedAssignments.filter(a => a.dueDate >= now || a.dueDate.toDateString() === now.toDateString());
+      // Filter for tasks due today or later (or adjust as needed)
+      const upcomingOrDueAssignments = fetchedAssignments.filter(
+        a => a.dueDate >= now || a.dueDate.toDateString() === now.toDateString()
+      );
 
       setAssignments(upcomingOrDueAssignments);
       setLoadingTasks(false);
@@ -140,13 +157,43 @@ export default function StudentDashboardPage() {
       setLoadingTasks(false);
     });
 
-    return () => unsubscribe(); // Clean up listener on unmount
+    // Fetch Grades and Calculate Progress
+    const fetchGrades = async () => {
+      try {
+        const gradesData = await getGrades(user.uid) as GradeData[];
+        if (gradesData.length > 0) {
+            const totalScore = gradesData.reduce((sum, grade) => sum + grade.score, 0);
+            const averageScore = totalScore / gradesData.length;
+            setOverallProgress(averageScore);
+        } else {
+            setOverallProgress(0); // No grades yet
+        }
+      } catch (e) {
+        console.error("Error fetching grades:", e);
+        setError("Failed to load progress.");
+        setOverallProgress(0);
+      } finally {
+        setLoadingProgress(false);
+      }
+    };
+
+    fetchGrades(); // Initial fetch
+
+    // Optionally set up a listener for grades if real-time progress update is needed
+    // const gradesCollection = collection(db, 'Users', user.uid, 'grades');
+    // const unsubscribeGrades = onSnapshot(gradesCollection, (snapshot) => { ... });
+
+
+    return () => {
+        unsubscribeAssignments();
+        // unsubscribeGrades(); // if listening
+    };
   }, [user, userClass, userType]);
 
 
   const handleLogout = async () => {
     try {
-      await signOut(auth!);
+      await contextSignOut(auth); // Use signOut from context
       router.push('/login');
     } catch (error) {
       console.error("Error signing out: ", error);
@@ -242,7 +289,7 @@ export default function StudentDashboardPage() {
                     <CardDescription>Assignments needing attention.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-4xl font-bold text-indigo-600">{tasksDueToday}</p>
+                    <p className="text-4xl font-bold text-indigo-600">{loadingTasks ? '...' : tasksDueToday}</p>
                     <Button size="sm" variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/my-assignments')}>View tasks</Button>
                   </CardContent>
                 </Card>
@@ -252,15 +299,19 @@ export default function StudentDashboardPage() {
                     <CardDescription>Your average score.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {/* Placeholder for progress bar/score - Fetch and calculate this */}
-                    <p className="text-4xl font-bold text-green-600">85%</p> {/* Placeholder */}
+                    {loadingProgress ? (
+                        <p className="text-4xl font-bold text-gray-400">...</p>
+                    ) : (
+                        <p className="text-4xl font-bold text-green-600">{overallProgress.toFixed(1)}%</p>
+                    )}
+                     <Progress value={loadingProgress ? 0 : overallProgress} className="mt-2 h-2" />
                     <Button size="sm" variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/progress')}>View progress</Button>
                   </CardContent>
                 </Card>
             </div>
 
-            {/* Right Column: AI Tutor Chat */}
-            <div className="lg:col-span-1 h-[600px]"> {/* Adjust height as needed */}
+            {/* Right Column: AI Tutor Chat - Renders the chatbot component */}
+            <div className="lg:col-span-1 h-[450px] md:h-[500px] lg:h-[600px]"> {/* Adjust height as needed */}
               <AITutorPage />
             </div>
         </div>
@@ -272,17 +323,6 @@ export default function StudentDashboardPage() {
           {/* Render the MyAssignments component directly */}
            <MyAssignments />
         </div>
-
-        {/* Recommendations Section (Placeholder) */}
-        {/* You can add logic here to fetch and display recommendations */}
-        {/*
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">Recommendations For You</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            // Recommendation Cards go here
-          </div>
-        </div>
-        */}
 
       </main>
     </div>
