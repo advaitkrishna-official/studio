@@ -1,3 +1,4 @@
+
 // src/ai/flows/personalize-learning-path.ts
 'use server';
 
@@ -14,7 +15,7 @@ import {z} from 'genkit';
 
 const PersonalizeLearningPathInputSchema = z.object({
   studentId: z.string().describe('The ID of the student.'),
-  performanceData: z.string().describe('JSON string of the student performance data, including topics and question types attempted, and accuracy.'),
+  performanceData: z.string().describe('A natural language description of the student performance, including topics/question types attempted, and perceived accuracy or difficulty.'), // Updated description
   learningStyle: z.string().optional().describe('The student learning style (e.g., visual, auditory, kinesthetic).'),
   grade: z.string().describe('The grade of the student.').nonempty(),
 });
@@ -46,39 +47,40 @@ const prompt = ai.definePrompt({
   input: {
     schema: z.object({
       studentId: z.string().describe('The ID of the student.'),
-      performanceData: z.string().describe('JSON string of the student performance data, including topics and question types attempted, and accuracy.'),
+      performanceData: z.string().describe('A natural language description of the student performance, including topics/question types attempted, and perceived accuracy or difficulty.'), // Updated description
       learningStyle: z.string().optional().describe('The student learning style (e.g., visual, auditory, kinesthetic).'),
-      context: z.string().describe('The context for giving recommendations for the student learning path.'),
+      context: z.string().describe('The context for giving recommendations for the student learning path (e.g., grade level and subjects).'), // Context description updated
     }),
   },
   output: {
-    schema: z.object({
-      recommendedTopics: z.array(RecommendedTopicSchema).describe('Array of recommended topics for the student to focus on.'),
-      recommendedQuestionTypes: z.array(RecommendedQuestionTypeSchema).describe('Array of recommended question types for the student to focus on.'),
-      summary: z.string().describe('A summary of the student performance and the recommendations.'),
-    }),
+    schema: PersonalizeLearningPathOutputSchema, // Use the main output schema here
   },
   prompt: `You are an AI tutor specializing in creating personalized learning paths for students.
 
-You will analyze the student's performance data and recommend topics and question types for them to focus on.
+Analyze the student's performance based on the provided description and recommend topics and question types for them to focus on.
+Consider the student's grade level context and learning style (if available) when making recommendations.
 
-Consider the student's learning style, if available, when making recommendations.
+<STUDENT_INFO>
+  Student ID: {{{studentId}}}
+  Grade Level Context: {{{context}}}
+  Learning Style: {{{learningStyle}}}
+</STUDENT_INFO>
 
-<CODE_BLOCK>
-Student ID: {{{studentId}}}
-</CODE_BLOCK>
-<CODE_BLOCK>
-Performance Data: {{{performanceData}}}
-</CODE_BLOCK>
-<CODE_BLOCK>Learning Style: {{{learningStyle}}}</CODE_BLOCK>
+<PERFORMANCE_DESCRIPTION>
+{{{performanceData}}}
+</PERFORMANCE_DESCRIPTION>
 
 Based on this information, provide:
 
-1.  A list of recommended topics, with reasons for each recommendation.
-2.  A list of recommended question types, with reasons for each recommendation.
-3.  A summary of the student's performance and your recommendations.
+1.  A list of recommended topics, with clear reasons for each recommendation derived from the performance description.
+2.  A list of recommended question types (e.g., flashcards, MCQ, long answer, practice exercises), with reasons linked to the student's described strengths or weaknesses.
+3.  A concise summary of the student's described performance and your recommendations.
 
-Format the performance data using JSON.
+Format the output as a valid JSON object with the following keys: "recommendedTopics", "recommendedQuestionTypes", and "summary".
+"recommendedTopics" should be an array of objects, each with "topic" and "reason" keys.
+"recommendedQuestionTypes" should be an array of objects, each with "questionType" and "reason" keys.
+"summary" should be a string.
+Ensure the entire response is valid JSON.
 `,
 });
 
@@ -94,7 +96,7 @@ const personalizeLearningPathFlow = ai.defineFlow<
   async input => {
     let context: string = '';
     switch (input.grade) {
-      case 'grade-8':
+      case 'Grade 8':
         context = `Grade 8 Subjects:
       - Mathematics: Algebra, Geometry, Data Handling
       - Science: Physics (Forces, Motion), Chemistry (Elements, Compounds), Biology (Cells, Systems)
@@ -102,7 +104,7 @@ const personalizeLearningPathFlow = ai.defineFlow<
       - History: Modern World History
     `;
         break;
-      case 'grade-6':
+       case 'Grade 6':
         context = `Grade 6 Subjects:
       - Mathematics: Fractions, Decimals, Ratios
       - Science: Simple Machines, Living Things
@@ -110,7 +112,7 @@ const personalizeLearningPathFlow = ai.defineFlow<
       - Geography: Continents and Oceans
     `;
         break;
-      case 'grade-4':
+       case 'Grade 4':
         context =`Grade 4 Subjects:
       - Mathematics: Addition, Subtraction, Introduction to Multiplication
       - Science: Animals, Plants, Environment
@@ -119,10 +121,18 @@ const personalizeLearningPathFlow = ai.defineFlow<
     `;
         break;
       default:
-          context = `The student is in an unspecified grade, please provide answer based on the best information you know.`;
+          context = `The student is in grade ${input.grade}. Please provide age-appropriate recommendations based on the described performance and topic context.`; // Handle other grades generically
         break;
     }
-    const {output} = await prompt({...input, context});
-    return output!;
+    const {output} = await prompt({
+        studentId: input.studentId,
+        performanceData: input.performanceData,
+        learningStyle: input.learningStyle,
+        context: context // Pass the generated context
+    });
+    if (!output) {
+        throw new Error("AI failed to generate recommendations."); // Handle potential null output
+    }
+    return output;
   }
 );

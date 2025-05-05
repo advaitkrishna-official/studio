@@ -28,25 +28,16 @@ const LearningPathPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user, userClass, loading: authLoading } = useAuth(); // Get user, userClass, and auth loading state
   const { toast } = useToast(); // Use the toast hook
-  const [isJsonValid, setIsJsonValid] = useState(true); // State to track JSON validity
+  // Removed JSON validation state as it's no longer needed
+  // const [isJsonValid, setIsJsonValid] = useState(true);
 
-  // Handle performance data input (basic validation for JSON structure)
+  // Handle performance data input change
   const handlePerformanceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
      const value = e.target.value;
      setPerformanceData(value);
-     // Basic JSON validation feedback
-     try {
-       if (value.trim()) {
-            JSON.parse(value);
-            setError(null); // Clear error if JSON is valid
-            setIsJsonValid(true);
-       } else {
-            setError(null); // Clear error if empty
-            setIsJsonValid(true); // Consider empty string valid for now
-       }
-     } catch (jsonError) {
-       setError("Performance data must be valid JSON.");
-       setIsJsonValid(false);
+     // Clear any previous errors when the user types
+     if (error) {
+       setError(null);
      }
   };
 
@@ -62,18 +53,14 @@ const LearningPathPage = () => {
         toast({ variant: 'destructive', title: 'Error', description: 'User information missing.' });
         return;
     }
-    // Re-validate JSON before submitting, although handlePerformanceChange should catch it
-     try {
-       if (performanceData.trim()) JSON.parse(performanceData);
-     } catch (jsonError) {
-       setError("Performance data must be valid JSON.");
-       toast({ variant: 'destructive', title: 'Invalid Input', description: 'Performance data must be valid JSON.' });
-       return;
+     if (!performanceData.trim()) {
+        setError("Please describe your performance.");
+        toast({ variant: 'destructive', title: 'Missing Input', description: 'Please describe your performance.' });
+        return;
      }
 
     setIsLoading(true);
     setError(null);
-    setIsJsonValid(true); // Assume valid until AI call, clear previous validation errors
     try {
       const result = await personalizeLearningPath({
         grade: userClass, // Use the student's grade from auth context
@@ -92,7 +79,7 @@ const LearningPathPage = () => {
   };
 
    // Disable button state
-   const isSubmitDisabled = isLoading || authLoading || !user || !userClass || !performanceData.trim() || !isJsonValid;
+   const isSubmitDisabled = isLoading || authLoading || !user || !userClass || !performanceData.trim();
 
 
   return (
@@ -110,25 +97,25 @@ const LearningPathPage = () => {
                 <CardHeader>
                     <CardTitle>Generate Your Path</CardTitle>
                     <CardDescription>
-                        Enter your performance data and optional learning style to get AI-driven recommendations.
+                        Describe your recent performance and optional learning style to get AI-driven recommendations.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-6">
                     <div className="grid gap-2">
-                        <Label htmlFor="performanceData" className="font-medium">Performance Data</Label>
+                        <Label htmlFor="performanceData" className="font-medium">Performance Description</Label>
                         <Textarea
                             id="performanceData"
-                            placeholder='Example: {"topics": {"Algebra": 75, "Geometry": 50}, "questionTypes": {"MCQ": 80, "LongAnswer": 60}}'
+                            placeholder='Describe your performance. e.g., "I did well on the Algebra MCQ (80%) but struggled with the Geometry long answer questions (50%). I find visual explanations helpful."'
                             value={performanceData}
-                            onChange={handlePerformanceChange} // Use handler for validation
+                            onChange={handlePerformanceChange} // Use updated handler
                             rows={6} // Increased rows
-                            className={`border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 ${!isJsonValid ? 'border-red-500 focus:ring-red-500' : ''}`} // Conditional red border
+                            className={`border-gray-300 focus:border-indigo-500 focus:ring-indigo-500`} // Removed conditional border class
                         />
                         <p className="text-xs text-muted-foreground">
-                            Provide data on topics/questions attempted and accuracy (%). Ensure it's valid JSON.
+                           Describe your strengths and weaknesses on recent topics or question types.
                         </p>
-                         {/* Display JSON validation error clearly */}
-                         {!isJsonValid && error && <p className="text-sm text-red-600 mt-1">{error}</p>}
+                         {/* Display errors */}
+                         {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="learningStyle" className="font-medium">Learning Style (Optional)</Label>
@@ -144,8 +131,6 @@ const LearningPathPage = () => {
                     <Button onClick={handleSubmit} disabled={isSubmitDisabled} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 disabled:opacity-50">
                         {isLoading ? "Generating Learning Path..." : "Generate Learning Path"}
                     </Button>
-                    {/* Display other errors (non-JSON validation) */}
-                    {error && isJsonValid && <p className="text-red-600 mt-2 text-center">{error}</p>}
                 </CardContent>
             </Card>
 
@@ -206,7 +191,7 @@ const LearningPathPage = () => {
               {!recommendations && !isLoading && (
                  <Card className="shadow-lg border border-gray-200 h-full flex items-center justify-center">
                     <CardContent className="text-center text-gray-500">
-                         <p>Enter your data to see recommendations here.</p>
+                         <p>Enter your performance description to see recommendations here.</p>
                     </CardContent>
                  </Card>
               )}
@@ -217,6 +202,3 @@ const LearningPathPage = () => {
 };
 
 export default LearningPathPage;
-
-
-    
