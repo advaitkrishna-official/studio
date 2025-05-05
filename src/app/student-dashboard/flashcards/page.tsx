@@ -50,17 +50,38 @@ export default function AnimatedFlashcardPage() {
 
   // Handle flashcard generation
   const handleGenerate = async () => {
+    console.log("handleGenerate called"); // Add log
+    console.log("userClass:", userClass); // Debug log
+    console.log("authLoading:", authLoading); // Debug log
+    console.log("user:", !!user); // Debug log
+    console.log("topic:", topic); // Debug log
+    console.log("isLoading:", isLoading); // Debug log
+
     // Prevent generation if auth is still loading or user/class info is missing
     if (authLoading || !user || !userClass) {
       setError("User information not available yet. Please wait.");
       toast({ variant: 'destructive', title: 'Error', description: 'User information is loading or missing.' });
+      console.error("Aborting generation: Auth loading or user/class missing"); // Add log
       return;
     }
-    if (!topic.trim()) { // Check if topic is entered
-      setError("Please enter a topic.");
-      toast({ variant: 'destructive', title: 'Error', description: 'Please enter a topic to generate flashcards.' });
+
+    // Explicitly log why generation might be blocked, mirroring the disabled logic
+    if (isLoading) { console.log("Blocking generation: isLoading is true."); return; }
+    // Redundant check as it's in the primary if block, but good for clarity
+    // if (authLoading) { console.log("Blocking generation: authLoading is true."); return; }
+    if (!userClass) {
+      console.log("Blocking generation: userClass is missing.");
+      setError("Student class information is missing. Cannot generate flashcards.");
+      toast({ variant: 'destructive', title: 'Error', description: 'Student class info missing.' });
       return;
+     }
+    if (!topic.trim()) {
+       console.log("Blocking generation: topic is empty.");
+       setError("Please enter a topic.");
+       toast({ variant: 'destructive', title: 'Error', description: 'Please enter a topic to generate flashcards.' });
+       return;
     }
+
 
     setIsLoading(true);
     setError(null);
@@ -82,7 +103,9 @@ export default function AnimatedFlashcardPage() {
 
       // Call the AI flow
       console.log(`Generating flashcards for topic: ${topic}, grade: ${userClass}`); // Debug log
-      const res = await generateFlashcards({ topic, numCards, grade: userClass });
+      // Ensure userClass is not null before calling
+      const gradeToUse = userClass ?? "Grade 8"; // Default grade if null, though the check above should prevent this
+      const res = await generateFlashcards({ topic, numCards, grade: gradeToUse });
       clearInterval(interval); // Ensure interval is cleared
 
       if (res && res.flashcards) {
@@ -104,6 +127,7 @@ export default function AnimatedFlashcardPage() {
        });
     } finally {
       setIsLoading(false);
+      console.log("handleGenerate finished"); // Add log
     }
   };
 
