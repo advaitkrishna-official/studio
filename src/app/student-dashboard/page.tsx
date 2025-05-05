@@ -18,313 +18,254 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import MyAssignments from './my-assignments/page';
+import AITutorPage from './ai-tutor/page';
+import { Progress } from '@/components/ui/progress';
 import {
   DropdownMenu,
+  DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Menu,
   Home,
   ListChecks,
-  BookOpenCheck,
+  BookCopy,
   LayoutGrid,
   PencilRuler,
   LineChart,
   BookOpen,
-  LogOut,
-  Code,
+  Bell,
   Settings,
   HelpCircle,
-  Bell,
-  BookCopy,
-  Award,
-  BrainCircuit,
+  LogOut,
+  Code,
   Brain,
+  BrainCircuit,
 } from 'lucide-react';
-import MyAssignments from './my-assignments/page'; // Import the assignments component
-import AITutorPage from './ai-tutor/page'; // Import the AI Tutor component
-import { Progress } from '@/components/ui/progress';
 
 interface Assignment {
   id: string;
   title: string;
   description: string;
   type: string;
-  dueDate: Date; // Ensure dueDate is always a Date object after fetching
-  assignedTo: {
-    classId: string;
-    studentIds: string[];
-  };
+  dueDate: Date;
+  assignedTo: { classId: string; studentIds: string[] };
 }
 
 interface GradeData {
-    id: string;
-    taskName: string;
-    score: number;
-    feedback: string;
-    timestamp: Timestamp | Date; // Can be Firestore Timestamp or JS Date
+  id: string;
+  taskName: string;
+  score: number;
+  feedback: string;
+  timestamp: Timestamp | Date;
 }
-
 
 export default function StudentDashboardPage() {
   const { user, userClass, userType, signOut: contextSignOut } = useAuth();
   const router = useRouter();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [overallProgress, setOverallProgress] = useState<number>(0);
   const [loadingProgress, setLoadingProgress] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
 
   // Redirect non-students or unauthenticated users
   useEffect(() => {
     if (!user) {
       router.push('/login');
-      return; // Exit early if no user
+      return;
     }
     if (userType && userType !== 'student') {
-      // Redirect non-students (e.g., teachers) to their respective dashboard or login
-      router.push('/login'); // Or '/teacher-dashboard' if you have one
+      router.push('/login');
     }
   }, [user, userType, router]);
 
-  // Fetch assignments and grades
+  // Fetch assignments and progress
   useEffect(() => {
     if (!user || !userClass || userType !== 'student') {
       setLoadingTasks(false);
       setLoadingProgress(false);
-      return; // Exit if not a student or class is unknown
+      return;
     }
-
     setLoadingTasks(true);
     setLoadingProgress(true);
-    setError(null);
-
-    // Fetch Assignments
+    // Assignments
     const assignmentsQuery = query(
       collection(db, 'assignments'),
       where('assignedTo.classId', '==', userClass)
-      // Optionally add: where('assignedTo.studentIds', 'array-contains', user.uid) if using specific student IDs
     );
-
-    const unsubscribeAssignments = onSnapshot(assignmentsQuery, (snapshot) => {
+    const unsub = onSnapshot(assignmentsQuery, snap => {
       const now = new Date();
-      const fetchedAssignments = snapshot.docs
-        .map(docSnap => {
-          const data = docSnap.data() as DocumentData;
-          let dueDate: Date | null = null;
-
-          if (data.dueDate) {
-            if (data.dueDate instanceof Timestamp) {
-              dueDate = data.dueDate.toDate();
-            } else if (typeof data.dueDate === 'string') {
-              dueDate = new Date(data.dueDate);
-            } else if (data.dueDate instanceof Date) {
-              dueDate = data.dueDate; // Already a Date object
-            }
-          }
-
-          if (!dueDate || isNaN(dueDate.getTime())) {
-            console.warn(`Invalid or missing due date for assignment: ${docSnap.id}`);
-            return null; // Skip this assignment
-          }
-
-          return {
-            id: docSnap.id,
-            title: data.title ?? 'Untitled Assignment',
-            description: data.description ?? '',
-            type: data.type ?? 'Other',
-            dueDate: dueDate,
-            assignedTo: data.assignedTo ?? { classId: userClass, studentIds: [] },
-          } as Assignment;
+      const data = snap.docs
+        .map(doc => {
+          const d = doc.data() as DocumentData;
+          let due: Date | null = null;
+          if (d.dueDate instanceof Timestamp) due = d.dueDate.toDate();
+          else if (d.dueDate instanceof Date) due = d.dueDate;
+          else if (typeof d.dueDate === 'string') due = new Date(d.dueDate);
+          if (!due || isNaN(due.getTime())) return null;
+          return { id: doc.id, title: d.title, description: d.description, type: d.type, dueDate: due, assignedTo: d.assignedTo } as Assignment;
         })
-        .filter(Boolean) as Assignment[]; // Filter out nulls
-
-      // Filter for tasks due today or later (or adjust as needed)
-      const upcomingOrDueAssignments = fetchedAssignments.filter(
-        a => a.dueDate >= now || a.dueDate.toDateString() === now.toDateString()
-      );
-
-      setAssignments(upcomingOrDueAssignments);
+        .filter(Boolean) as Assignment[];
+      setAssignments(data.filter(a => a.dueDate >= now || a.dueDate.toDateString() === now.toDateString()));
       setLoadingTasks(false);
-    }, (err) => {
-      console.error("Error fetching assignments:", err);
-      setError("Failed to load assignments.");
-      setLoadingTasks(false);
+    }, () => setLoadingTasks(false));
+
+    // Progress
+    getGrades(user.uid).then((grades: GradeData[]) => {
+      if (grades.length) {
+        const avg = grades.reduce((sum, g) => sum + g.score, 0) / grades.length;
+        setOverallProgress(avg);
+      } else setOverallProgress(0);
+      setLoadingProgress(false);
+    }).catch(() => {
+      setOverallProgress(0);
+      setLoadingProgress(false);
     });
 
-    // Fetch Grades and Calculate Progress
-    const fetchGrades = async () => {
-      try {
-        const gradesData = await getGrades(user.uid) as GradeData[];
-        if (gradesData.length > 0) {
-            const totalScore = gradesData.reduce((sum, grade) => sum + grade.score, 0);
-            const averageScore = totalScore / gradesData.length;
-            setOverallProgress(averageScore);
-        } else {
-            setOverallProgress(0); // No grades yet
-        }
-      } catch (e) {
-        console.error("Error fetching grades:", e);
-        setError("Failed to load progress.");
-        setOverallProgress(0);
-      } finally {
-        setLoadingProgress(false);
-      }
-    };
-
-    fetchGrades(); // Initial fetch
-
-    // Optionally set up a listener for grades if real-time progress update is needed
-    // const gradesCollection = collection(db, 'Users', user.uid, 'grades');
-    // const unsubscribeGrades = onSnapshot(gradesCollection, (snapshot) => { ... });
-
-
-    return () => {
-        unsubscribeAssignments();
-        // unsubscribeGrades(); // if listening
-    };
+    return () => unsub();
   }, [user, userClass, userType]);
 
-
   const handleLogout = async () => {
-    try {
-      await contextSignOut(auth); // Use signOut from context
-      router.push('/login');
-    } catch (error) {
-      console.error("Error signing out: ", error);
-    }
+    await contextSignOut(auth);
+    router.push('/login');
   };
 
-  // --- Dashboard Content ---
-  const greetingName = user?.displayName ?? user?.email?.split('@')[0] ?? 'Student';
-  const tasksDueToday = assignments.filter(a => a.dueDate instanceof Date && a.dueDate.toDateString() === new Date().toDateString()).length;
+  const greeting = user?.displayName ?? user?.email?.split('@')[0] ?? 'Student';
+  const dueToday = assignments.filter(a => a.dueDate.toDateString() === new Date().toDateString()).length;
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 relative">
       {/* Navbar */}
-      <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/student-dashboard" className="flex items-center gap-2 text-xl font-bold text-indigo-600">
-            <BrainCircuit className="w-6 h-6" /> EduAI
+      <header className="bg-white shadow sticky top-0 z-40"> {/* Lower z-index */}
+        <div className="container mx-auto flex items-center justify-between px-4 py-3">
+          <Link href="/student-dashboard" className="flex items-center text-indigo-600 font-bold text-xl">
+            <BrainCircuit className="mr-2" /> EduAI
           </Link>
-
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center space-x-4">
-             <Link href="/student-dashboard" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><Home size={16} /> Home</Link>
-             <Link href="/student-dashboard/my-assignments" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><ListChecks size={16}/> Assignments</Link>
-             <Link href="/student-dashboard/flashcards" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><BookCopy size={16}/> Flashcards</Link>
-             <Link href="/student-dashboard/mcq" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><LayoutGrid size={16}/> MCQs</Link>
-             <Link href="/student-dashboard/essay-feedback" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><PencilRuler size={16}/> Essay</Link>
-             <Link href="/student-dashboard/progress" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><LineChart size={16}/> Progress</Link>
-             <Link href="/student-dashboard/learning-path" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><BookOpen size={16}/> Learning Path</Link>
-             {/* Add other links similarly */}
+          <nav className="hidden md:flex space-x-4">
+            {[
+              { icon: Home, label: 'Home', href: '/student-dashboard' },
+              { icon: ListChecks, label: 'Assignments', href: '/student-dashboard/my-assignments' },
+              { icon: BookCopy, label: 'Flashcards', href: '/student-dashboard/flashcards' },
+              { icon: LayoutGrid, label: 'MCQs', href: '/student-dashboard/mcq' },
+              { icon: PencilRuler, label: 'Essay', href: '/student-dashboard/essay-feedback' },
+              { icon: LineChart, label: 'Progress', href: '/student-dashboard/progress' },
+              { icon: BookOpen, label: 'Learning Path', href: '/student-dashboard/learning-path' },
+            ].map(({ icon: Icon, label, href }) => (
+              <Link key={label} href={href} className="flex items-center px-3 py-2 rounded hover:bg-gray-200">
+                <Icon className="mr-1" size={16} /> {label}
+              </Link>
+            ))}
           </nav>
-
-          {/* Right side icons/menu */}
-          <div className="flex items-center space-x-4">
-             <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700">
-                <Bell size={20} />
-                <span className="sr-only">Notifications</span>
-             </Button>
+          <div className="flex items-center space-x-3">
+            <Button variant="ghost" size="icon">
+              <Bell size={20} />
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.photoURL ?? undefined} alt={user?.displayName ?? "User Avatar"} data-ai-hint="user avatar" />
-                    <AvatarFallback>{greetingName.charAt(0).toUpperCase()}</AvatarFallback>
+                <Button variant="ghost" size="icon">
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage src={user?.photoURL!} alt="avatar" />
+                    <AvatarFallback>{greeting.charAt(0)}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel>Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/student-dashboard/settings')}> {/* Assuming a settings page */}
-                   <Settings className="mr-2 h-4 w-4" /> Settings
+                <DropdownMenuItem onClick={() => router.push('/student-dashboard/settings')}>
+                  <Settings className="mr-2" /> Settings
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/student-dashboard/help')}> {/* Assuming a help page */}
-                   <HelpCircle className="mr-2 h-4 w-4" /> Help
+                <DropdownMenuItem onClick={() => router.push('/student-dashboard/help')}>
+                  <HelpCircle className="mr-2" /> Help
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
+                  <LogOut className="mr-2" /> Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {/* Mobile Nav Trigger */}
             <Button variant="ghost" size="icon" className="md:hidden">
-              <Menu size={20}/>
-              <span className="sr-only">Open Menu</span>
+              <Menu size={20} />
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Welcome Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome back, {greetingName}!</h1>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <h1 className="text-3xl font-bold mb-2">Welcome back, {greeting}!</h1>
           <p className="text-gray-600">Here's what's happening today.</p>
         </motion.div>
 
-        {/* Quick Overview Cards & AI Tutor */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* Left Column: Overview Cards */}
-            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Tasks Due Today</CardTitle>
-                    <CardDescription>Assignments needing attention.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-4xl font-bold text-indigo-600">{loadingTasks ? '...' : tasksDueToday}</p>
-                    <Button size="sm" variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/my-assignments')}>View tasks</Button>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Overall Progress</CardTitle>
-                    <CardDescription>Your average score.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loadingProgress ? (
-                        <p className="text-4xl font-bold text-gray-400">...</p>
-                    ) : (
-                        <p className="text-4xl font-bold text-green-600">{overallProgress.toFixed(1)}%</p>
-                    )}
-                     <Progress value={loadingProgress ? 0 : overallProgress} className="mt-2 h-2" />
-                    <Button size="sm" variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/progress')}>View progress</Button>
-                  </CardContent>
-                </Card>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tasks Due Today</CardTitle>
+              <CardDescription>Due your attention</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-4xl font-semibold text-indigo-600">{loadingTasks ? '...' : dueToday}</p>
+              <Button variant="link" size="sm" onClick={() => router.push('/student-dashboard/my-assignments')}>View tasks</Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Overall Progress</CardTitle>
+              <CardDescription>Your average score</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingProgress ? (
+                <p className="text-4xl font-semibold text-gray-400">...</p>
+              ) : (
+                <p className="text-4xl font-semibold text-green-600">{overallProgress.toFixed(1)}%</p>
+              )}
+              <Progress value={loadingProgress ? 0 : overallProgress} className="mt-2" />
+              <Button variant="link" size="sm" onClick={() => router.push('/student-dashboard/progress')}>View progress</Button>
+            </CardContent>
+          </Card>
+          {/* Removed the grid item for the tutor button */}
+        </div>
 
-            {/* Right Column: AI Tutor Chat - Renders the chatbot component */}
-            <div className="lg:col-span-1 h-[450px] md:h-[500px] lg:h-[600px]"> {/* Adjust height as needed */}
+        <section className="mt-8">
+          <h2 className="text-2xl font-semibold mb-4">My Assignments</h2>
+          <MyAssignments />
+        </section>
+      </main>
+
+      {/* Fixed AI Tutor Button and Panel Container */}
+      <div className="fixed bottom-4 right-4 z-50">
+        {chatOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="mb-2 w-80 h-96 bg-white shadow-lg rounded-lg overflow-hidden flex flex-col"
+            style={{ maxHeight: 'calc(100vh - 80px)' }} // Ensure it doesn't overflow viewport
+          >
+            <div className="flex items-center justify-between bg-indigo-600 p-2">
+              <span className="text-white font-semibold">AI Tutor</span>
+              <button onClick={() => setChatOpen(false)} className="text-white hover:bg-indigo-700 rounded-full p-1">✕</button>
+            </div>
+            <div className="flex-1 overflow-auto">
               <AITutorPage />
             </div>
-        </div>
-
-
-        {/* My Assignments Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">My Assignments</h2>
-          {/* Render the MyAssignments component directly */}
-           <MyAssignments />
-        </div>
-
-      </main>
+          </motion.div>
+        )}
+        <motion.button
+          onClick={() => setChatOpen(o => !o)}
+          className="w-16 h-16 bg-indigo-600 hover:bg-indigo-700 rounded-full shadow-lg flex items-center justify-center text-white"
+          whileTap={{ scale: 0.9 }}
+          aria-label="Toggle AI Tutor Chat"
+        >
+          {chatOpen ? <BrainCircuit size={24} /> : <Brain size={24} />}
+        </motion.button>
+      </div>
     </div>
   );
-}
+};
