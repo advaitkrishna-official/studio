@@ -54,7 +54,7 @@ import {
 } from "@/components/ui/select";
 import { Progress as UiProgress } from "@/components/ui/progress"; // Renamed Progress import
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import { Separator } from "@/components/ui/separator"; // Import Separator
 
 type Student = {
   id: string;
@@ -64,7 +64,7 @@ type Student = {
   role: string;
   lastMessage?: string;
   progress?: Record<string, number>;
-  overallProgress?: number;
+  overallProgress?: number; // Added for overall progress display
 };
 
 type Grade = {
@@ -81,21 +81,24 @@ const StudentManagerPage: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start loading initially
   const [error, setError] = useState<string | null>(null);
+  // Initialize selectedClass with the teacher's default class from auth, or empty string
   const [selectedClass, setSelectedClass] = useState<string>("");
+  // Static list of available classes/grades
   const [classes] = useState<string[]>([
     "Grade 1", "Grade 2", "Grade 3", "Grade 4",
     "Grade 5", "Grade 6", "Grade 7", "Grade 8"
   ]);
   const [selectedStudent, setSelectedStudent] = useState<StudentDetails | null>(null);
 
-  // Listen for students in the selected class using onSnapshot for real-time updates
+  // Listen for students in the selected class
   useEffect(() => {
+    // Don't run if user is not logged in or Firestore isn't ready, or no class selected
     if (!user || !db || !selectedClass) {
         setStudents([]); // Clear students if no user, db, or class selected
-        setIsLoading(false);
-        setError(selectedClass ? "Could not initialize Firestore." : null); // Show error only if class was selected but db failed
+        setIsLoading(false); // Ensure loading stops
+        setError(selectedClass ? "Could not initialize Firestore or user not found." : null); // Show error only if class was selected but db/user failed
         return;
     }
 
@@ -117,6 +120,7 @@ const StudentManagerPage: React.FC = () => {
         console.log(`Received snapshot update with ${snapshot.size} students for class ${selectedClass}`);
         const data = snapshot.docs.map((d) => {
           const docData = d.data() as DocumentData;
+          // Calculate overall progress if progress object exists
           let overallProgress = 0;
           const progressData = docData.progress as Record<string, number> | undefined;
           if (progressData && Object.keys(progressData).length > 0) {
@@ -129,58 +133,62 @@ const StudentManagerPage: React.FC = () => {
 
           return {
             id: d.id,
-            email: docData.email || 'N/A',
+            email: docData.email || 'N/A', // Provide defaults
             class: docData.class || 'N/A',
             studentNumber: docData.studentNumber || 'N/A',
             role: docData.role || 'student',
             lastMessage: docData.lastMessage,
-            progress: progressData ?? {},
-            overallProgress: overallProgress,
-          } as Student;
+            progress: progressData ?? {}, // Use fetched progress or default to empty object
+            overallProgress: overallProgress, // Add the calculated overall progress
+          } as Student; // Explicit type assertion
         });
+        console.log("Processed student data:", data); // Log processed data
         setStudents(data);
         setIsLoading(false);
       },
       (e) => {
-        console.error("Error fetching students in real-time:", e);
+        console.error("Error fetching students in real-time:", e); // Log errors
         setError(e.message || "Failed to fetch students.");
         setIsLoading(false);
         setStudents([]); // Clear students on error
       }
     );
 
-    // Cleanup function to unsubscribe when component unmounts or dependencies change
+    // Cleanup function to unsubscribe when component unmounts
+    // or when the dependencies (user, selectedClass) change.
     return () => {
-       console.log("Unsubscribing from student listener for class:", selectedClass);
+       console.log("Unsubscribing from student listener for class:", selectedClass); // Debug log
        unsubscribe();
-    };
-  }, [user, selectedClass]); // Dependency array includes user and selectedClass
+    }
+  }, [user, selectedClass]); // Re-run the effect if the user or selectedClass changes
 
-
-  // View detailed student info + grades (remains the same, uses getDoc, not real-time for details)
+  // View detailed student info + grades
   const handleViewDetails = useCallback(async (studentId: string) => {
     if (!user || !db) return;
     // Using a local loading state for the dialog might be better
-    // setIsLoading(true);
+    // setIsLoading(true); // Re-enable if needed for detail loading
     setError(null);
 
     try {
+      // Fetch the student doc from the 'Users' collection
       const studentRef = doc(db, "Users", studentId);
       const snap = await getDoc(studentRef);
       if (!snap.exists()) throw new Error("Student not found.");
 
       const data = snap.data() as DocumentData;
 
+      // Fetch their grades subcollection
       const gradesSnap = await getDocs(collection(studentRef, "grades"));
       const grades: Grade[] = gradesSnap.docs.map((g) => {
         const gd = g.data() as DocumentData;
         return {
-          taskName: gd.taskName || 'Untitled Task',
-          score: Number(gd.score ?? 0),
-          feedback: gd.feedback || '',
+          taskName: gd.taskName || 'Untitled Task', // Default value
+          score: Number(gd.score ?? 0), // Ensure score is a number, default 0
+          feedback: gd.feedback || '', // Default value
         };
       });
 
+       // Recalculate overall progress for the details view
        let overallProgress = 0;
        const progressData = data.progress as Record<string, number> | undefined;
         if (progressData && Object.keys(progressData).length > 0) {
@@ -191,6 +199,7 @@ const StudentManagerPage: React.FC = () => {
             }
         }
 
+      // Build full StudentDetails object
       setSelectedStudent({
         id: studentId,
         email: data.email || 'N/A',
@@ -205,11 +214,11 @@ const StudentManagerPage: React.FC = () => {
     } catch (e: any) {
       setError(e.message);
       toast({ variant: "destructive", title: "Error", description: e.message });
-      setSelectedStudent(null);
+      setSelectedStudent(null); // Clear selection on error
     } finally {
-     // setIsLoading(false);
+     // setIsLoading(false); // Re-enable if using separate loading state
     }
-  }, [user, toast]); // Keep dependencies minimal for useCallback
+  }, [user, toast]); // Dependencies for useCallback
 
 
   // Update a single subject’s progress
@@ -226,24 +235,19 @@ const StudentManagerPage: React.FC = () => {
         [`progress.${subject}`]: newProgress,
       });
 
-      // No need to update local state manually here, onSnapshot will handle it.
-      // If immediate feedback is desired before snapshot updates, you could still update locally,
-      // but be mindful of potential brief inconsistencies.
-
-       // Re-calculate and update overall progress if needed (or let snapshot handle it)
-       // This might be slightly delayed if relying solely on snapshot
-       /*
-       if (selectedStudent && selectedStudent.id === studentId) {
-         setSelectedStudent(prev => {
-           if (!prev) return null;
-           const updatedProgress = { ...(prev.progress ?? {}), [subject]: newProgress };
-           const scores = Object.values(updatedProgress);
-           const validScores = scores.filter(s => typeof s === 'number' && !isNaN(s));
-           const newOverall = validScores.length > 0 ? validScores.reduce((sum, score) => sum + score, 0) / validScores.length : 0;
-           return { ...prev, progress: updatedProgress, overallProgress: newOverall };
-         });
-       }
-       */
+      // Snapshot listener will automatically update the main 'students' state.
+      // Update the selectedStudent details immediately if it's the one being edited
+      if (selectedStudent && selectedStudent.id === studentId) {
+        setSelectedStudent(prev => {
+          if (!prev) return null;
+          const updatedProgress = { ...(prev.progress ?? {}), [subject]: newProgress };
+          // Recalculate overall progress for the dialog view
+          const scores = Object.values(updatedProgress);
+          const validScores = scores.filter(s => typeof s === 'number' && !isNaN(s));
+          const newOverall = validScores.length > 0 ? validScores.reduce((sum, score) => sum + score, 0) / validScores.length : 0;
+          return { ...prev, progress: updatedProgress, overallProgress: newOverall };
+        });
+      }
 
       toast({
         title: "Progress Updated",
@@ -252,7 +256,7 @@ const StudentManagerPage: React.FC = () => {
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error updating progress", description: e.message });
     }
-  }, [toast]); // db dependency removed as it should be stable
+  }, [selectedStudent, toast]); // db dependency removed as it should be stable
 
 
   // “Send” a message by writing lastMessage
@@ -262,7 +266,7 @@ const StudentManagerPage: React.FC = () => {
       const studentRef = doc(db, "Users", studentId);
       await updateDoc(studentRef, { lastMessage: message });
 
-      // onSnapshot will update the main list, but update dialog if open
+      // Snapshot listener updates main list, but update dialog if open
       if (selectedStudent && selectedStudent.id === studentId) {
         setSelectedStudent(prev => prev ? ({ ...prev, lastMessage: message }) : null);
       }
@@ -305,7 +309,7 @@ const StudentManagerPage: React.FC = () => {
 
       {/* No Students Found State */}
       {!isLoading && !error && students.length === 0 && selectedClass && (
-        <p className="text-center text-gray-500 py-8">No students found in {selectedClass}.</p>
+        <p className="text-center text-gray-500 py-8">No students found in {selectedClass}. Check Firestore data and the 'class' field value.</p>
       )}
 
       {/* Prompt to Select Class State */}
@@ -372,9 +376,8 @@ const StudentManagerPage: React.FC = () => {
       {/* Details Dialog */}
       <StudentDetailsDialog
         student={selectedStudent}
-        // Pass a different loading state if you implement one for details
-        isLoading={false} // Assuming details loading is handled differently or is quick
-        error={null} // Assuming details error is handled differently
+        isLoading={isLoading} // Pass loading state for details if needed
+        error={error} // Pass error state for details if needed
         onClose={() => setSelectedStudent(null)}
         onUpdateProgress={handleUpdateProgress} // Pass down update handler
       />
@@ -382,7 +385,7 @@ const StudentManagerPage: React.FC = () => {
   );
 };
 
-// --- Edit Progress Dialog ---
+// --- Edit Progress Dialog --- (Keep as is)
 interface EditProgressDialogProps {
   studentId: string;
   currentProgress: Record<string, number>;
@@ -480,7 +483,7 @@ const EditProgressDialog: React.FC<EditProgressDialogProps> = ({
 };
 
 
-// --- Send Message Dialog ---
+// --- Send Message Dialog --- (Keep as is)
 interface SendMessageDialogProps {
   studentId: string;
   onSendMessage: (studentId: string, message: string) => void;
@@ -536,20 +539,20 @@ const SendMessageDialog: React.FC<SendMessageDialogProps> = ({
 };
 
 
-// --- Details Dialog ---
+// --- Details Dialog --- (Keep as is)
 interface StudentDetailsDialogProps {
   student: StudentDetails | null;
-  isLoading: boolean;
-  error: string | null;
+  isLoading: boolean; // Consider a separate loading state for details
+  error: string | null;   // Consider a separate error state for details
   onClose: () => void;
-  onUpdateProgress: (studentId: string, subject: string, newProgress: number) => void;
+  onUpdateProgress: (studentId: string, subject: string, newProgress: number) => void; // Receive update handler
 }
 const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
   student,
-  isLoading: isDetailsLoading,
-  error: detailsError,
+  isLoading: isDetailsLoading, // Rename prop for clarity
+  error: detailsError,         // Rename prop for clarity
   onClose,
-  onUpdateProgress,
+  onUpdateProgress, // Destructure the handler
 }) => {
   if (!student) return null;
 
@@ -562,12 +565,13 @@ const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
             View and manage this student’s records.
           </DialogDescription>
         </DialogHeader>
+        {/* Check for loading/error specific to fetching details */}
          {isDetailsLoading && <p className="text-center py-4">Loading details...</p>}
          {detailsError && <p className="text-red-500 text-center py-4">Error: {detailsError}</p>}
 
          {!isDetailsLoading && !detailsError && student && (
            <ScrollArea className="max-h-[60vh]">
-               <div className="space-y-6 p-4">
+               <div className="space-y-6 p-4"> {/* Added padding to the ScrollArea content */}
                  <Card>
                    <CardHeader>
                      <CardTitle>Info</CardTitle>
@@ -588,6 +592,7 @@ const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                      <CardTitle>Progress</CardTitle>
                      <CardDescription>Subject-wise %</CardDescription>
+                     {/* Add Edit button here to trigger the same EditProgressDialog */}
                      <EditProgressDialog
                          studentId={student.id}
                          currentProgress={student.progress || {}}
@@ -619,6 +624,7 @@ const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
                      <CardDescription>Assignment/Test grades</CardDescription>
                    </CardHeader>
                    <CardContent>
+                     {/* Display loading/error specific to grades if needed */}
                      {student.grades.length > 0 ? (
                        <Table>
                          <TableHeader>
