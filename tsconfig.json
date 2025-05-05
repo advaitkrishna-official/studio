@@ -6,16 +6,41 @@
     // … your existing options …
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "resolveJsonModule": true,      // ← allow `import foo from './data.json'`
+    "resolveJsonModule": true, // ← allow `import foo from './data.json'`
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]             // adjust to your folder structure
-    }
+      "@/*": [
+        "src/*"
+      ] // adjust to your folder structure
+    },
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noEmit": true,
+    "incremental": true,
+    "module": "esnext",
+    "isolatedModules": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "include": [
-    "next-env.d.ts",
+    "**/*.json",
     "**/*.ts",
     "**/*.tsx",
-    "**/*.json"                    // ← make sure JSON files are included
+    "next-env.d.ts" // ← make sure JSON files are included
+    ,
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }

@@ -1,252 +1,196 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { generateMCQ, GenerateMCQOutput } from "@/ai/flows/generate-mcq";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CheckCircle, Circle } from "lucide-react";
-import { generateMcqExplanation } from "@/ai/flows/generate-mcq-explanation";
-import { useAuth } from "@/components/auth-provider";
-import { saveGrade, getGrades } from "@/lib/firebase";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState, useEffect, ChangeEvent } from 'react';
+import { motion } from 'framer-motion';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { generateMCQ, GenerateMCQOutput } from '@/ai/flows/generate-mcq';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { CheckCircle, Circle } from 'lucide-react';
+import { generateMcqExplanation } from '@/ai/flows/generate-mcq-explanation';
+import { useAuth } from '@/components/auth-provider';
+import { saveGrade, getGrades } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
 import {
   Select,
-  SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 
-
-const MCQPage = () => {
-  const [topic, setTopic] = useState("");
+export default function AnimatedMCQPage() {
+  const [topic, setTopic] = useState('');
   const [numQuestions, setNumQuestions] = useState(5);
+  const [selectedGrade, setSelectedGrade] = useState('grade-8');
   const [mcq, setMcq] = useState<GenerateMCQOutput | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
   const [showAnswers, setShowAnswers] = useState(false);
-  const [explanations, setExplanations] = useState<string[]>([]); // New state for explanations
-  const { user } = useAuth();
+  const [explanations, setExplanations] = useState<string[]>([]);
   const [quizScore, setQuizScore] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [totalScore, setTotalScore] = useState<number | null>(null);
   const { toast } = useToast();
-    const [totalScore, setTotalScore] = useState<number | null>(null);
-    const [selectedGrade, setSelectedGrade] = useState<string>("grade-8"); // Default grade
 
-    type Grade = {
-      id: string;
-      score: number;
+  // Fetch total score on mount
+  useEffect(() => {
+    if (user) {
+      getGrades(user.uid)
+        .then((grades) => {
+          const sum = (grades as { score: number }[]).reduce((a, g) => a + g.score, 0);
+          setTotalScore(sum);
+        })
+        .catch((e) => {
+          console.error(e);
+          setError('Failed to load previous scores');
+        });
     }
+  }, [user]);
 
-    useEffect(() => {
-        if (user) {
-            getGrades(user.uid).then(gradesData => {
-                const grades = gradesData as Grade[];
-                if (grades.length > 0) {
-                    setTotalScore(grades.reduce((acc, grade) => acc + grade.score, 0));
-                }
-            }).catch(e => {
-                console.error("Error fetching grades:", e);
-                setError(e.message || "An error occurred while fetching grades.");
-            });
-        }
-    }, [user]);
-
-  const handleSubmit = async () => {
+  const handleGenerate = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await generateMCQ({ topic, numQuestions, grade: selectedGrade }); // Pass grade here
+      const result = await generateMCQ({ topic, numQuestions, grade: selectedGrade });
       setMcq(result);
-      setAnswers(Array(result?.questions?.length || 0).fill(""));
+      setAnswers(Array(result.questions.length).fill(''));
       setShowAnswers(false);
-      setExplanations(Array(result?.questions?.length || 0).fill("")); // Initialize explanations
-      setQuizScore(0); // Reset quiz score
-        toast({
-          title: "MCQs Generated",
-          description: "The MCQs have been generated.",
-        });
+      setExplanations(Array(result.questions.length).fill(''));
+      setQuizScore(0);
+      toast({ title: 'MCQs generated' });
     } catch (e: any) {
-      setError(e.message || "An error occurred while generating MCQs.");
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to generate MCQs. Please try again.",
-        });
+      setError(e.message);
+      toast({ variant: 'destructive', title: 'Error', description: e.message });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAnswerChange = (index: number, value: string) => {
-    const newAnswers = [...answers];
-    newAnswers[index] = value;
-    setAnswers(newAnswers);
+  const handleAnswerChange = (idx: number, value: string) => {
+    const arr = [...answers]; arr[idx] = value; setAnswers(arr);
   };
 
   const handleSubmitQuiz = async () => {
     setShowAnswers(true);
-    let correctCount = 0;
+    if (!mcq) return;
+    let correct = 0;
+    mcq.questions.forEach((q, i) => { if (answers[i] === q.correctAnswer) correct += 1; });
+    setQuizScore(correct);
 
-    // Calculate the quiz score
-    if (mcq && mcq.questions) {
-      for (let i = 0; i < mcq.questions.length; i++) {
-        if (answers[i] === mcq.questions[i].correctAnswer) {
-          correctCount++;
-        }
-      }
-      setQuizScore(correctCount);
+    // explanations
+    const expl = await Promise.all(
+      mcq.questions.map(q =>
+        generateMcqExplanation({ question: q.question, options: q.options, correctAnswer: q.correctAnswer, grade: selectedGrade })
+          .then(r => r.explanation)
+          .catch(() => 'No explanation available')
+      )
+    );
+    setExplanations(expl);
 
-      // Generate explanations for each question
-      const newExplanations = await Promise.all(
-        mcq.questions.map(async (q) => {
-          try {
-            const explanationResult = await generateMcqExplanation({
-              question: q.question,
-              options: q.options,
-              correctAnswer: q.correctAnswer,
-              grade: selectedGrade, // Pass the grade here
-            });
-            return explanationResult.explanation;
-          } catch (error: any) {
-            console.error("Error generating explanation:", error);
-            return "Explanation not available.";
-          }
-        })
-      );
-      setExplanations(newExplanations);
-
-      // Save the grade to Firebase
-      if (user) {
-        const scorePercentage = (correctCount / mcq.questions.length) * 100;
-        const description = `You got ${correctCount} out of ${mcq.questions.length} correct.`;
-        await saveGrade(user.uid, `MCQ Quiz on ${topic}`, scorePercentage, description);
-
-          toast({
-            title: "Quiz Submitted",
-            description: description,
-          });
-      }
+    // save
+    if (user) {
+      const perc = (correct / mcq.questions.length) * 100;
+      await saveGrade(user.uid, `Quiz: ${topic}`, perc, `${correct} of ${mcq.questions.length}`);
+      toast({ title: 'Quiz submitted', description: `${correct} correct` });
     }
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <Card className="max-w-3xl mx-auto">
-        <CardHeader>
-          <CardTitle>MCQ Generator</CardTitle>
-          <CardDescription>
-            Enter a topic and the number of MCQs to generate.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="topic">Topic</Label>
-            <Input
-              id="topic"
-              placeholder="Enter topic..."
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="numQuestions">Number of MCQs</Label>
-            <Input
-              id="numQuestions"
-              type="number"
-              placeholder="Number of MCQs to generate"
-              value={numQuestions.toString()}
-              onChange={(e) => setNumQuestions(parseInt(e.target.value))}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="grade">Grade</Label>
-            <Select onValueChange={setSelectedGrade} defaultValue={selectedGrade}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Grade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="grade-8">Grade 8</SelectItem>
-                <SelectItem value="grade-6">Grade 6</SelectItem>
-                <SelectItem value="grade-4">Grade 4</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+    <div className="relative flex justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 overflow-hidden p-4">
+      {/* Animated Background Blobs */}
+      <motion.div
+        className="absolute w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-xl opacity-30"
+        animate={{ x: [-100, 100, -100], y: [-80, 80, -80] }}
+        transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="absolute top-1/4 right-0 w-56 h-56 bg-pink-300 rounded-full mix-blend-multiply filter blur-2xl opacity-25"
+        animate={{ y: [0, 200, 0] }}
+        transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
+      />
 
-
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? "Generating MCQs..." : "Generate MCQs"}
+      <motion.div
+        initial={{ opacity: 0, y: 50, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+        className="relative z-10 w-full max-w-3xl bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl p-8 space-y-6"
+      >
+        {/* Generation Form */}
+        <div className="grid gap-4">
+          <Label>Topic</Label>
+          <Input
+            value={topic}
+            onChange={e => setTopic(e.target.value)}
+            placeholder="Enter topic..."
+          />
+          <Label>Number of Questions</Label>
+          <Input
+            type="number"
+            value={numQuestions}
+            onChange={e => setNumQuestions(+e.target.value)}
+          />
+          <Label>Grade</Label>
+          <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="grade-8">Grade 8</SelectItem>
+              <SelectItem value="grade-6">Grade 6</SelectItem>
+              <SelectItem value="grade-4">Grade 4</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={handleGenerate} disabled={isLoading}>
+            {isLoading ? 'Generating...' : 'Generate MCQs'}
           </Button>
           {error && <p className="text-red-500">{error}</p>}
-        </CardContent>
-      </Card>
+        </div>
 
-      {mcq && mcq.questions && (
-        <div className="mt-8 max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold tracking-tight">Generated MCQs</h2>
-          <p className="text-sm text-muted-foreground">
-            Here are your AI generated MCQs on the topic of {topic}
-          </p>
-            {totalScore !== null && (
-                <div className="mt-4">
-                    <h3 className="text-xl font-bold tracking-tight">Total Score</h3>
-                    <p className="mt-2">Your total score: {totalScore}%</p>
-                </div>
-            )}
-          {showAnswers && (
-            <p className="text-sm text-muted-foreground">
-              Your Score: {quizScore} out of {mcq.questions.length}
-            </p>
-          )}
-          <div className="grid gap-4 mt-4">
-            {mcq.questions.map((q, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <CardTitle>Question {index + 1}</CardTitle>
-                </CardHeader>
+        {/* Generated Questions */}
+        {mcq && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">MCQs on "{topic}"</h2>
+              {totalScore != null && (
+                <p>Your total score: {totalScore}%</p>
+              )}
+            </div>
+
+            {mcq.questions.map((q, i) => (
+              <Card key={i} className="p-4">
+                <CardHeader><CardTitle>Question {i + 1}</CardTitle></CardHeader>
                 <CardContent>
-                  <p className="font-bold">{q.question}</p>
-                  <RadioGroup onValueChange={(value) => handleAnswerChange(index, value)}>
-                    {q.options.map((option, i) => (
-                      <div key={i} className="flex items-center space-x-2">
-                        <RadioGroupItem value={option} id={`q-${index}-option-${i}`} />
-                        <Label htmlFor={`q-${index}-option-${i}`}>
-                          {option}
-                        </Label>
+                  <p className="font-semibold mb-2">{q.question}</p>
+                  <RadioGroup onValueChange={val => handleAnswerChange(i, val)}>
+                    {q.options.map((opt, j) => (
+                      <div key={j} className="flex items-center space-x-2">
+                        <RadioGroupItem value={opt} id={`opt-${i}-${j}`} />
+                        <Label htmlFor={`opt-${i}-${j}`}>{opt}</Label>
                       </div>
                     ))}
                   </RadioGroup>
                   {showAnswers && (
-                    <div className="mt-4">
-                      <p>
-                        {answers[index] === q.correctAnswer ? (
-                          <span className="text-green-500 flex gap-2 items-center"><CheckCircle className="h-4 w-4"/> Correct!</span>
-                        ) : (
-                          <span className="text-red-500 flex gap-2 items-center"><Circle className="h-4 w-4"/> Incorrect.</span>
-                        )}
+                    <div className="mt-4 space-y-1">
+                      <p className={`font-medium ${answers[i]===q.correctAnswer?'text-green-600':'text-red-600'}`}>
+                        {answers[i]===q.correctAnswer ? <><CheckCircle className="inline"/> Correct</> : <><Circle className="inline"/> Incorrect</>}
                       </p>
-                      <p className="mt-2">
-                        Correct Answer: {q.correctAnswer}
-                      </p>
-                      <p className="mt-2">
-                        Explanation: {explanations[index] || 'Generating Explanation...'}
-                      </p>
+                      <p>Answer: {q.correctAnswer}</p>
+                      <p className="text-sm text-gray-700">Explanation: {explanations[i]}</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
             ))}
+
+            {!showAnswers && (
+              <Button onClick={handleSubmitQuiz}>Submit Quiz</Button>
+            )}
           </div>
-          {!showAnswers && (
-            <Button onClick={handleSubmitQuiz}>Submit Quiz</Button>
-          )}
-        </div>
-      )}
+        )}
+      </motion.div>
+
     </div>
   );
-};
-
-export default MCQPage;
+}

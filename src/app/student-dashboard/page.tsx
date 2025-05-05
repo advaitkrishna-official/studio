@@ -3,9 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/components/auth-provider';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, onSnapshot, where, DocumentData } from 'firebase/firestore';
+import { collection, query, onSnapshot, where, DocumentData, Timestamp } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { format } from 'date-fns';
 
@@ -13,249 +14,283 @@ import {
   Card,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardContent,
+  CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Separator } from '@/components/ui/separator';
 import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-
-import {
-  Search,
   Menu,
   Home,
   ListChecks,
   BookOpenCheck,
   LayoutGrid,
   PencilRuler,
-  BookOpen,
   LineChart,
+  BookOpen,
   LogOut,
   Code,
-  Database,
-  Cpu,
-  Hash,
+  Settings,
+  HelpCircle,
+  Bell,
+  BookCopy,
+  Award,
+  BrainCircuit,
 } from 'lucide-react';
+import MyAssignments from './my-assignments/page'; // Import the assignments component
 
-import MyAssignments from './my-assignments/page';
 
 interface Assignment {
   id: string;
   title: string;
   description: string;
   type: string;
-  dueDate: Date;
-}
-
-function Sidebar() {
-  const router = useRouter();
-  const links = [
-    { name: 'Home', Icon: Home, link: '/student-dashboard' },
-    { name: 'Assignments', Icon: ListChecks, link: '/student-dashboard/my-assignments' },
-    { name: 'Flashcards', Icon: BookOpenCheck, link: '/student-dashboard/flashcards' },
-    { name: 'MCQs', Icon: LayoutGrid, link: '/student-dashboard/mcq' }, // Fixed link
-    { name: 'Essay Feedback', Icon: PencilRuler, link: '/student-dashboard/essay-feedback' },
-    { name: 'Progress', Icon: LineChart, link: '/student-dashboard/progress' },
-    { name: 'Learning Path', Icon: BookOpen, link: '/student-dashboard/learning-path' },
-  ];
-
-  return (
-    <aside className="bg-white border-r border-gray-200 w-64 hidden md:block">
-      <nav className="p-4 space-y-4">
-        <Link href="/student-dashboard" className="flex items-center gap-2 text-xl font-bold">
-          <Code className="w-6 h-6" /> Learn Hub
-        </Link>
-        {links.map(({ name, Icon, link }) => (
-          <Link
-            key={name}
-            href={link}
-            className="flex items-center gap-2 px-4 py-2 rounded hover:bg-gray-100"
-          >
-            <Icon className="w-5 h-5" /> {name}
-          </Link>
-        ))}
-        <Separator />
-        <Button
-          variant="ghost"
-          onClick={() => signOut(auth!)}
-          className="w-full justify-start"
-        >
-          <LogOut className="w-4 h-4 mr-2" /> Log Out
-        </Button>
-      </nav>
-    </aside>
-  );
+  dueDate: Timestamp | Date; // Allow Timestamp or Date
 }
 
 export default function StudentDashboardPage() {
-  const { user, userClass } = useAuth();
+  const { user, userClass, userType } = useAuth();
   const router = useRouter();
-
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Redirect non-students or unauthenticated users
   useEffect(() => {
     if (!user) {
       router.push('/login');
-      return;
+      return; // Exit early if no user
     }
-    if (!userClass) {
+    if (userType && userType !== 'student') {
+      // Redirect non-students (e.g., teachers) to their respective dashboard or login
+      router.push('/login'); // Or '/teacher-dashboard' if you have one
+    }
+  }, [user, userType, router]);
+
+
+  // Fetch assignments
+  useEffect(() => {
+    if (!user || !userClass || userType !== 'student') {
       setLoadingTasks(false);
-      return;
+      return; // Exit if not a student or class is unknown
     }
 
-    const col = collection(db, 'assignments');
-    const q = query(col, where('assignedTo.classId', '==', userClass));
-    const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map((d) => {
-        const raw = d.data() as DocumentData;
-        return {
-          id: d.id,
-          title: raw.title,
-          description: raw.description,
-          type: raw.type,
-          dueDate: raw.dueDate.toDate(),
-        } as Assignment;
-      });
-      setAssignments(data);
+    setLoadingTasks(true);
+    setError(null);
+
+    const assignmentsQuery = query(
+      collection(db, 'assignments'),
+      where('assignedTo.classId', '==', userClass)
+    );
+
+    const unsubscribe = onSnapshot(assignmentsQuery, (snapshot) => {
+      const now = new Date();
+      const fetchedAssignments = snapshot.docs
+        .map(doc => {
+           const data = doc.data() as DocumentData;
+           let dueDate: Timestamp | Date | null = null;
+
+           // Handle Firestore Timestamp or JS Date conversion
+           if (data.dueDate) {
+              if (data.dueDate instanceof Timestamp) {
+                 dueDate = data.dueDate.toDate();
+              } else if (data.dueDate instanceof Date) {
+                 dueDate = data.dueDate;
+              } else if (typeof data.dueDate === 'string') {
+                 // Attempt to parse if it's a string (less ideal)
+                 dueDate = new Date(data.dueDate);
+              }
+           }
+
+           // Filter out assignments with invalid dates
+           if (!dueDate || isNaN(dueDate.getTime())) {
+              console.warn(`Invalid or missing due date for assignment: ${doc.id}`);
+              return null; // Skip this assignment
+           }
+
+
+            return {
+             id: doc.id,
+             title: data.title ?? 'Untitled Assignment',
+             description: data.description ?? '',
+             type: data.type ?? 'Other',
+             dueDate: dueDate, // Use the converted Date object
+           } as Assignment;
+        })
+        .filter(Boolean) as Assignment[]; // Filter out nulls
+
+        // Filter for tasks due today or later
+        const upcomingOrDueAssignments = fetchedAssignments.filter(a => a.dueDate >= now || a.dueDate.toDateString() === now.toDateString());
+
+      setAssignments(upcomingOrDueAssignments);
+      setLoadingTasks(false);
+    }, (err) => {
+      console.error("Error fetching assignments:", err);
+      setError("Failed to load assignments.");
       setLoadingTasks(false);
     });
 
-    return () => unsub();
-  }, [user, userClass, router]);
+    return () => unsubscribe(); // Clean up listener on unmount
+  }, [user, userClass, userType]);
 
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth!);
+      router.push('/login');
+    } catch (error) {
+      console.error("Error signing out: ", error);
+    }
+  };
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        Loading...
-      </div>
-    );
-  }
+  // --- Dashboard Content ---
+  const greetingName = user?.displayName ?? user?.email?.split('@')[0] ?? 'Student';
+  const tasksDueToday = assignments.filter(a => a.dueDate instanceof Date && a.dueDate.toDateString() === new Date().toDateString()).length;
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      {/* Mobile sidebar */}
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="outline" className="md:hidden fixed top-4 left-4 z-50">
-            <Menu className="w-5 h-5" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="p-0">
-          <Sidebar />
-        </SheetContent>
-      </Sheet>
+    <div className="min-h-screen bg-gray-100">
+      {/* Navbar */}
+      <header className="bg-white shadow-sm sticky top-0 z-40">
+        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+          <Link href="/student-dashboard" className="flex items-center gap-2 text-xl font-bold text-indigo-600">
+            <BrainCircuit className="w-6 h-6" /> EduAI
+          </Link>
 
-      {/* Desktop sidebar */}
-      <Sidebar />
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center space-x-4">
+             <Link href="/student-dashboard" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><Home size={16} /> Home</Link>
+             <Link href="/student-dashboard/my-assignments" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><ListChecks size={16}/> Assignments</Link>
+             <Link href="/student-dashboard/flashcards" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><BookCopy size={16}/> Flashcards</Link>
+             <Link href="/student-dashboard/mcq" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><LayoutGrid size={16}/> MCQs</Link>
+             <Link href="/student-dashboard/essay-feedback" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><PencilRuler size={16}/> Essay</Link>
+             <Link href="/student-dashboard/progress" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><LineChart size={16}/> Progress</Link>
+             <Link href="/student-dashboard/learning-path" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"><BookOpen size={16}/> Learning Path</Link>
+             {/* Add other links similarly */}
+          </nav>
 
-      {/* Main area */}
-      <div className="flex-1 flex flex-col">
-        <header className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Student Dashboard</h1>
-          <div className="flex items-center gap-4">
-            {/* Search removed as requested */}
+          {/* Right side icons/menu */}
+          <div className="flex items-center space-x-4">
+             <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700">
+                <Bell size={20} />
+                <span className="sr-only">Notifications</span>
+             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="p-0">
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.photoURL || ''} alt={user.displayName || 'User'} />
-                    <AvatarFallback>
-                      {user.displayName
-                        ?.split(' ')
-                        .map((n) => n.charAt(0))
-                        .join('')
-                        .toUpperCase() || 'U'}
-                    </AvatarFallback>
+                    <AvatarImage src={user?.photoURL ?? undefined} alt={user?.displayName ?? "User Avatar"} data-ai-hint="user avatar" />
+                    <AvatarFallback>{greetingName.charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => signOut(auth!)}>
-                  <LogOut className="mr-2 h-4 w-4" /> Log Out
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push('/student-dashboard/settings')}> {/* Assuming a settings page */}
+                   <Settings className="mr-2 h-4 w-4" /> Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/student-dashboard/help')}> {/* Assuming a help page */}
+                   <HelpCircle className="mr-2 h-4 w-4" /> Help
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Mobile Nav Trigger */}
+            <Button variant="ghost" size="icon" className="md:hidden">
+              <Menu size={20}/>
+              <span className="sr-only">Open Menu</span>
+            </Button>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main className="flex-1 overflow-y-auto p-8 space-y-12">
-           {/* Personalized Greeting */}
-          <h2 className="text-2xl font-semibold">Welcome back, {user.displayName || user.email}!</h2>
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        {/* Welcome Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-8"
+        >
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome back, {greetingName}!</h1>
+          <p className="text-gray-600">Here's what's happening today.</p>
+        </motion.div>
 
-          {/* Quick Overview Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {/* Today's Tasks */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Today's Tasks</CardTitle>
-                 <CardDescription>Assignments due soon.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingTasks ? (
-                   <p>Loading tasks...</p>
-                 ) : assignments.length > 0 ? (
-                   <ul className="space-y-2">
-                     {assignments
-                      .filter(a => new Date(a.dueDate).toDateString() === new Date().toDateString()) // Filter for today's tasks
-                      .map((a) => (
-                        <li key={a.id} className="flex justify-between items-center">
-                          <span>{a.title}</span>
-                           <Badge variant="outline">{a.type}</Badge>
-                         </li>
-                       ))}
-                     {assignments.filter(a => new Date(a.dueDate).toDateString() === new Date().toDateString()).length === 0 && (
-                       <p>No tasks due today.</p>
-                      )}
-                   </ul>
-                 ) : (
-                   <p>No assignments found.</p>
-                 )}
-              </CardContent>
-            </Card>
+        {/* Quick Overview Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tasks Due Today</CardTitle>
+              <CardDescription>Assignments needing attention.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-4xl font-bold text-indigo-600">{tasksDueToday}</p>
+              <Button size="sm" variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/my-assignments')}>View tasks</Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Overall Progress</CardTitle>
+               <CardDescription>Your average score.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Placeholder for progress bar/score - Fetch and calculate this */}
+              <p className="text-4xl font-bold text-green-600">85%</p>
+              <Button size="sm" variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/progress')}>View progress</Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Tutor Tip</CardTitle>
+              <CardDescription>Quick insights for you.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Placeholder for AI tip */}
+              <p className="text-sm text-gray-700 italic">"Practice makes perfect! Try reviewing flashcards for 10 minutes."</p>
+               <Button
+                 size="sm"
+                 className="mt-4 bg-indigo-600 hover:bg-indigo-700" // Changed color
+                 onClick={() => router.push('/student-dashboard/ai-tutor')} // Navigate to AI Tutor page
+               >
+                 Ask AI Tutor
+               </Button>
+            </CardContent>
+          </Card>
+        </div>
 
-             {/* AI Tutor Tip */}
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Tutor Tip</CardTitle>
-                 <CardDescription>Quick tip for your learning.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm">"Break down complex problems into smaller steps. It makes them easier to tackle!"</p>
-                {/* Add button to interact with AI Tutor */}
-                 <Button variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/ai-tutor')}>Ask AI Tutor</Button>
-              </CardContent>
-            </Card>
+        {/* My Assignments Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-4">My Assignments</h2>
+          {/* Render the MyAssignments component directly */}
+           <MyAssignments />
+        </div>
+
+        {/* Recommendations Section (Placeholder) */}
+        {/* You can add logic here to fetch and display recommendations */}
+        {/*
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-4">Recommendations For You</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            // Recommendation Cards go here
           </div>
+        </div>
+        */}
 
-
-          {/* Assignments Grid */}
-          {/* Removed to place MyAssignments component below */}
-
-          {/* Detailed “My Assignments” page */}
-          <MyAssignments />
-
-        </main>
-      </div>
+      </main>
     </div>
   );
 }
