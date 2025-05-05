@@ -96,6 +96,7 @@ interface Submission {
 const formatDate = (d: Date | Timestamp | undefined | null): string => {
     if (!d) return 'No Date';
     let dateObj: Date | null = null;
+
     if (isTimestamp(d)) { // Use type guard
         dateObj = d.toDate();
     } else if (d instanceof Date) {
@@ -104,13 +105,14 @@ const formatDate = (d: Date | Timestamp | undefined | null): string => {
 
     if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
         try {
-            // Format to include time, adjust format as needed
+            // Format to include date and time
             return format(dateObj, 'PPP p'); // Example: Jun 20, 2024, 12:00 PM
         } catch (e) {
             console.error("Error formatting date:", e);
             return 'Invalid Date';
         }
     }
+    console.warn("Received non-standard date object:", d);
     return 'Invalid Date';
 };
 
@@ -163,115 +165,108 @@ export default function TeachersAssignmentHubPage() {
   }, [selectedClass]);
 
   // Effect to fetch assignments when class or user changes
- useEffect(() => {
-     console.log("Assignment fetch effect triggered. Auth loading:", authLoading, "User ID:", user?.uid, "Selected Class:", selectedClass);
+  useEffect(() => {
+    console.log("Assignment fetch effect triggered. Auth loading:", authLoading, "User:", user?.uid, "Selected Class:", selectedClass);
 
-     if (authLoading) {
-         console.log("Auth is loading, skipping assignment fetch.");
-         setLoadingAssignments(false); // Stop loading if auth is pending
-         setAssignments([]); // Clear assignments
-         return;
-     }
+    if (authLoading) {
+        console.log("Auth is loading, skipping assignment fetch.");
+        return; // Wait for auth to finish loading
+    }
 
-     if (!user || !user.uid) { // Explicitly check for user and uid
-         console.log("No user or user UID, clearing assignments.");
-         setAssignments([]);
-         setLoadingAssignments(false);
-         setAssignmentError("User not logged in."); // Set specific error
-         return;
-     }
+    if (!user) {
+      console.log("No user logged in, clearing assignments.");
+      setAssignments([]);
+      setLoadingAssignments(false);
+      setAssignmentError(null);
+      return;
+    }
 
-     if (!selectedClass) {
-         console.log("No class selected, clearing assignments.");
-         setAssignments([]);
-         setLoadingAssignments(false);
-         setAssignmentError(null); // Not an error, just waiting for selection
-         return;
-     }
+    if (!selectedClass) {
+       console.log("No class selected, clearing assignments.");
+       setAssignments([]);
+       setLoadingAssignments(false); // Ensure loading stops if no class is selected
+       setAssignmentError(null);
+       return; // Don't query if no class is selected
+    }
 
-     if (!db) {
-         console.error("Firestore DB not initialized.");
-         setAssignmentError("Database connection failed.");
-         setLoadingAssignments(false);
-         setAssignments([]);
-         return;
-     }
+    if (!db) {
+        console.error("Firestore DB not initialized.");
+        setAssignmentError("Database connection failed.");
+        setLoadingAssignments(false);
+        setAssignments([]);
+        return;
+    }
 
-     // --- All checks passed, proceed with query ---
-     setLoadingAssignments(true);
-     setAssignmentError(null);
-     console.log(`Fetching assignments for teacher ${user.uid} and class ${selectedClass}`);
+    setLoadingAssignments(true);
+    setAssignmentError(null);
+    console.log(`Fetching assignments for teacher ${user.uid} and class ${selectedClass}`);
 
-     try {
-         const q = query(
-             collection(db, 'assignments'),
-             where('createdBy', '==', user.uid),
-             where('assignedTo.classId', '==', selectedClass),
-             orderBy('createdAt', 'desc') // Ensure index matches this order
-         );
+    // THIS IS THE QUERY REQUIRING THE INDEX:
+    // Index needed: assignedTo.classId (Asc), createdBy (Asc), createdAt (Desc)
+    const q = query(
+      collection(db, 'assignments'),
+      where('createdBy', '==', user.uid),
+      where('assignedTo.classId', '==', selectedClass),
+      orderBy('createdAt', 'desc')
+    );
 
-         const unsubscribe = onSnapshot(q, snap => {
-             console.log(`Assignment snapshot received: ${snap.size} docs for class ${selectedClass}`);
-             const items: Assignment[] = [];
-             snap.docs.forEach(d => {
-                 const data = d.data() as DocumentData;
-                 let due: Date | null = null;
-                 // Robust date handling
-                 if (data.dueDate instanceof Timestamp) {
-                     due = data.dueDate.toDate();
-                 } else if (typeof data.dueDate === 'string') {
-                     try { due = new Date(data.dueDate); } catch { due = null; }
-                 } else if (data.dueDate?.seconds) { // Handle Firestore Timestamp object format
-                     due = new Timestamp(data.dueDate.seconds, data.dueDate.nanoseconds).toDate();
-                 } else if (data.dueDate instanceof Date) { // Handle JS Date object
-                     due = data.dueDate;
-                 }
+    const unsubscribe = onSnapshot(q, snap => {
+      console.log(`Assignment snapshot received: ${snap.size} docs for class ${selectedClass}`);
+      const items: Assignment[] = [];
+      snap.docs.forEach(d => {
+        const data = d.data() as DocumentData;
+        let due: Date | null = null;
 
-                 if (due instanceof Date && !isNaN(due.getTime())) { // Check if valid Date object
-                     items.push({
-                         id: d.id,
-                         title: data.title || 'Untitled Assignment',
-                         description: data.description || '',
-                         type: data.type || 'Other',
-                         dueDate: due, // Ensure it's a Date object
-                         assignedTo: data.assignedTo || { classId: selectedClass, studentIds: [] },
-                         createdBy: data.createdBy,
-                         createdAt: data.createdAt, // Keep as Timestamp
-                         mcqQuestions: data.type === 'MCQ' ? data.mcqQuestions : undefined,
-                     } as Assignment);
-                 } else {
-                     console.warn(`Invalid or missing dueDate for assignment ${d.id}:`, data.dueDate);
-                 }
-             });
-             console.log(`Processed ${items.length} valid assignments.`);
-             setAssignments(items);
-             setLoadingAssignments(false);
-         }, (error) => {
-             console.error(`Error fetching assignments for class ${selectedClass}:`, error);
-             let errorMessage = `Failed to load assignments: ${error.message}`;
-             if (error.code === 'failed-precondition') {
-                 errorMessage = 'Error: Missing Firestore index. Please create the required index in the Firebase console. See browser console for the link.';
-                 console.error('Firestore index creation link (copy and paste into browser):', error.message.split('details: ')[1]); // Try to extract the link
-             }
-             setAssignmentError(errorMessage);
-             setLoadingAssignments(false);
-             setAssignments([]); // Clear on error
-             toast({ variant: 'destructive', title: 'Loading Error', description: errorMessage, duration: 10000 }); // Show toast longer for index errors
-         });
+        // Robust date handling
+        if (isTimestamp(data.dueDate)) { // Use type guard
+          due = data.dueDate.toDate();
+        } else if (typeof data.dueDate === 'string') {
+          try { due = new Date(data.dueDate); } catch { due = null; }
+        } else if (data.dueDate instanceof Date && !isNaN(data.dueDate.getTime())) { // Handle JS Date object
+            due = data.dueDate;
+        }
 
-         // Cleanup listener
-         return () => {
-             console.log("Unsubscribing from assignments listener for class:", selectedClass);
-             unsubscribe();
-         };
-     } catch (initialError) {
-         // Catch potential errors during query creation itself (less likely)
-         console.error("Error creating Firestore query:", initialError);
-         setAssignmentError("Could not create database query.");
-         setLoadingAssignments(false);
-         setAssignments([]);
-     }
- }, [user, selectedClass, authLoading, toast]); // Add authLoading and toast dependencies
+        if (due instanceof Date && !isNaN(due.getTime())) { // Check if valid Date object
+          items.push({
+            id: d.id,
+            title: data.title || 'Untitled Assignment',
+            description: data.description || '',
+            type: data.type || 'Other',
+            dueDate: due, // Ensure it's a Date object
+            assignedTo: data.assignedTo || { classId: selectedClass, studentIds: [] },
+            createdBy: data.createdBy,
+            createdAt: data.createdAt, // Keep as Timestamp
+            mcqQuestions: data.type === 'MCQ' ? data.mcqQuestions : undefined,
+          } as Assignment);
+        } else {
+           console.warn(`Invalid or missing dueDate for assignment ${d.id}:`, data.dueDate);
+        }
+      });
+      console.log(`Processed ${items.length} valid assignments.`);
+      setAssignments(items);
+      setLoadingAssignments(false);
+    }, (error) => {
+        console.error(`Error fetching assignments for class ${selectedClass}:`, error);
+        // Check if the error message indicates a missing index
+        if (error.message.includes("query requires an index")) {
+             // Provide a more user-friendly message and the index creation link
+             const indexLink = error.message.substring(error.message.indexOf('https://'));
+             setAssignmentError(`Missing Firestore index. Please create it here: ${indexLink}`);
+             toast({ variant: 'destructive', title: 'Database Index Required', description: 'A required database index is missing. Click the link in the console or the error message on the page to create it.', duration: 10000 });
+        } else {
+            setAssignmentError(`Failed to load assignments: ${error.message}`);
+             toast({ variant: 'destructive', title: 'Loading Error', description: `Failed to load assignments for ${selectedClass}. Check console for details.` });
+        }
+        setLoadingAssignments(false);
+        setAssignments([]); // Clear on error
+    });
+
+    // Cleanup listener
+    return () => {
+       console.log("Unsubscribing from assignments listener for class:", selectedClass);
+       unsubscribe();
+    };
+  }, [user, selectedClass, authLoading, toast]); // Add authLoading and toast dependencies
 
 
   // --- Function to fetch submissions for a selected assignment ---
@@ -419,9 +414,8 @@ export default function TeachersAssignmentHubPage() {
     }
   };
 
-
   return (
-    <> {/* Wrap in Fragment */}
+    <> {/* Use Fragment */}
       <Card className="max-w-5xl mx-auto">
         <CardHeader>
           <CardTitle>Teachers Assignment Hub</CardTitle>
@@ -443,14 +437,28 @@ export default function TeachersAssignmentHubPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                 <Button onClick={() => setIsCreateOpen(true)} className="w-full sm:w-auto" disabled={!selectedClass || authLoading}> {/* Disable if no class selected or auth is loading */}
+                 <Button onClick={() => setIsCreateOpen(true)} className="w-full sm:w-auto" disabled={!selectedClass}> {/* Disable if no class selected */}
                     <Plus className="mr-2 h-4 w-4" /> New Assignment
                  </Button>
             </div>
 
           {/* Loading/Error/Empty States */}
           {loadingAssignments && <p className="text-center text-muted-foreground py-4">Loading assignments...</p>}
-          {assignmentError && <p className="text-center text-red-500 py-4">{assignmentError}</p>}
+          {assignmentError && (
+               <div className="text-red-500 text-center py-4">
+                 <p>{assignmentError.startsWith('Missing Firestore index.') ? 'Database Index Required' : 'Error Loading Assignments'}</p>
+                 {assignmentError.includes('https://console.firebase.google.com') && (
+                    <a
+                       href={assignmentError.substring(assignmentError.indexOf('https://'))}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="text-blue-500 underline hover:text-blue-700 ml-1"
+                    >
+                      Click here to create the index
+                    </a>
+                 )}
+               </div>
+          )}
           {!loadingAssignments && !assignmentError && assignments.length === 0 && selectedClass && (
             <p className="text-center text-muted-foreground py-4">No assignments found for {selectedClass}.</p>
           )}
@@ -475,7 +483,7 @@ export default function TeachersAssignmentHubPage() {
                   <TableRow key={assignment.id}>
                     <TableCell className="font-medium">{assignment.title}</TableCell>
                     <TableCell><Badge>{assignment.type}</Badge></TableCell>
-                    <TableCell>{formatDate(assignment.dueDate)}</TableCell> {/* Use formatDate */}
+                    <TableCell>{formatDate(assignment.dueDate)}</TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" onClick={() => handleViewDetails(assignment)}>
                         <Eye className="mr-1 h-4 w-4" /> View Details
@@ -550,7 +558,7 @@ export default function TeachersAssignmentHubPage() {
                                                        {sub.status}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell>{formatDate(sub.submittedAt)}</TableCell> {/* Use formatDate */}
+                                                <TableCell>{formatDate(sub.submittedAt)}</TableCell>
                                                 <TableCell>{sub.grade ?? 'Not Graded'}</TableCell>
                                                 <TableCell className="truncate max-w-[150px]">{sub.feedback ?? '-'}</TableCell>
                                                 {/* Add actions like Grade/View Submission here */}
@@ -572,11 +580,11 @@ export default function TeachersAssignmentHubPage() {
 
       {/* Create New Assignment Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-3xl md:grid md:grid-cols-2 md:gap-8 p-8"> {/* Apply grid layout */}
+        <DialogContent className="max-w-3xl md:grid md:grid-cols-2 md:gap-6 p-8"> {/* Apply grid layout, adjusted gap */}
           {/* Left Column: General Info */}
           <div className="space-y-4 flex flex-col">
-             <DialogHeader>
-                <DialogTitle className="text-2xl font-semibold mb-4">Create New Assignment</DialogTitle> {/* Moved title here */}
+             <DialogHeader className="mb-4"> {/* Moved title to Header */}
+                <DialogTitle className="text-2xl font-semibold">Create New Assignment</DialogTitle>
              </DialogHeader>
             <div className="grid gap-2"> {/* Use grid for alignment */}
               <Label htmlFor="new-title" className="text-sm font-medium">Title</Label>
@@ -634,6 +642,7 @@ export default function TeachersAssignmentHubPage() {
                     selected={newDueDate}
                     onSelect={setNewDueDate}
                     initialFocus
+                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} // Disable past dates
                   />
                   {/* Simple Time Picker Example (Optional) */}
                    <div className="p-2 border-t">
