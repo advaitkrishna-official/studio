@@ -44,8 +44,10 @@ import {
   BookCopy,
   Award,
   BrainCircuit,
+  Brain,
 } from 'lucide-react';
 import MyAssignments from './my-assignments/page'; // Import the assignments component
+import AITutorPage from './ai-tutor/page'; // Import the AI Tutor component
 
 
 interface Assignment {
@@ -57,7 +59,7 @@ interface Assignment {
 }
 
 export default function StudentDashboardPage() {
-  const { user, userClass, userType } = useAuth();
+  const { user, userClass, userType, signOut } = useAuth();
   const router = useRouter();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
@@ -230,47 +232,39 @@ export default function StudentDashboardPage() {
           <p className="text-gray-600">Here's what's happening today.</p>
         </motion.div>
 
-        {/* Quick Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tasks Due Today</CardTitle>
-              <CardDescription>Assignments needing attention.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-indigo-600">{tasksDueToday}</p>
-              <Button size="sm" variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/my-assignments')}>View tasks</Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Overall Progress</CardTitle>
-               <CardDescription>Your average score.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Placeholder for progress bar/score - Fetch and calculate this */}
-              <p className="text-4xl font-bold text-green-600">85%</p>
-              <Button size="sm" variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/progress')}>View progress</Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>AI Tutor Tip</CardTitle>
-              <CardDescription>Quick insights for you.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Placeholder for AI tip */}
-              <p className="text-sm text-gray-700 italic">"Practice makes perfect! Try reviewing flashcards for 10 minutes."</p>
-               <Button
-                 size="sm"
-                 className="mt-4 bg-indigo-600 hover:bg-indigo-700" // Changed color
-                 onClick={() => router.push('/student-dashboard/ai-tutor')} // Navigate to AI Tutor page
-               >
-                 Ask AI Tutor
-               </Button>
-            </CardContent>
-          </Card>
+        {/* Quick Overview Cards & AI Tutor */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* Left Column: Overview Cards */}
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Tasks Due Today</CardTitle>
+                    <CardDescription>Assignments needing attention.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-4xl font-bold text-indigo-600">{tasksDueToday}</p>
+                    <Button size="sm" variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/my-assignments')}>View tasks</Button>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Overall Progress</CardTitle>
+                    <CardDescription>Your average score.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Placeholder for progress bar/score - Fetch and calculate this */}
+                    <p className="text-4xl font-bold text-green-600">85%</p> {/* Placeholder */}
+                    <Button size="sm" variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/student-dashboard/progress')}>View progress</Button>
+                  </CardContent>
+                </Card>
+            </div>
+
+            {/* Right Column: AI Tutor Chat */}
+            <div className="lg:col-span-1 h-[600px]"> {/* Adjust height as needed */}
+              <AITutorPage />
+            </div>
         </div>
+
 
         {/* My Assignments Section */}
         <div className="mb-8">

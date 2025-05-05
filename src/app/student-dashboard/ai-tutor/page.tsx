@@ -52,67 +52,66 @@ export default function AITutorPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 flex flex-col h-[calc(100vh-10rem)]"> {/* Adjust height as needed */}
-      <Card className="flex-1 flex flex-col">
-        <CardHeader>
-          <CardTitle>AI Tutor</CardTitle>
-          <CardDescription>Ask me anything about your studies!</CardDescription>
+    // Container div removed to make it embeddable, height set on parent
+    <Card className="flex-1 flex flex-col h-full shadow-lg"> {/* Added shadow */}
+        <CardHeader className="p-4 border-b"> {/* Reduced padding */}
+            <CardTitle className="text-lg">AI Tutor</CardTitle> {/* Reduced font size */}
+            {/* <CardDescription>Ask me anything!</CardDescription> */}
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0">
-          <ScrollArea className="flex-1 p-4 space-y-4">
-            {messages.map((msg, index) => (
-              <div key={index} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : ''}`}>
-                {msg.sender === 'ai' && (
-                  <Avatar className="h-8 w-8">
-                     <AvatarImage src="https://picsum.photos/seed/ai/200/200" alt="AI Avatar" data-ai-hint="robot avatar"/>
-                    <AvatarFallback>AI</AvatarFallback>
-                  </Avatar>
+            <ScrollArea className="flex-1 p-3 space-y-3"> {/* Reduced padding and spacing */}
+                {messages.map((msg, index) => (
+                    <div key={index} className={`flex gap-2 ${msg.sender === 'user' ? 'justify-end' : ''}`}> {/* Reduced gap */}
+                        {msg.sender === 'ai' && (
+                            <Avatar className="h-6 w-6"> {/* Smaller avatar */}
+                                <AvatarImage src="https://picsum.photos/seed/ai/200/200" alt="AI Avatar" data-ai-hint="robot avatar"/>
+                                <AvatarFallback>AI</AvatarFallback>
+                            </Avatar>
+                        )}
+                        <div
+                          className={`rounded-lg p-2 text-sm max-w-[75%] ${ /* Reduced padding and font size */
+                              msg.sender === 'user'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted'
+                          }`}
+                        >
+                            {msg.text}
+                        </div>
+                        {msg.sender === 'user' && (
+                            <Avatar className="h-6 w-6"> {/* Smaller avatar */}
+                                <AvatarImage src="https://picsum.photos/seed/user/200/200" alt="User Avatar" data-ai-hint="user avatar" />
+                                <AvatarFallback>U</AvatarFallback>
+                            </Avatar>
+                        )}
+                    </div>
+                ))}
+                {isLoading && (
+                    <div className="flex gap-2"> {/* Reduced gap */}
+                        <Avatar className="h-6 w-6"> {/* Smaller avatar */}
+                            <AvatarImage src="https://picsum.photos/seed/ai/200/200" alt="AI Avatar" data-ai-hint="robot avatar"/>
+                            <AvatarFallback>AI</AvatarFallback>
+                        </Avatar>
+                        <div className="rounded-lg p-2 bg-muted animate-pulse text-sm"> {/* Reduced padding and font size */}
+                            Thinking...
+                        </div>
+                    </div>
                 )}
-                <div
-                  className={`rounded-lg p-3 max-w-[75%] ${
-                    msg.sender === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  }`}
-                >
-                  {msg.text}
-                </div>
-                 {msg.sender === 'user' && (
-                    <Avatar className="h-8 w-8">
-                       <AvatarImage src="https://picsum.photos/seed/user/200/200" alt="User Avatar" data-ai-hint="user avatar" />
-                       <AvatarFallback>U</AvatarFallback>
-                    </Avatar>
-                 )}
-              </div>
-            ))}
-             {isLoading && (
-                <div className="flex gap-3">
-                   <Avatar className="h-8 w-8">
-                      <AvatarImage src="https://picsum.photos/seed/ai/200/200" alt="AI Avatar" data-ai-hint="robot avatar"/>
-                      <AvatarFallback>AI</AvatarFallback>
-                   </Avatar>
-                   <div className="rounded-lg p-3 bg-muted animate-pulse">
-                      Thinking...
-                   </div>
-                </div>
-             )}
-          </ScrollArea>
-          <div className="border-t p-4 flex items-center gap-2">
-            <Textarea
-              placeholder="Type your question here..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="flex-1 resize-none min-h-[40px] max-h-[150px]"
-              rows={1}
-              disabled={isLoading}
-            />
-            <Button onClick={handleSendMessage} disabled={isLoading || !input.trim()}>
-              {isLoading ? 'Sending...' : 'Send'}
-            </Button>
-          </div>
+            </ScrollArea>
+            <div className="border-t p-3 flex items-center gap-2"> {/* Reduced padding and gap */}
+                <Textarea
+                  placeholder="Ask anything..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="flex-1 resize-none min-h-[36px] max-h-[120px] text-sm" /* Adjusted height and font size */
+                  rows={1}
+                  disabled={isLoading}
+                />
+                <Button size="sm" onClick={handleSendMessage} disabled={isLoading || !input.trim()}> {/* Smaller button */}
+                    {isLoading ? '...' : 'Send'} {/* Adjusted loading text */}
+                </Button>
+            </div>
         </CardContent>
-      </Card>
-    </div>
+    </Card>
   );
 }
