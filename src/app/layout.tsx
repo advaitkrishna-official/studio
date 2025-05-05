@@ -1,11 +1,10 @@
-// src/app/layout.tsx
 'use client'; // This directive is necessary because AuthProvider is used here
 
 import { Geist, Geist_Mono } from 'next/font/google';
 import '@/app/globals.css';
-import { ReactNode } from 'react'; // Removed useEffect import as it's not used directly here
-import AuthProvider from '@/components/auth-provider';
+import AuthProvider from '@/components/auth-provider'; // Corrected import path
 import { Toaster } from "@/components/ui/toaster"; // Ensure Toaster is imported
+import { ReactNode } from 'react'; // Make sure ReactNode is imported
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
