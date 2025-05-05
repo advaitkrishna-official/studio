@@ -1,203 +1,308 @@
 'use client';
 
-import {useState, useEffect} from "react";
-import {Card, CardContent, CardHeader, CardTitle, CardDescription} from "@/components/ui/card";
-import {generateOverview, GenerateOverviewOutput} from "@/ai/flows/generate-overview";
-import {useAuth} from "@/components/auth-provider";
-import {db} from "@/lib/firebase";
-import {collection, query, where, onSnapshot, Unsubscribe} from "firebase/firestore";
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
-import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
-import {Badge} from "@/components/ui/badge";
-import {Icons} from "@/components/icons";
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { useAuth } from '@/components/auth-provider';
+import { db } from '@/lib/firebase';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  Unsubscribe,
+  DocumentData // Import DocumentData
+} from 'firebase/firestore';
+import { generateOverview, GenerateOverviewOutput } from '@/ai/flows/generate-overview';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent
+} from '@/components/ui/card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Removed AvatarImage
+import { Badge } from '@/components/ui/badge';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
+import { User, Activity, BarChart2 } from 'lucide-react'; // Import icons
 
-const OverviewPage = () => {
-  const [overview, setOverview] = useState<GenerateOverviewOutput | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const {user, userClass} = useAuth();
-  const [selectedClass, setSelectedClass] = useState(userClass || ""); // Initialize with userClass
-  const [classes, setClasses] = useState<string[]>(["Grade 8", "Grade 6", "Grade 4"]); // Static class options
-  const [studentData, setStudentData] = useState<
-    {
-      id: string;
-      name: string;
-      class: string;
-      progress: number;
-      lastActivity: string;
-    }[]
-  >([]);
-
-  useEffect(() => {
-    let unsubscribe: Unsubscribe | null = null;
-
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        if (!user) {
-          setError("User not logged in.");
-          return null;
-        }
-
-        const studentsCollection = collection(db, "users");
-        const q = query(studentsCollection, where("class", "==", selectedClass));
-        unsubscribe = onSnapshot(q, (snapshot) => {
-          const studentsData: {
-              id: string;
-              name: string;
-              class: string;
-              progress: number;
-              lastActivity: string;
-            }[] = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as any;
-          setStudentData(studentsData);
-          
-          const studentDataString = JSON.stringify(studentsData);
-          generateOverview({
-            teacherId: user.uid,
-            studentData: studentDataString,
-            grade: selectedClass,
-          }).then(result => setOverview(result));
-        });
-        return unsubscribe;
-      } catch (e: any) {
-        setError(e.message || "An error occurred while generating the overview.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-    return () => {
-        if (unsubscribe) {
-            unsubscribe();
-        }
-        
-    }
-  }, [user, selectedClass]);
-
-  const avgPerformance = studentData.length > 0 ? studentData.reduce((acc, student) => acc + (student.progress), 0) / studentData.length : 0;
-  const totalStudents = studentData?.length || 0;
-
-  // Calculate active engagement (example: students with > 50% progress)
-  const activeEngagement = studentData.length > 0 ? (studentData.filter(student => (student.progress || 0) > 50).length / studentData.length) * 100 : 0;
-
-  return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-3xl font-bold">Overview</h1>
-        <Select onValueChange={setSelectedClass} defaultValue={userClass ? userClass : undefined}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select Class" />
-          </SelectTrigger>
-          <SelectContent>
-            {classes.map((cls) => (
-              <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center space-y-2 p-6">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src="https://picsum.photos/seed/picsum/200/200" alt="Total Students" />
-              <AvatarFallback>TS</AvatarFallback>
-            </Avatar>
-            <div className="text-2xl font-bold">{totalStudents}</div>
-            <div className="text-muted-foreground">Total Students</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center space-y-2 p-6">
-            <div className="text-2xl font-bold">{avgPerformance.toFixed(2)}%</div>
-            <div className="text-muted-foreground">Avg Performance</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center space-y-2 p-6">
-            <div className="text-2xl font-bold">{activeEngagement.toFixed(0)}%</div>
-            <div className="text-muted-foreground">Active Engagement</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activities</CardTitle>
-          </CardHeader>
-          <CardContent className="list-disc pl-5">
-            {error && <p className="text-red-500">{error}</p>}
-            {isLoading ? (
-              <p>Loading recent activities...</p>
-            ) : overview && overview.recentActivities.length > 0 ? (
-              <ul>
-                {overview.recentActivities.map((activity, index) => (
-                  <li key={index}>{activity}</li>
-                ))}
-              </ul>
-            ) : (
-              <p>No recent activities.</p>
-            )}
-          </CardContent>
-
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center">
-            {overview ? (
-              <>
-                <div className="text-4xl font-bold">{avgPerformance.toFixed(2)}%</div>
-              </>
-            ) : (
-              <p>No data available to generate insights.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>AI Insights</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {overview ? (
-              <p>{overview.insights}</p>
-            ) : (
-              <p>No AI insights available. Please provide student data to generate insights.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Suggested Activities</CardTitle>
-          </CardHeader>
-          <CardContent className="list-disc pl-5">
-            {overview && overview.suggestedActivities.length > 0 ? (
-              <ul>
-                {overview.suggestedActivities.map((activity, index) => (
-                  <li key={index}>{activity}</li>
-                ))}
-              </ul>
-            ) : (
-              <p>No suggested activities available. Check student enrollment and data import process.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
+// Define student data type more accurately
+type StudentData = {
+  id: string;
+  name?: string; // Make name optional
+  email: string; // Assume email is always present
+  class?: string; // Make class optional
+  progress?: number | Record<string, number>; // Can be a single number or an object
+  lastActivity?: string;
+  overallProgress?: number; // Calculated property
 };
 
-export default OverviewPage;
+
+export default function OverviewPage() {
+  const { user } = useAuth(); // Removed userClass as we fetch all students now
+  const [studentData, setStudentData] = useState<StudentData[]>([]);
+  const [overview, setOverview] = useState<GenerateOverviewOutput | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+       setLoading(false); // Stop loading if no user
+       setError("User not logged in.");
+       return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    // Query all students (remove class filter for now)
+    // In a real app, you might filter by teacherId or fetch students from multiple assigned classes.
+    const q = query(
+      collection(db, 'Users'), // Assuming 'Users' collection stores students
+      where('role', '==', 'student') // Ensure we only get students
+    );
+
+    const unsub = onSnapshot(q, async (snap) => {
+      const data: StudentData[] = snap.docs.map(doc => {
+        const docData = doc.data() as DocumentData;
+        let overallProgress = 0;
+        // Calculate overall progress: handle both number and object types
+        if (typeof docData.progress === 'number') {
+           overallProgress = docData.progress;
+        } else if (typeof docData.progress === 'object' && docData.progress !== null) {
+            const scores = Object.values(docData.progress).filter(s => typeof s === 'number') as number[];
+            overallProgress = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+        }
+
+        return {
+          id: doc.id,
+          email: docData.email || 'No Email', // Default value
+          name: docData.name, // Optional
+          class: docData.class, // Optional
+          progress: docData.progress, // Store original progress data
+          overallProgress: Math.min(100, Math.max(0, overallProgress)), // Calculated and capped
+          lastActivity: docData.lastActivity || 'No recent activity', // Default value
+        };
+      });
+
+      setStudentData(data);
+      setLoading(false); // Data fetched, stop loading
+
+      // Generate AI overview if data exists
+      if (data.length > 0) {
+        setAiLoading(true);
+        setError(null); // Clear previous errors before AI call
+        try {
+          const overviewResult = await generateOverview({
+            teacherId: user.uid,
+            studentData: JSON.stringify(data), // Pass all fetched student data
+            // Removed grade as we are showing all students
+          });
+          setOverview(overviewResult);
+        } catch (e: any) {
+          console.error("Error generating AI overview:", e);
+          setError(`Failed to generate AI insights: ${e.message}`);
+          setOverview(null); // Clear overview on error
+        } finally {
+          setAiLoading(false);
+        }
+      } else {
+         setOverview(null); // No students, no overview
+      }
+
+    }, e => {
+      console.error("Error fetching students:", e);
+      setError(e.message || "Failed to fetch student data.");
+      setLoading(false);
+      setStudentData([]); // Clear data on error
+      setOverview(null);
+    });
+
+    return () => unsub();
+  }, [user]); // Depend only on user
+
+  // Metrics - recalculated whenever studentData changes
+  const totalStudents = studentData.length;
+  const avgPerf = totalStudents > 0
+    ? studentData.reduce((sum, s) => sum + (s.overallProgress ?? 0), 0) / totalStudents
+    : 0;
+  const activePct = totalStudents > 0
+    ? studentData.filter(s => (s.overallProgress ?? 0) > 50).length / totalStudents * 100
+    : 0;
+
+  // Performance Distribution - recalculated whenever studentData changes
+  const bins = [0, 20, 40, 60, 80, 101]; // Include 100 in the last bin
+  const distData = bins.slice(0, -1).map((min, i) => {
+    const max = bins[i+1];
+    const count = studentData.filter(s => (s.overallProgress ?? 0) >= min && (s.overallProgress ?? 0) < max).length;
+    return { name: `${min}-${max === 101 ? 100 : max-1}%`, count }; // Adjust label for last bin
+  });
+
+  // Get initials for Avatar Fallback
+  const getInitials = (email: string) => email?.[0]?.toUpperCase() ?? '?';
+
+
+  return (
+    <div className="container mx-auto py-8 space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Class Overview</h1>
+        {/* Removed Class Selector */}
+      </div>
+
+       {/* Loading and Error States */}
+        {loading && <p className="text-center text-muted-foreground py-4">Loading student data...</p>}
+        {error && <p className="text-center text-red-500 py-4">Error: {error}</p>}
+
+
+      {/* Display content only when not loading and no error */}
+      {!loading && !error && (
+         <>
+              {/* KPI Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { title: 'Total Students', value: totalStudents, icon: <User className="h-6 w-6 text-blue-500" /> },
+                  { title: 'Avg. Performance', value: `${avgPerf.toFixed(1)}%`, icon: <BarChart2 className="h-6 w-6 text-green-500" />, progress: avgPerf },
+                  { title: 'Active Engagement (>50%)', value: `${activePct.toFixed(0)}%`, icon: <Activity className="h-6 w-6 text-orange-500" />, progress: activePct }
+                ].map(({ title, value, icon, progress }) => (
+                  <motion.div
+                    key={title}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                  >
+                    <Card className="shadow-sm hover:shadow-md transition-shadow border border-gray-200">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+                        {icon}
+                      </CardHeader>
+                      <CardContent>
+                         <div className="text-2xl font-bold">{value}</div>
+                         {typeof progress === 'number' && (
+                          <Progress value={Math.min(Math.max(progress, 0), 100)} className="w-full h-2 mt-2" />
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Performance Distribution */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.4 }}
+              >
+                <Card className="shadow-sm border border-gray-200">
+                  <CardHeader>
+                    <CardTitle>Performance Distribution</CardTitle>
+                    <CardDescription>How students scores spread across ranges.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-64">
+                    {studentData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={distData} margin={{ top: 5, right: 0, bottom: 0, left: -25 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                           <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false}/>
+                           <YAxis fontSize={10} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`}/>
+                           <Tooltip
+                             cursor={{ fill: 'hsl(var(--muted))' }}
+                             contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                           />
+                          <Bar dataKey="count" name="Students" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                       <p className="text-center text-muted-foreground py-8">No student data to display distribution.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* AI Insights & Recent Activities */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <motion.div
+                   initial={{ x: -20, opacity: 0 }}
+                   animate={{ x: 0, opacity: 1 }}
+                   transition={{ duration: 0.4 }}
+                 >
+                   <Card className="shadow-sm border border-gray-200 h-full">
+                     <CardHeader>
+                       <CardTitle>AI Insights & Suggestions</CardTitle>
+                     </CardHeader>
+                     <CardContent className="space-y-3">
+                        {aiLoading && <p className="text-muted-foreground">Generating AI insights...</p>}
+                        {overview && !aiLoading ? (
+                           <>
+                            <div>
+                               <h4 className="font-semibold mb-1 text-sm">Performance Summary:</h4>
+                               <p className="text-sm text-muted-foreground">{overview.performanceSummary}</p>
+                            </div>
+                            <div>
+                               <h4 className="font-semibold mb-1 text-sm">Insights:</h4>
+                               <p className="text-sm text-muted-foreground">{overview.insights}</p>
+                            </div>
+                            <div>
+                               <h4 className="font-semibold mb-1 text-sm">Suggested Activities:</h4>
+                               <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+                                 {overview.suggestedActivities?.map((act, i) => (
+                                   <li key={i}>{act}</li>
+                                 ))}
+                               </ul>
+                            </div>
+                           </>
+                         ) : !aiLoading && (
+                            <p className="text-sm text-muted-foreground">{error ? `Could not generate insights: ${error}` : "No AI insights available. Need more student data."}</p>
+                         )}
+                     </CardContent>
+                   </Card>
+                 </motion.div>
+
+                <motion.div
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ duration: 0.4 }}
+                >
+                   <Card className="shadow-sm border border-gray-200 h-full">
+                    <CardHeader>
+                      <CardTitle>Recent Student Activities</CardTitle>
+                      <CardDescription>Latest actions from your students.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea className="h-48 pr-4">
+                        {studentData.length > 0 ? (
+                          <ul className="space-y-3">
+                            {/* Display actual recent activities if available, otherwise placeholder */}
+                            {studentData
+                              .filter(s => s.lastActivity && s.lastActivity !== 'No recent activity') // Filter students with actual activity
+                              .slice(0, 10) // Limit display
+                              .map((student) => (
+                                <li key={student.id} className="flex items-center gap-3 text-sm">
+                                   <Avatar className="h-6 w-6">
+                                      {/* Add AvatarImage if student profile picture URL exists */}
+                                      <AvatarFallback className="text-xs">{getInitials(student.email)}</AvatarFallback>
+                                   </Avatar>
+                                   <span className="text-muted-foreground flex-1 truncate">{student.email}: {student.lastActivity}</span>
+                                   {/* Optionally add timestamp here */}
+                                </li>
+                            ))}
+                            {/* Show placeholder if no students have recent activity */}
+                            {studentData.every(s => !s.lastActivity || s.lastActivity === 'No recent activity') && (
+                               <p className="text-muted-foreground text-sm">No recent student activities recorded.</p>
+                            )}
+                          </ul>
+                        ) : (
+                          <p className="text-muted-foreground text-sm">No students in this view yet.</p>
+                        )}
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                 </motion.div>
+              </div>
+         </>
+      )}
+    </div>
+  );
+}

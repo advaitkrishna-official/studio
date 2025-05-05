@@ -172,8 +172,11 @@ const TeachersAssignmentHubPage: React.FC = () => {
             dueDate = data.dueDate.toDate();
           } else if (data.dueDate instanceof Date) {
             dueDate = data.dueDate; // Already a Date
-          } else if (data.dueDate?.seconds) { // Handle Firestore Timestamp object structure
-             dueDate = new Timestamp(data.dueDate.seconds as number, data.dueDate.nanoseconds as number).toDate();
+          } else if (data.dueDate && typeof data.dueDate === 'object' && 'seconds' in data.dueDate && 'nanoseconds' in data.dueDate) { // Handle Firestore Timestamp object structure
+             // Ensure seconds and nanoseconds are treated as numbers if they exist
+             const seconds = (data.dueDate as any).seconds as number;
+             const nanoseconds = (data.dueDate as any).nanoseconds as number;
+             dueDate = new Timestamp(seconds, nanoseconds).toDate();
           }
           // else if (typeof data.dueDate === 'string') { // Handle ISO string date (less common now)
           //    try { dueDate = new Date(data.dueDate); } catch (e) { console.warn(`Invalid date string: ${data.dueDate}`); }
@@ -303,8 +306,10 @@ const TeachersAssignmentHubPage: React.FC = () => {
          dateObj = date;
       } else if (typeof date === 'object' && date?.seconds) { // Handle plain object Timestamps
         dateObj = new Timestamp(date.seconds as number, date.nanoseconds as number).toDate();
+      } else if (typeof date === 'object' && date !== null && 'seconds' in date && 'nanoseconds' in date) { // Handle plain object Timestamps more robustly
+        dateObj = new Timestamp((date as any).seconds, (date as any).nanoseconds).toDate();
       }
-
+      
      if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
        return format(dateObj, "PPP"); // Format like "Jun 21, 2024"
      }
