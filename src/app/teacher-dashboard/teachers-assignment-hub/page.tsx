@@ -129,7 +129,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
     description: '',
     type: 'Written' as AssignmentType,
     dueDate: new Date(),
-    mcqQuestions: [] as { question: string; options: string[]; correctAnswer: string }[], // Properly typed
+    mcqQuestions: [] as { question?: string; options?: string[]; correctAnswer?: string }[], // Properly typed
     assignedTo: {
       classId: '',
       studentIds: [] as string[],
