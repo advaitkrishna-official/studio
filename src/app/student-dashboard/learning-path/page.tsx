@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react"; // Added useEffect
@@ -28,16 +27,25 @@ const LearningPathPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user, userClass, loading: authLoading } = useAuth(); // Get user, userClass, and auth loading state
   const { toast } = useToast(); // Use the toast hook
+  const [isJsonValid, setIsJsonValid] = useState(true); // State to track JSON validity
 
   // Handle performance data input (basic validation for JSON structure)
   const handlePerformanceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-     setPerformanceData(e.target.value);
-     // Basic JSON validation feedback (optional)
+     const value = e.target.value;
+     setPerformanceData(value);
+     // Basic JSON validation feedback
      try {
-       if (e.target.value.trim()) JSON.parse(e.target.value);
-       setError(null); // Clear error if JSON is valid
+       if (value.trim()) {
+            JSON.parse(value);
+            setError(null); // Clear error if JSON is valid
+            setIsJsonValid(true);
+       } else {
+            setError(null); // Clear error if empty
+            setIsJsonValid(true); // Consider empty string valid for now
+       }
      } catch (jsonError) {
        setError("Performance data must be valid JSON.");
+       setIsJsonValid(false);
      }
   };
 
@@ -53,7 +61,7 @@ const LearningPathPage = () => {
         toast({ variant: 'destructive', title: 'Error', description: 'User information missing.' });
         return;
     }
-    // Validate performance data JSON before submitting
+    // Re-validate JSON before submitting, although handlePerformanceChange should catch it
      try {
        if (performanceData.trim()) JSON.parse(performanceData);
      } catch (jsonError) {
@@ -64,6 +72,7 @@ const LearningPathPage = () => {
 
     setIsLoading(true);
     setError(null);
+    setIsJsonValid(true); // Assume valid until AI call, clear previous validation errors
     try {
       const result = await personalizeLearningPath({
         grade: userClass, // Use the student's grade from auth context
@@ -82,7 +91,7 @@ const LearningPathPage = () => {
   };
 
    // Disable button state
-   const isSubmitDisabled = isLoading || authLoading || !user || !userClass || !performanceData.trim() || (error && error.includes("JSON"));
+   const isSubmitDisabled = isLoading || authLoading || !user || !userClass || !performanceData.trim() || !isJsonValid;
 
 
   return (
@@ -112,12 +121,13 @@ const LearningPathPage = () => {
                             value={performanceData}
                             onChange={handlePerformanceChange} // Use handler for validation
                             rows={6} // Increased rows
-                            className={`border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 ${error && error.includes("JSON") ? 'border-red-500' : ''}`}
+                            className={`border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 ${!isJsonValid ? 'border-red-500 focus:ring-red-500' : ''}`} // Conditional red border
                         />
                         <p className="text-xs text-muted-foreground">
                             Provide data on topics/questions attempted and accuracy (%). Ensure it's valid JSON.
                         </p>
-                         {error && error.includes("JSON") && <p className="text-xs text-red-600">{error}</p>}
+                         {/* Display JSON validation error clearly */}
+                         {!isJsonValid && error && <p className="text-sm text-red-600 mt-1">{error}</p>}
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="learningStyle" className="font-medium">Learning Style (Optional)</Label>
@@ -130,10 +140,11 @@ const LearningPathPage = () => {
                         />
                     </div>
 
-                    <Button onClick={handleSubmit} disabled={isSubmitDisabled} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3">
+                    <Button onClick={handleSubmit} disabled={isSubmitDisabled} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 disabled:opacity-50">
                         {isLoading ? "Generating Learning Path..." : "Generate Learning Path"}
                     </Button>
-                    {error && !error.includes("JSON") && <p className="text-red-600 mt-2 text-center">{error}</p>}
+                    {/* Display other errors (non-JSON validation) */}
+                    {error && isJsonValid && <p className="text-red-600 mt-2 text-center">{error}</p>}
                 </CardContent>
             </Card>
 
