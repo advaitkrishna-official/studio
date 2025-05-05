@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/firebase';
+import { db, GradeData } from '@/lib/firebase'; // Import GradeData type
 import {
   collection,
   query,
@@ -23,15 +23,16 @@ import {
   serverTimestamp,
   Timestamp,
   DocumentData,
+  getDoc, // Added getDoc
 } from 'firebase/firestore';
 import { useAuth } from '@/components/auth-provider';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { format, isPast } from 'date-fns';
 import { motion } from 'framer-motion';
+import { isTimestamp } from '@/lib/utils'; // Import the type guard
 
 type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other';
 
@@ -45,7 +46,7 @@ interface BaseAssignment {
   id: string;
   title: string;
   description: string;
-  dueDate: Date; // Use Date object for consistency
+  dueDate: Date; // Use Date object consistently
   assignedTo: { classId: string; studentIds: string[] };
   createdBy: string;
   createdAt: Timestamp;
@@ -65,7 +66,6 @@ interface NonMcqAssignment extends BaseAssignment {
 type Assignment = McqAssignment | NonMcqAssignment;
 
 interface Submission {
-  id?: string; // Optional, might not be needed if using student ID as doc ID
   status: 'Not Started' | 'Submitted' | 'Overdue' | 'Graded';
   submittedAt?: Timestamp;
   answers?: string[];
@@ -76,32 +76,31 @@ interface Submission {
 
 // Format a Firestore Timestamp or JS Date
 const formatDueDate = (due: Date | Timestamp | null | undefined): string => {
-  if (!due) return 'No due date';
-  const d = due instanceof Timestamp ? due.toDate() : due;
-  try {
-    return isNaN(d.getTime()) ? 'Invalid date' : format(d, 'PPP p');
-  } catch (e) {
-    console.error('Error formatting date:', d, e);
-    return 'Invalid Date';
-  }
+    if (!due) return 'No due date';
+    const d = isTimestamp(due) ? due.toDate() : due; // Use type guard
+    return d instanceof Date && !isNaN(d.getTime())
+        ? format(d, 'PPP p')
+        : 'Invalid date';
 };
 
+// Map status to a Badge variant
 const getBadgeVariant = (
   status: Submission['status'] | 'Due'
-): 'default' | 'secondary' | 'destructive' | 'outline' => { // Added 'outline'
+): 'default' | 'secondary' | 'destructive' | 'outline' => {
   switch (status) {
     case 'Submitted':
       return 'secondary';
     case 'Graded':
-      return 'default'; // Use primary for graded
+      return 'default';
     case 'Overdue':
       return 'destructive';
     case 'Not Started':
     case 'Due':
     default:
-      return 'outline'; // Use outline for not started/due
+      return 'outline';
   }
 };
+
 
 export default function StudentAssignmentsPage() {
   const { user, userClass, loading: authLoading } = useAuth();
@@ -109,377 +108,400 @@ export default function StudentAssignmentsPage() {
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Record<string, Submission>>({});
-  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(
+    null
+  );
   const [mcqAnswers, setMcqAnswers] = useState<string[]>([]);
   const [responseText, setResponseText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Real-time listener for assignments and submissions
+  // Keep track of submission‐doc listeners so we can clean them up
+  const submissionUnsubs = useRef<(() => void)[]>([]);
+
+  // 1. Real‑time listener for assignments
   useEffect(() => {
-    if (authLoading || !user?.uid || !userClass) {
-      console.log("Auth loading or missing user/class, returning.");
+    // Wait for auth and ensure user/class exist
+    if (authLoading) return;
+
+    if (!user?.uid || !userClass) {
+      setError('Log in and ensure your class is set.');
       setAssignments([]);
       setSubmissions({});
-      setLoading(false); // Stop loading if prerequisites aren't met
-      if (!authLoading && (!user || !userClass)) {
-        setError("User not logged in or class not defined.");
-      }
+      setLoading(false);
+      console.warn("Assignments fetch skipped: User or userClass missing.", { uid: user?.uid, userClass });
       return;
     }
 
-    setLoading(true);
     setError(null);
-    console.log(`Setting up assignments listener for user ${user.uid} in class ${userClass}`);
+    setLoading(true);
+    console.log(`Listening for assignments in class ${userClass}`);
 
-    // Query for assignments assigned to the student's class
     const q = query(
       collection(db, 'assignments'),
-      where('assignedTo.classId', '==', userClass),
-      // Optionally filter assignments specifically assigned to the user if studentIds array is used:
-      // where('assignedTo.studentIds', 'array-contains', user.uid),
-      orderBy('dueDate', 'asc') // Order by due date
+      where('assignedTo.classId', '==', userClass)
+      // No longer ordering by dueDate here, will sort client-side if needed
+      // orderBy('dueDate', 'asc') // Firestore requires composite index for this + classId filter
     );
 
-    const unsubAssignments = onSnapshot(q, (asgSnap) => {
-        console.log(`Assignments snapshot received: ${asgSnap.size} docs`);
-        const fetchedAssignments: Assignment[] = [];
-        const assignmentIds: string[] = [];
+    const unsub = onSnapshot(
+      q,
+      snap => {
+        console.log(`Assignment snapshot received: ${snap.size} docs for class ${userClass}`);
+        const fetched: Assignment[] = [];
+        snap.docs.forEach(d => {
+          const data = d.data() as DocumentData;
+          // Check if assignment is for this student
+          const assignedToAll = !data.assignedTo.studentIds || data.assignedTo.studentIds.length === 0;
+          const assignedToMe = data.assignedTo.studentIds?.includes(user.uid);
 
-        asgSnap.docs.forEach(d => {
-            const data = d.data() as DocumentData;
-            let dueDate: Date | null = null;
-             // Robust date handling
-            if (data.dueDate instanceof Timestamp) {
-                dueDate = data.dueDate.toDate();
-            } else if (typeof data.dueDate === 'string') {
-                try { dueDate = new Date(data.dueDate); } catch { dueDate = null; }
-            } else if (data.dueDate?.seconds) { // Handle Firestore Timestamp object format
-                 dueDate = new Timestamp(data.dueDate.seconds, data.dueDate.nanoseconds).toDate();
-            } else if (data.dueDate instanceof Date) { // Handle JS Date object
-                 dueDate = data.dueDate;
-            }
+          if (assignedToAll || assignedToMe) {
+              let due: Date | null = null;
+              if (data.dueDate instanceof Timestamp) due = data.dueDate.toDate();
+              else if (typeof data.dueDate === 'string') try { due = new Date(data.dueDate); } catch (e) { console.warn(`Invalid date string for ${d.id}: ${data.dueDate}`); }
+              else if (data.dueDate?.seconds) {
+                  due = new Timestamp(data.dueDate.seconds, data.dueDate.nanoseconds).toDate();
+              } else if (data.dueDate instanceof Date) {
+                  due = data.dueDate;
+              }
 
-            // Ensure the user is actually assigned (either class-wide or individually)
-            const isAssigned = data.assignedTo?.studentIds?.length === 0 || data.assignedTo?.studentIds?.includes(user.uid);
-
-            if (dueDate instanceof Date && !isNaN(dueDate.getTime()) && isAssigned) {
-                fetchedAssignments.push({
-                    id: d.id,
-                    title: data.title || 'Untitled Assignment',
-                    description: data.description || '',
-                    type: data.type || 'Other',
-                    dueDate: dueDate, // Use the converted Date object
-                    assignedTo: data.assignedTo || { classId: userClass, studentIds: [] },
-                    createdBy: data.createdBy,
-                    createdAt: data.createdAt, // Keep as Timestamp
-                    mcqQuestions: data.type === 'MCQ' ? data.mcqQuestions : undefined,
-                } as Assignment);
-                assignmentIds.push(d.id);
-            } else {
-                 console.warn(`Skipping assignment ${d.id} due to invalid dueDate or not assigned:`, data.dueDate, data.assignedTo);
-            }
+              if (due instanceof Date && !isNaN(due.getTime())) {
+                 fetched.push({
+                   id: d.id,
+                   title: data.title || 'Untitled',
+                   description: data.description || '',
+                   type: data.type || 'Other',
+                   dueDate: due, // Use the converted Date object
+                   assignedTo: data.assignedTo || { classId: userClass, studentIds: [] },
+                   createdBy: data.createdBy,
+                   createdAt: data.createdAt,
+                   mcqQuestions: data.type === 'MCQ' ? data.mcqQuestions : undefined,
+                 } as Assignment);
+              } else {
+                 console.warn(`Skipping assignment ${d.id} due to invalid dueDate:`, data.dueDate);
+              }
+          } else {
+            // console.log(`Skipping assignment ${d.id}, not assigned to user ${user.uid}`);
+          }
         });
-        setAssignments(fetchedAssignments);
-
-        // --- Fetch Submissions for these assignments ---
-        // Clear previous submissions and listeners if any
-        const submissionListeners: { [key: string]: () => void } = {}; // To store unsubscribe functions
-        setSubmissions({}); // Reset submissions
-
-        if (assignmentIds.length > 0) {
-            console.log(`Fetching submissions for ${assignmentIds.length} assignments.`);
-            const newSubmissions: Record<string, Submission> = {};
-            assignmentIds.forEach(aid => {
-                const subRef = doc(db, 'assignments', aid, 'submissions', user.uid);
-                // Set up individual listeners for each submission document
-                const unsubSub = onSnapshot(subRef, (subSnap) => {
-                    if (subSnap.exists()) {
-                        newSubmissions[aid] = { id: subSnap.id, ...subSnap.data() } as Submission;
-                    } else {
-                        // If no submission doc exists, use default "Not Started"
-                        newSubmissions[aid] = { status: 'Not Started' };
-                    }
-                    // Update the state incrementally or batch update if preferred
-                    setSubmissions(prev => ({ ...prev, [aid]: newSubmissions[aid] }));
-                }, (err) => {
-                    console.error(`Error listening to submission for assignment ${aid}:`, err);
-                });
-                submissionListeners[aid] = unsubSub; // Store the unsubscribe function
-            });
-        } else {
-            console.log("No assignments found, skipping submission fetch.");
-        }
-        // --- End Submission Fetching ---
-
-        setLoading(false); // Stop loading after processing assignments
-
-        // Return a cleanup function that unsubscribes ALL submission listeners
-        return () => {
-             console.log("Cleaning up assignment and submission listeners.");
-             unsubAssignments();
-             Object.values(submissionListeners).forEach(unsub => unsub());
-        };
-
-    }, (error) => {
-        console.error('Error fetching assignments:', error);
-        setError(`Failed to load assignments: ${error.message}`);
+        // Sort fetched assignments by due date client-side
+        fetched.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+        setAssignments(fetched);
         setLoading(false);
-        setAssignments([]); // Clear on error
-        setSubmissions({});
-    });
+      },
+      err => {
+        console.error('Assignments listener failed:', err);
+        setError(`Failed to load assignments: ${err.message}`);
+        setLoading(false);
+      }
+    );
 
-    // Combined cleanup function
     return () => {
-      console.log("Top-level cleanup for assignments useEffect.");
-      unsubAssignments();
-      // Ensure any potentially created submission listeners are cleared (redundant but safe)
-      // This part is tricky as submission listeners are created inside the asgSnap callback.
-      // A more robust approach might involve managing submission listener unsubscribes in a ref.
+        console.log("Cleaning up assignments listener");
+        unsub();
     };
-  }, [user, userClass, authLoading, toast]); // Dependencies
+  }, [user, userClass, authLoading]); // Depend on authLoading
 
+    // 2. Real‑time listeners for each assignment’s submission doc
+    useEffect(() => {
+        // Tear down old listeners
+        submissionUnsubs.current.forEach(u => u());
+        submissionUnsubs.current = [];
+        setSubmissions({}); // Reset submissions when assignments change
+
+        if (!user?.uid || !assignments.length) return;
+
+        console.log(`Setting up submission listeners for ${assignments.length} assignments for user ${user.uid}`);
+
+        assignments.forEach(a => {
+        const ref = doc(db, 'assignments', a.id, 'submissions', user.uid);
+        const unsub = onSnapshot(
+            ref,
+            snap => {
+                console.log(`Submission snapshot for assignment ${a.id} - exists: ${snap.exists()}`);
+                setSubmissions(prev => ({
+                    ...prev,
+                    [a.id]: snap.exists()
+                    ? (snap.data() as Submission)
+                    : { status: 'Not Started' }, // Explicitly set Not Started if no doc
+                }));
+            },
+            err => {
+                console.error(`Submission listener for ${a.id} failed:`, err);
+                // Optional: Set an error state for this specific submission
+            }
+        );
+        submissionUnsubs.current.push(unsub);
+        });
+
+        // Cleanup function
+        return () => {
+            console.log("Cleaning up all submission listeners");
+            submissionUnsubs.current.forEach(u => u());
+            submissionUnsubs.current = [];
+        };
+    }, [assignments, user]); // Depend on assignments list and user
 
   const getStatus = (id: string, due: Date): Submission['status'] | 'Due' => {
     const sub = submissions[id];
     if (sub?.status === 'Submitted' || sub?.status === 'Graded') {
       return sub.status;
     }
-    if (isPast(due)) {
+    if (isPast(due) && sub?.status !== 'Submitted' && sub?.status !== 'Graded') { // Explicit check for submission status
       return 'Overdue';
     }
     return sub?.status === 'Not Started' ? 'Not Started' : 'Due';
   };
 
-  const handleStartAssignment = (a: Assignment) => {
-    setSelectedAssignment(a);
-    const currentSubmission = submissions[a.id];
-    setResponseText(currentSubmission?.responseText || '');
-    if (a.type === 'MCQ' && a.mcqQuestions) {
-      setMcqAnswers(currentSubmission?.answers || Array(a.mcqQuestions.length).fill(''));
+
+  const handleStartAssignment = (assignment: Assignment) => {
+    setSelectedAssignment(assignment);
+    const submission = submissions[assignment.id];
+    setResponseText(submission?.responseText || '');
+    if (assignment.type === 'MCQ' && assignment.mcqQuestions) {
+      setMcqAnswers(submission?.answers || Array(assignment.mcqQuestions.length).fill(''));
     } else {
       setMcqAnswers([]);
     }
   };
 
-  const handleAnswerChange = (idx: number, val: string) => {
-    setMcqAnswers(prev => {
-      const copy = [...prev];
-      copy[idx] = val;
-      return copy;
+  const handleMcqAnswerChange = (questionIndex: number, value: string) => {
+    setMcqAnswers((prevAnswers) => {
+      const newAnswers = [...prevAnswers];
+      newAnswers[questionIndex] = value;
+      return newAnswers;
     });
   };
 
-  const handleSubmit = async () => {
-    if (!selectedAssignment || !user) return;
-
-    const currentStatus = getStatus(selectedAssignment.id, selectedAssignment.dueDate);
-    if (currentStatus === 'Graded') {
-        toast({ variant: "default", title: "Already Graded", description: "This assignment has already been graded." });
-        return;
+  const handleSubmitAssignment = async () => {
+    if (!selectedAssignment || !user) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No assignment selected or user not logged in.',
+      });
+      return;
     }
-
     setIsSubmitting(true);
-    setError(null);
 
-    const subRef = doc(db, 'assignments', selectedAssignment.id, 'submissions', user.uid);
-    const data: Partial<Submission> = {
+    const subRef = doc(
+      db,
+      'assignments',
+      selectedAssignment.id,
+      'submissions',
+      user.uid
+    );
+    const payload: Partial<Submission> = {
       status: 'Submitted',
-      submittedAt: serverTimestamp() as Timestamp, // Cast needed for serverTimestamp
+      submittedAt: serverTimestamp() as Timestamp, // Use serverTimestamp
     };
 
-    let isComplete = true; // Flag to check completion
-
+    // Validate
     if (selectedAssignment.type === 'MCQ') {
-      if (mcqAnswers.some(a => a === '')) {
-        toast({ variant: 'destructive', title: 'Incomplete', description: 'Please answer all questions.' });
-        isComplete = false;
-      } else {
-         data.answers = mcqAnswers;
+      if (mcqAnswers.some(a => !a)) {
+        toast({
+          variant: 'destructive',
+          title: 'Incomplete',
+          description: 'Please answer all MCQ questions.',
+        });
+        setIsSubmitting(false);
+        return;
       }
+      payload.answers = mcqAnswers;
     } else {
       if (!responseText.trim()) {
-        toast({ variant: 'destructive', title: 'Incomplete', description: 'Please provide your response.' });
-        isComplete = false;
-      } else {
-        data.responseText = responseText;
+        toast({
+          variant: 'destructive',
+          title: 'Incomplete',
+          description: 'Please provide a response.',
+        });
+        setIsSubmitting(false);
+        return;
       }
+      payload.responseText = responseText;
     }
-
-    if (!isComplete) {
-       setIsSubmitting(false);
-       return; // Stop submission if incomplete
-    }
-
 
     try {
-      await setDoc(subRef, data, { merge: true });
-      toast({ title: 'Success', description: 'Assignment Submitted!' });
-      setSelectedAssignment(null); // Close the detail view
+      await setDoc(subRef, payload, { merge: true });
+      toast({ title: 'Success', description: 'Assignment submitted!' });
+      setSelectedAssignment(null); // Close the details view
     } catch (e: any) {
-      console.error('Submission error:', e);
-      setError(`Submission failed: ${e.message}`);
-      toast({ variant: 'destructive', title: 'Error', description: 'Submission failed. Please try again.' });
+      console.error('Submission error', e);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: `Submission failed: ${e.message}`,
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  return (
-    <div className="container mx-auto py-8">
+
+ return (
+    // Removed main container div as it's handled by layout
+    <>
       <h1 className="text-3xl font-bold mb-6">My Assignments</h1>
 
-      {/* Loading and Error States */}
-      {loading && (
-        <div className="flex justify-center items-center py-10">
-          <span className="loader"></span> {/* Use your loader component/style */}
-        </div>
-      )}
-      {error && !loading && <p className="text-red-500 text-center py-8">{error}</p>}
-      {!loading && !error && assignments.length === 0 && (
-        <p className="text-center text-gray-500 py-8">You have no assignments{userClass ? ` for ${userClass}` : ''}.</p>
+      {loading && <div className="text-center py-4">Loading assignments...</div>}
+      {error && <div className="text-red-500 text-center py-4">{error}</div>}
+
+      {!loading && !error && !selectedAssignment && assignments.length === 0 && (
+        <p className="text-center text-muted-foreground py-8">You have no assignments assigned.</p>
       )}
 
-      {/* Assignment List */}
-      {!loading && !error && assignments.length > 0 && !selectedAssignment && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
+      {!loading && !error && !selectedAssignment && assignments.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {assignments.map(assignment => {
             const status = getStatus(assignment.id, assignment.dueDate);
             const submission = submissions[assignment.id];
-            const done = status === 'Submitted' || status === 'Graded';
+            const isDone = status === 'Submitted' || status === 'Graded';
+            const isOverdue = status === 'Overdue';
 
             return (
-              <Card key={assignment.id} className="flex flex-col shadow-sm hover:shadow-md transition-shadow border">
+                <Card key={assignment.id} className={`flex flex-col shadow hover:shadow-md transition-shadow border ${isOverdue ? 'border-destructive' : 'border-gray-200'}`}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-lg">{assignment.title}</CardTitle>
-                    <Badge variant={getBadgeVariant(status)} className="ml-2 shrink-0">
-                      {status}
-                    </Badge>
+                    <Badge variant={getBadgeVariant(status)}>{status}</Badge>
                   </div>
-                   <CardDescription className="text-xs pt-1">
-                     Due: {formatDueDate(assignment.dueDate)} | Type: {assignment.type}
-                   </CardDescription>
+                  <CardDescription className="text-xs">
+                     Due: {formatDueDate(assignment.dueDate)}
+                     {submission?.grade && ` | Grade: ${submission.grade}`}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow text-sm text-muted-foreground">
-                  {assignment.description.length > 100 ? `${assignment.description.substring(0, 100)}...` : assignment.description}
+                   {assignment.description.length > 100 ? `${assignment.description.slice(0, 100)}...` : assignment.description}
                 </CardContent>
                 <div className="p-4 border-t mt-auto">
-                   <Button
-                     onClick={() => handleStartAssignment(assignment)}
-                     disabled={status === 'Graded'} // Disable only if graded
-                     className={`w-full ${done && status !== 'Graded' ? 'bg-green-600 hover:bg-green-700' : status === 'Graded' ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-                   >
-                     {status === 'Submitted' ? 'View Submission' : status === 'Graded' ? 'View Grade' : 'Start Assignment'}
-                   </Button>
+                     <Button
+                        onClick={() => handleStartAssignment(assignment)}
+                        disabled={status === 'Graded'} // Allow viewing submitted, disable only if graded
+                        className={`w-full ${
+                        status === 'Graded'
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : status === 'Submitted'
+                            ? 'bg-blue-600 hover:bg-blue-700' // Different color for submitted but not graded
+                            : 'bg-indigo-600 hover:bg-indigo-700' // Default start color
+                        }`}
+                     >
+                       {status === 'Graded' ? 'View Graded' : status === 'Submitted' ? 'View Submission' : 'Start Assignment'}
+                     </Button>
                 </div>
               </Card>
             );
           })}
-        </motion.div>
+        </div>
       )}
 
-      {/* Selected Assignment Detail View */}
-      {selectedAssignment && (
+       {/* Assignment Details/Submission View */}
+       {selectedAssignment && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6">
           <Button variant="outline" onClick={() => setSelectedAssignment(null)} className="mb-4">
-            ← Back to List
+            ← Back to Assignments
           </Button>
-          <Card className="shadow-lg border">
+          <Card>
             <CardHeader>
               <div className="flex justify-between items-start">
-                 <div>
-                   <CardTitle className="text-xl">{selectedAssignment.title}</CardTitle>
-                    <CardDescription className="text-xs pt-1">
-                       Due: {formatDueDate(selectedAssignment.dueDate)} | Type: {selectedAssignment.type}
-                    </CardDescription>
-                 </div>
+                <CardTitle>{selectedAssignment.title}</CardTitle>
                  <Badge variant={getBadgeVariant(getStatus(selectedAssignment.id, selectedAssignment.dueDate))}>
                     {getStatus(selectedAssignment.id, selectedAssignment.dueDate)}
-                 </Badge>
+                </Badge>
               </div>
+              <CardDescription>
+                 Due: {formatDueDate(selectedAssignment.dueDate)}
+                 {submissions[selectedAssignment.id]?.grade && ` | Grade: ${submissions[selectedAssignment.id]?.grade}`}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="mb-4 text-sm">{selectedAssignment.description}</p>
+              <p className="mb-4 text-muted-foreground">{selectedAssignment.description}</p>
 
-              {/* Submission Area */}
-              <div className="mt-4 border-t pt-4">
-                 <h3 className="text-lg font-semibold mb-3">Your Submission</h3>
-                {/* --- Display Graded Info --- */}
-                 {submissions[selectedAssignment.id]?.status === 'Graded' && (
-                    <div className="mb-4 p-4 border rounded-md bg-green-50 border-green-200">
-                       <p className="font-semibold">Grade: <span className="text-green-700">{submissions[selectedAssignment.id]?.grade ?? 'N/A'}%</span></p>
-                       <p className="mt-1 text-sm"><strong>Feedback:</strong> {submissions[selectedAssignment.id]?.feedback || 'No feedback provided.'}</p>
-                    </div>
-                 )}
+               {/* Display Grade and Feedback if Graded */}
+               {submissions[selectedAssignment.id]?.status === 'Graded' && (
+                 <div className="mb-6 p-4 border rounded-md bg-green-50 border-green-200">
+                    <h4 className="font-semibold text-green-800 mb-1">Grade & Feedback</h4>
+                    <p className="text-lg font-bold text-green-700">Grade: {submissions[selectedAssignment.id]?.grade ?? 'N/A'}</p>
+                    <p className="text-sm mt-1"><strong>Feedback:</strong> {submissions[selectedAssignment.id]?.feedback || 'No feedback provided.'}</p>
+                 </div>
+               )}
 
-
-                {/* --- MCQ Submission --- */}
-                {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
-                  <div className="space-y-6">
-                    {selectedAssignment.mcqQuestions.map((question, index) => (
-                      <fieldset key={index} className="border rounded-md p-4" disabled={!!submissions[selectedAssignment.id]?.status && submissions[selectedAssignment.id]?.status !== 'Not Started'}>
-                        <legend className="text-sm font-medium mb-2 px-1">
-                           {index + 1}. {question.question}
-                        </legend>
-                        <RadioGroup
-                          value={mcqAnswers[index]}
-                          onValueChange={v => handleAnswerChange(index, v)}
-                          className="space-y-2"
-                        >
-                          {question.options.map((opt, idx) => (
-                            <div key={idx} className="flex items-center space-x-2">
-                              <RadioGroupItem id={`opt-${index}-${idx}`} value={opt} />
-                              <Label htmlFor={`opt-${index}-${idx}`} className="text-sm font-normal">{opt}</Label>
-                            </div>
+               {/* Submission Form */}
+               {submissions[selectedAssignment.id]?.status !== 'Graded' && (
+                  <form onSubmit={(e) => { e.preventDefault(); handleSubmitAssignment(); }}>
+                      {selectedAssignment.type === 'MCQ' &&
+                        selectedAssignment.mcqQuestions && (
+                        <div className="space-y-6">
+                          {selectedAssignment.mcqQuestions.map((question, index) => (
+                            <fieldset key={index} className="border p-4 rounded-md">
+                              <legend className="font-medium mb-2">
+                                {index + 1}. {question.question}
+                              </legend>
+                              <RadioGroup
+                                value={mcqAnswers[index]}
+                                onValueChange={(value) =>
+                                  handleMcqAnswerChange(index, value)
+                                }
+                                className="space-y-2"
+                                disabled={submissions[selectedAssignment.id]?.status === 'Submitted'} // Disable if already submitted
+                              >
+                                {question.options.map((option, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <RadioGroupItem
+                                      id={`q${index}-opt${idx}`}
+                                      value={option}
+                                    />
+                                    <Label htmlFor={`q${index}-opt${idx}`}>
+                                      {option}
+                                    </Label>
+                                  </div>
+                                ))}
+                              </RadioGroup>
+                            </fieldset>
                           ))}
-                        </RadioGroup>
-                      </fieldset>
-                    ))}
-                  </div>
-                )}
+                        </div>
+                      )}
 
-                {/* --- Written/Other Submission --- */}
-                {selectedAssignment.type !== 'MCQ' && (
-                  <Textarea
-                    value={responseText}
-                    onChange={e => setResponseText(e.target.value)}
-                    rows={8}
-                    placeholder="Type your response here..."
-                    disabled={!!submissions[selectedAssignment.id]?.status && submissions[selectedAssignment.id]?.status !== 'Not Started'}
-                  />
-                )}
+                      {selectedAssignment.type !== 'MCQ' && (
+                        <div className="space-y-2">
+                           <Label htmlFor="responseText">Your Response</Label>
+                           <Textarea
+                              id="responseText"
+                              value={responseText}
+                              onChange={(e) => setResponseText(e.target.value)}
+                              rows={8}
+                              placeholder="Type your response here..."
+                              disabled={submissions[selectedAssignment.id]?.status === 'Submitted'} // Disable if already submitted
+                           />
+                           {/* Display previously submitted response if viewing */}
+                            {submissions[selectedAssignment.id]?.status === 'Submitted' && submissions[selectedAssignment.id]?.responseText && (
+                               <div className="mt-4 p-3 border rounded bg-muted text-sm">
+                                  <p className="font-medium mb-1">Your Submission:</p>
+                                  <p className="whitespace-pre-wrap">{submissions[selectedAssignment.id]?.responseText}</p>
+                               </div>
+                            )}
+                        </div>
+                      )}
 
-                 {/* --- Submit Button --- */}
-                  {submissions[selectedAssignment.id]?.status !== 'Submitted' && submissions[selectedAssignment.id]?.status !== 'Graded' && (
-                    <Button
-                      onClick={handleSubmit}
-                      disabled={isSubmitting}
-                      className="mt-6 w-full sm:w-auto bg-green-600 hover:bg-green-700"
-                    >
-                      {isSubmitting ? 'Submitting...' : 'Submit Assignment'}
-                    </Button>
-                  )}
-                  {/* --- Already Submitted Message --- */}
-                   {submissions[selectedAssignment.id]?.status === 'Submitted' && (
-                       <p className="mt-6 text-sm text-center text-green-700 font-medium p-3 bg-green-50 border border-green-200 rounded-md">
-                           You have submitted this assignment on {formatDueDate(submissions[selectedAssignment.id]?.submittedAt)}. Waiting for grading.
-                       </p>
-                   )}
-              </div>
-
-
-              {/* Display Error if Submission Failed */}
-              {error && <p className="text-red-500 mt-4">{error}</p>}
+                     {/* Submit Button - Hide if graded or already submitted */}
+                     {submissions[selectedAssignment.id]?.status !== 'Submitted' && submissions[selectedAssignment.id]?.status !== 'Graded' && (
+                        <Button
+                            type="submit" // Changed to type="submit"
+                            disabled={isSubmitting}
+                            className="mt-6 bg-green-600 hover:bg-green-700"
+                        >
+                            {isSubmitting ? 'Submitting…' : 'Submit Assignment'}
+                        </Button>
+                     )}
+                  </form>
+               )}
             </CardContent>
           </Card>
         </motion.div>
       )}
-    </div>
+    </>
   );
 }
