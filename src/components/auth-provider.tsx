@@ -54,12 +54,14 @@ export default function AuthProviderComponent({ children }: AuthProviderProps) {
          const role = userData.role as 'student' | 'teacher' | null;
          let determinedClass: string | null = null;
 
+         // Correctly fetch class/grade based on role
          if (role === 'teacher') {
             determinedClass = userData.teacherGrade || null;
          } else if (role === 'student') {
-            determinedClass = userData.class || null;
+            determinedClass = userData.class || null; // 'class' field for students
          }
 
+         console.log(`Fetched user data: Role=${role}, Class/Grade=${determinedClass}`); // Debug log
          setUserType(role);
          setUserClass(determinedClass); // Set the determined class/grade
        } else {
@@ -90,11 +92,13 @@ export default function AuthProviderComponent({ children }: AuthProviderProps) {
     const unsubscribe = onAuthStateChanged(firebaseAuth, async firebaseUser => {
       setLoading(true); // Set loading true when auth state changes
       if (!firebaseUser) {
+        console.log("Auth state changed: No user logged in.");
         setUser(null);
         setUserType(null);
         setUserClass(null);
         // No automatic redirect here, handle in page components or Home page
       } else {
+        console.log(`Auth state changed: User ${firebaseUser.uid} logged in.`);
         setUser(firebaseUser);
         await fetchUserData(firebaseUser); // Fetch associated data
       }
