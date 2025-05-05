@@ -1,11 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, signOut as firebaseSignOut, User } from 'firebase/auth';
-import { auth as firebaseAuth, db } from '@/lib/firebase'; // Ensure auth and db are imported correctly
-import { Auth } from "firebase/auth";
-import { doc, getDoc } from 'firebase/firestore';
+import React, {
+  useState,
+  useEffect,
+  createContext,
+  useContext,
+  ReactNode,
+  useCallback,
+} from 'react';
+import {useRouter} from 'next/navigation';
+import {onAuthStateChanged, signOut as firebaseSignOut, User} from 'firebase/auth';
+import {auth as firebaseAuth, db} from '@/lib/firebase'; // Ensure auth and db are imported correctly
+import {doc, getDoc} from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null | undefined; // undefined signifies initial loading state
@@ -30,64 +36,64 @@ interface AuthProviderProps {
 }
 
 // Renaming the component to avoid conflict if AuthProvider is also used elsewhere or expected as default
-export default function AuthProviderComponent({ children }: AuthProviderProps) {
+export default function AuthProviderComponent({children}: AuthProviderProps) {
   const [user, setUser] = useState<User | null | undefined>(undefined); // Start as undefined
   const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState<'student' | 'teacher' | null>(null);
   const [userClass, setUserClass] = useState<string | null>(null);
   const router = useRouter();
 
-
   const fetchUserData = useCallback(async (currentUser: User | null) => {
     // Ensure db is initialized before using it
     if (!db) {
-      console.error("AuthProvider: Firestore DB is not initialized");
+      console.error('AuthProvider: Firestore DB is not initialized');
       setUserType(null); // Set defaults if DB fails
       setUserClass(null);
       return;
     }
+
     if (!currentUser) {
-        console.log("AuthProvider: No current user, skipping fetchUserData.");
-        setUserType(null);
-        setUserClass(null);
-        return;
+      console.log('AuthProvider: No current user, skipping fetchUserData.');
+      setUserType(null);
+      setUserClass(null);
+      return;
     }
 
     console.log(`AuthProvider: Fetching data for user ${currentUser.uid}...`);
-     try {
-       const userDocRef = doc(db, 'Users', currentUser.uid);
-       const userDoc = await getDoc(userDocRef);
-       if (userDoc.exists()) {
-         const userData = userDoc.data();
-         console.log("AuthProvider: Fetched userData:", userData); // Log fetched data
-         const role = userData.role as 'student' | 'teacher' | null;
-         let determinedClass: string | null = null;
+    try {
+      const userDocRef = doc(db, 'Users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        console.log('AuthProvider: Fetched userData:', userData); // Log fetched data
+        const role = userData.role as 'student' | 'teacher' | null;
+        let determinedClass: string | null = null;
 
-         // Correctly fetch class/grade based on role
-         if (role === 'teacher') {
-            determinedClass = userData.teacherGrade || null;
-            console.log(`AuthProvider: User is a teacher, setting teacherGrade: ${determinedClass}`);
-         } else if (role === 'student') {
-            determinedClass = userData.class || null; // 'class' field for students
-            console.log(`AuthProvider: User is a student, setting class: ${determinedClass}`);
-         } else {
-            console.warn(`AuthProvider: User role is unknown or missing: ${role}`);
-         }
+        // Correctly fetch class/grade based on role
+        if (role === 'teacher') {
+           determinedClass = userData.teacherGrade || null;
+           console.log(`AuthProvider: User is a teacher, setting teacherGrade: ${determinedClass}`);
+        } else if (role === 'student') {
+           determinedClass = userData.class || userData.grade || null; // Check both 'class' and 'grade' fields
+           console.log(`AuthProvider: User is a student, setting class/grade: ${determinedClass}`);
+        } else {
+           console.warn(`AuthProvider: User role is unknown or missing: ${role}`);
+        }
 
-         setUserType(role);
-         setUserClass(determinedClass); // Set the determined class/grade
-         console.log(`AuthProvider: State updated - userType: ${role}, userClass: ${determinedClass}`);
-       } else {
-         // Fallback logic if user document doesn't exist (should ideally not happen after registration)
-         console.warn(`AuthProvider: User document not found for UID: ${currentUser.uid}`);
-         setUserType(null);
-         setUserClass(null);
-       }
-     } catch (error) {
-       console.error('AuthProvider: Error fetching user data:', error);
-       setUserType(null); // Reset on error
-       setUserClass(null);
-     }
+        setUserType(role);
+        setUserClass(determinedClass); // Set the determined class/grade
+        console.log(`AuthProvider: State updated - userType: ${role}, userClass: ${determinedClass}`);
+      } else {
+        // Fallback logic if user document doesn't exist
+        console.warn(`AuthProvider: User document not found for UID: ${currentUser.uid}`);
+        setUserType(null);
+        setUserClass(null);
+      }
+    } catch (error) {
+      console.error('AuthProvider: Error fetching user data:', error);
+      setUserType(null); // Reset on error
+      setUserClass(null);
+    }
   }, []); // Removed db from dependencies as it should be stable
 
 
@@ -105,27 +111,41 @@ export default function AuthProviderComponent({ children }: AuthProviderProps) {
     console.log("AuthProvider: Setting up onAuthStateChanged listener.");
     const unsubscribe = onAuthStateChanged(firebaseAuth, async firebaseUser => {
       console.log(`AuthProvider: onAuthStateChanged triggered. User: ${firebaseUser ? firebaseUser.uid : 'null'}`);
-      setLoading(true); // Set loading true when auth state changes AND before async fetch
+      // --- Start loading immediately ---
+      setLoading(true);
+
       if (!firebaseUser) {
         console.log("AuthProvider: No user logged in.");
         setUser(null);
         setUserType(null);
         setUserClass(null);
-        setLoading(false); // Set loading false since no user data fetch is needed
+        // --- Stop loading when no user ---
+        setLoading(false);
       } else {
-        console.log(`AuthProvider: User ${firebaseUser.uid} logged in. Fetching data...`);
-        setUser(firebaseUser);
-        await fetchUserData(firebaseUser); // Fetch associated data
-        console.log("AuthProvider: fetchUserData complete.");
-        setLoading(false); // Set loading false AFTER user and data fetching is done
+        console.log(`AuthProvider: User ${firebaseUser.uid} logged in. Setting user state.`);
+        setUser(firebaseUser); // Set user first
+        console.log(`AuthProvider: Fetching data for user ${firebaseUser.uid}...`);
+        try {
+          await fetchUserData(firebaseUser); // Wait for user data fetch
+          console.log("AuthProvider: fetchUserData complete.");
+        } catch (e) {
+           console.error("AuthProvider: Error during fetchUserData in listener:", e);
+           // Reset states on error during fetch
+           setUserType(null);
+           setUserClass(null);
+        } finally {
+           // --- Stop loading AFTER fetchUserData attempt ---
+           setLoading(false);
+           console.log("AuthProvider: Loading set to false.");
+        }
       }
     });
 
     // Cleanup subscription on unmount
     return () => {
-        console.log("AuthProvider: Cleaning up onAuthStateChanged listener.");
-        unsubscribe();
-    }
+      console.log("AuthProvider: Cleaning up onAuthStateChanged listener.");
+      unsubscribe();
+    };
   }, [fetchUserData]); // fetchUserData is memoized
 
 
@@ -155,7 +175,7 @@ export default function AuthProviderComponent({ children }: AuthProviderProps) {
     userType,
     userClass,
     signOut: signOutFunc,
-  }), [user, loading, userType, userClass, signOutFunc]); // Include router in dependencies for signOutFunc stability
+  }), [user, loading, userType, userClass, signOutFunc]);
 
   console.log("AuthProvider: Rendering with context value:", value); // Log context value on render
 

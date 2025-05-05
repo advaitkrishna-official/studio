@@ -81,6 +81,8 @@ const generateFlashcardsFlow = ai.defineFlow<
     outputSchema: GenerateFlashcardsOutputSchema,
   },
   async input => {
+    console.log("generateFlashcardsFlow: Started with input:", input); // Log input
+
     let context: string = '';
     // Ensure grade is lowercase for consistent matching and handle potential null/undefined
     const gradeInput = input.grade || ''; // Default to empty string if undefined/null
@@ -111,6 +113,7 @@ const generateFlashcardsFlow = ai.defineFlow<
         const response = await prompt({
             topic: input.topic,
             numCards: input.numCards,
+            // Log the prompt input explicitly if needed for debugging the prompt call itself
             context: context,
         });
         console.log("generateFlashcardsFlow: AI Response received:", response); // Log the raw response
@@ -137,6 +140,7 @@ const generateFlashcardsFlow = ai.defineFlow<
          }
 
         return {
+ // Log the data being returned before returning
           flashcards: flashcardsArray,
           // Keep progress message optional or remove if not needed
           // progress: `Generated ${flashcardsArray.length} flashcards on the topic of ${input.topic}.`,
