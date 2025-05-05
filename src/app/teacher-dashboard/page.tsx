@@ -127,7 +127,7 @@ export default function TeacherDashboardPage() {
   const [recentActivity, setRecentActivity] = useState<string[]>([]); // Example: ["Student X submitted Assignment Y", "You created Quiz Z"]
   const [loading, setLoading] = useState(true);
 
-  // Dialog states
+  // Dialog states (kept for potential future use or if quick actions trigger modals)
   const [newAsgOpen, setNewAsgOpen] = useState(false);
   const [newQuizOpen, setNewQuizOpen] = useState(false);
   const [newLessonOpen, setNewLessonOpen] = useState(false);
@@ -192,7 +192,17 @@ export default function TeacherDashboardPage() {
         const submissionsSnap = await getDocs(submissionsRef);
         const studentIds = assignment.assignedTo?.studentIds || []; // Handle potentially missing field
         const submittedCount = submissionsSnap.size;
-        const totalStudents = studentIds.length || (await getDocs(query(collection(db, 'users'), where('class', '==', userClass), where('role', '==', 'student')))).size; // Fetch class size if needed
+        let totalStudents = 0; // Initialize totalStudents
+
+        // Attempt to fetch total students for the class
+         try {
+           const studentsQuery = query(collection(db, 'users'), where('class', '==', userClass), where('role', '==', 'student'));
+           const studentsSnap = await getDocs(studentsQuery);
+           totalStudents = studentsSnap.size;
+         } catch (error) {
+           console.error("Error fetching student count:", error);
+           // Handle error, maybe set totalStudents to a default or skip calculation
+         }
 
         pendingCount += Math.max(0, totalStudents - submittedCount); // Count unsubmitted tasks
 
@@ -250,13 +260,24 @@ export default function TeacherDashboardPage() {
       if (!isMounted) return;
        const fetchedEvents = eventSnap.docs.map(doc => {
           const data = doc.data();
+          // Ensure date is converted correctly
+          let eventDate: Date | null = null;
+          if (data.date instanceof Timestamp) {
+             eventDate = data.date.toDate();
+          } else if (data.date instanceof Date) {
+              eventDate = data.date;
+          } else if (data.date?.seconds) {
+              eventDate = new Timestamp(data.date.seconds, data.date.nanoseconds).toDate();
+          }
+
           return {
              id: doc.id,
-             title: data.title,
-             date: data.date.toDate(), // Convert Timestamp to Date
-             description: data.description,
+             title: data.title || 'Untitled Event',
+             date: eventDate!, // Use the converted date (handle potential null if necessary)
+             description: data.description || '',
           } as Event;
-       });
+       }).filter(event => event.date); // Filter out events with invalid dates
+
        if (isMounted) {
          setUpcomingEvents(fetchedEvents);
        }
@@ -289,6 +310,17 @@ export default function TeacherDashboardPage() {
     { title: 'Overview', href: '/teacher-dashboard/overview', icon: LineChart, description: "Class performance overview." },
   ];
 
+   const navLinks = [
+    { title: 'Teacher Home', href: '/teacher-dashboard', icon: Home },
+    { title: 'Lesson Planner', href: '/teacher-dashboard/lesson-planner', icon: BookOpenCheck },
+    { title: 'Quiz Builder', href: '/teacher-dashboard/quiz-builder', icon: LayoutGrid },
+    { title: 'Student Manager', href: '/teacher-dashboard/student-manager', icon: UserIcon },
+    { title: 'Assignment Hub', href: '/teacher-dashboard/teachers-assignment-hub', icon: ListChecks },
+    { title: 'Class Calendar', href: '/teacher-dashboard/class-calendar', icon: CalendarIcon },
+    { title: 'Overview', href: '/teacher-dashboard/overview', icon: LineChart },
+  ];
+
+
   const kpiData = [
      { label: 'Pending Tasks', value: pendingAssignments, icon: ListChecks },
      { label: 'Overdue Submissions', value: overdueSubmissions, icon: Hash },
@@ -311,80 +343,95 @@ export default function TeacherDashboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r p-4 space-y-6 hidden md:flex flex-col">
-        <Link href="/teacher-dashboard" className="flex items-center gap-2 text-xl font-bold text-indigo-600">
-          <GraduationCap className="w-7 h-7" /> EduAI Teacher
-        </Link>
-        <nav className="flex-1 space-y-2">
-            <Link href="/teacher-dashboard" className="flex items-center gap-3 p-2 rounded-md text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium">
-                <Home className="w-5 h-5" /> Teacher Home
-            </Link>
-            {dashboardItems.map(item => (
-            <Link key={item.href} href={item.href} className="flex items-center gap-3 p-2 rounded-md text-gray-600 hover:bg-indigo-50 hover:text-indigo-600">
-                <item.icon className="w-5 h-5" /> {item.title}
-            </Link>
+    <div className="flex min-h-screen flex-col bg-gray-50">
+      {/* Header with Top Navigation */}
+      <header className="sticky top-0 z-40 w-full border-b bg-white shadow-sm">
+        <div className="container mx-auto flex h-14 items-center justify-between px-4">
+          {/* Left Side: Logo */}
+          <Link href="/teacher-dashboard" className="flex items-center gap-2 text-xl font-bold text-indigo-600">
+            <GraduationCap className="w-7 h-7" /> EduAI Teacher
+          </Link>
+
+          {/* Center: Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-1">
+            {navLinks.map(item => (
+                <Button key={item.href} variant="ghost" size="sm" asChild className="text-gray-600 hover:text-indigo-600 hover:bg-indigo-50">
+                    <Link href={item.href}>
+                        <item.icon className="mr-1.5 h-4 w-4" /> {item.title}
+                    </Link>
+                </Button>
             ))}
-        </nav>
-        <Separator />
-        <div className="space-y-2">
-            <Button variant="ghost" className="w-full justify-start gap-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900">
-                <Settings className="w-5 h-5" /> Settings
-            </Button>
-             <Button variant="ghost" className="w-full justify-start gap-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900">
-                 <HelpCircle className="w-5 h-5" /> Help
-             </Button>
-            <Button variant="ghost" onClick={handleLogout} className="w-full justify-start gap-3 text-red-600 hover:bg-red-50 hover:text-red-700">
-                <LogOut className="w-5 h-5" /> Log Out
-            </Button>
+          </nav>
+
+          {/* Right Side: User Menu & Mobile Menu Trigger */}
+           <div className="flex items-center gap-3">
+              {/* User Dropdown */}
+              <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                     <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                          <Avatar className="h-9 w-9 border-2 border-indigo-100">
+                             <AvatarImage src={user?.photoURL || undefined} alt="User Avatar" data-ai-hint="teacher avatar" />
+                              <AvatarFallback className="bg-indigo-100 text-indigo-600 font-semibold">
+                                  {getInitials(user.displayName || user.email || 'T')}
+                              </AvatarFallback>
+                          </Avatar>
+                      </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel className="font-normal">
+                          <div className="flex flex-col space-y-1">
+                            <p className="text-sm font-medium leading-none">{user.displayName || user.email}</p>
+                            <p className="text-xs leading-none text-muted-foreground">
+                              Teacher
+                            </p>
+                          </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => router.push('/teacher-dashboard/settings')}>
+                          <Settings className="mr-2 h-4 w-4" /> Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push('/teacher-dashboard/help')}>
+                          <HelpCircle className="mr-2 h-4 w-4" /> Help
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:bg-red-50 focus:text-red-700">
+                          <LogOut className="mr-2 h-4 w-4" /> Log out
+                      </DropdownMenuItem>
+                  </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Mobile Menu Trigger */}
+              <Sheet>
+                 <SheetTrigger asChild className="md:hidden">
+                    <Button variant="outline" size="icon"><Menu className="h-5 w-5" /></Button>
+                 </SheetTrigger>
+                 <SheetContent side="left" className="w-64 p-4">
+                     <nav className="flex flex-col space-y-2 mt-6">
+                          {navLinks.map(item => (
+                             <Button key={item.href} variant="ghost" asChild className="justify-start gap-3 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50">
+                                  <Link href={item.href}>
+                                      <item.icon className="w-5 h-5" /> {item.title}
+                                  </Link>
+                              </Button>
+                          ))}
+                     </nav>
+                     <Separator className="my-4"/>
+                     <Button variant="ghost" onClick={handleLogout} className="w-full justify-start gap-3 text-red-600 hover:bg-red-50 hover:text-red-700">
+                         <LogOut className="w-5 h-5" /> Log Out
+                     </Button>
+                 </SheetContent>
+               </Sheet>
+            </div>
         </div>
-      </aside>
+      </header>
 
       {/* Main content */}
-      <main className="flex-1 p-6 lg:p-10 space-y-8 overflow-y-auto">
+      <main className="flex-1 container mx-auto p-6 lg:p-10 space-y-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
              <h1 className="text-3xl font-bold text-gray-800">Teacher Home</h1>
               <p className="text-gray-500">Welcome back, {user.displayName || user.email}!</p>
           </div>
-
-          {/* Mobile Menu Trigger */}
-          <Sheet>
-             <SheetTrigger asChild className="md:hidden">
-                <Button variant="outline" size="icon"><Menu className="h-5 w-5" /></Button>
-             </SheetTrigger>
-             <SheetContent side="left" className="w-64 p-0">
-                 {/* Replicate Sidebar Content Here */}
-                 <div className="p-4 space-y-6 flex flex-col h-full">
-                    <Link href="/teacher-dashboard" className="flex items-center gap-2 text-xl font-bold text-indigo-600">
-                      <GraduationCap className="w-7 h-7" /> EduAI Teacher
-                    </Link>
-                    <nav className="flex-1 space-y-2">
-                        <Link href="/teacher-dashboard" className="flex items-center gap-3 p-2 rounded-md text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium">
-                            <Home className="w-5 h-5" /> Teacher Home
-                        </Link>
-                        {dashboardItems.map(item => (
-                        <Link key={item.href} href={item.href} className="flex items-center gap-3 p-2 rounded-md text-gray-600 hover:bg-indigo-50 hover:text-indigo-600">
-                            <item.icon className="w-5 h-5" /> {item.title}
-                        </Link>
-                        ))}
-                    </nav>
-                    <Separator />
-                    <div className="space-y-2">
-                        <Button variant="ghost" className="w-full justify-start gap-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900">
-                            <Settings className="w-5 h-5" /> Settings
-                        </Button>
-                         <Button variant="ghost" className="w-full justify-start gap-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900">
-                             <HelpCircle className="w-5 h-5" /> Help
-                         </Button>
-                        <Button variant="ghost" onClick={handleLogout} className="w-full justify-start gap-3 text-red-600 hover:bg-red-50 hover:text-red-700">
-                            <LogOut className="w-5 h-5" /> Log Out
-                        </Button>
-                    </div>
-                 </div>
-             </SheetContent>
-           </Sheet>
         </div>
 
         {/* KPI Bar */}
@@ -486,7 +533,6 @@ export default function TeacherDashboardPage() {
                   </CardContent>
               </Card>
          </div>
-
       </main>
     </div>
   );
