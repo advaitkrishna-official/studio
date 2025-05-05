@@ -41,7 +41,8 @@ const EssayFeedbackPage = () => {
                      if (typedGrades.length > 0) {
                          // Calculate total score (sum of scores)
                          const sum = typedGrades.reduce((acc, grade) => acc + (grade.score || 0), 0);
-                         setTotalScore(sum);
+                         const total = Math.min(sum, 100); // Cap the total score at 100
+                         setTotalScore(total);
                      } else {
                         setTotalScore(0); // Set to 0 if no grades
                      }
@@ -79,7 +80,8 @@ const EssayFeedbackPage = () => {
          getGrades(user.uid).then((grades) => {
            const typedGrades = grades as GradeData[];
            const sum = typedGrades.reduce((acc, grade) => acc + (grade.score || 0), 0);
-           setTotalScore(sum);
+           const total = Math.min(sum, 100); // Cap the total score at 100
+           setTotalScore(total);
          }).catch(console.error);
 
       } else {
@@ -187,7 +189,7 @@ const EssayFeedbackPage = () => {
                  {totalScore !== null && (
                    <div className="mt-6 text-right border-t pt-4">
                      <p className="text-sm text-muted-foreground">Your current total score across all tasks:</p>
-                     <p className="text-xl font-semibold text-gray-700">{totalScore}%</p>
+                     <p className="text-xl font-semibold text-gray-700">{totalScore.toFixed(1)}%</p>
                    </div>
                  )}
             </CardContent>
@@ -197,3 +199,4 @@ const EssayFeedbackPage = () => {
 };
 
 export default EssayFeedbackPage;
+

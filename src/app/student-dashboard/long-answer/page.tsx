@@ -57,7 +57,8 @@ const LongAnswerPage = () => {
                   if (typedGrades.length > 0) {
                       // Calculate total score (sum of scores)
                       const sum = typedGrades.reduce((acc, grade) => acc + (grade.score || 0), 0); // Handle potential undefined score
-                      setTotalScore(sum);
+                      const total = Math.min(sum, 100); // Cap the total score at 100
+                      setTotalScore(total);
                   } else {
                     setTotalScore(0); // Set to 0 if no grades exist
                   }
@@ -165,7 +166,8 @@ const LongAnswerPage = () => {
            const typedGrades = grades as GradeData[];
            if (typedGrades.length > 0) {
              const sum = typedGrades.reduce((acc, grade) => acc + (grade.score || 0), 0);
-             setTotalScore(sum);
+             const total = Math.min(sum, 100); // Cap the total score at 100
+             setTotalScore(total);
            } else {
              setTotalScore(0);
            }

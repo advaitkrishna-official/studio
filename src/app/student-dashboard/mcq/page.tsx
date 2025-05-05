@@ -40,7 +40,8 @@ export default function AnimatedMCQPage() {
         .then((grades) => {
           const typedGrades = grades as GradeData[]; // Type assertion
           const sum = typedGrades.reduce((a, g) => a + (g.score || 0), 0); // Ensure score is a number
-          setTotalScore(sum);
+          const total = Math.min(sum, 100); // Cap the total score at 100
+          setTotalScore(total);
         })
         .catch((e) => {
           console.error("Error fetching total score:", e);
@@ -140,7 +141,8 @@ export default function AnimatedMCQPage() {
         getGrades(user.uid).then((grades) => {
             const typedGrades = grades as GradeData[];
             const sum = typedGrades.reduce((a, g) => a + (g.score || 0), 0);
-            setTotalScore(sum);
+            const total = Math.min(sum, 100); // Cap the total score at 100
+            setTotalScore(total);
         }).catch(console.error);
     } catch(saveError: any) {
          console.error("Failed to save grade:", saveError);
