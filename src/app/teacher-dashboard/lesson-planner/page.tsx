@@ -17,6 +17,7 @@ import {
   where,
   DocumentData,
   QuerySnapshot,
+  Timestamp // Ensure Timestamp is imported
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { format } from 'date-fns';
@@ -26,6 +27,7 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
+  CardFooter // Import CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +47,6 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 import { generateFlashcards } from '@/ai/flows/generate-flashcards';
 import { generateLessonPlan, GenerateLessonPlanOutput } from '@/ai/flows/generate-lesson-plan';
 import { useToast } from '@/hooks/use-toast';
-import { DashboardNavbar } from '@/app/teacher-dashboard/page';
 import {
   BarChart,
   Bar,
@@ -103,14 +104,20 @@ const LessonPlannerPage = () => {
     if (!user) return;
     const lessonPlansRef = collection(db, `teachers/${user.uid}/lessonPlans`);
     const q = query(lessonPlansRef);
-    getDocs(q)
-      .then(snapshot => {
-        setUserLessonPlans(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      })
-      .catch(e => {
-        setError(e.message);
-        toast({ variant: 'destructive', title: 'Error', description: e.message });
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setUserLessonPlans(
+        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      );
+    }, (e) => {
+      setError(e.message);
+      toast({
+        variant: 'destructive',
+        title: 'Error fetching plans',
+        description: e.message,
       });
+    });
+
+    return () => unsubscribe(); // Clean up listener
   }, [user, toast]);
 
   const handleGenerateFlashcards = async (topic: string) => {
@@ -128,6 +135,14 @@ const LessonPlannerPage = () => {
     if (!user) {
       setError('Not logged in');
       return toast({ variant: 'destructive', title: 'Error', description: 'Please log in.' });
+    }
+    if (!subject || !gradeLevel || !topics || !startDate || !endDate) {
+      setError('Please fill in all required fields.');
+      return toast({
+        variant: 'destructive',
+        title: 'Missing Fields',
+        description: 'Please provide subject, grade, topics, and dates.',
+      });
     }
     setIsLoading(true);
     setError(null);
@@ -173,7 +188,23 @@ const LessonPlannerPage = () => {
         classId: selectedClass,
       });
       toast({ title: 'Saved', description: 'Lesson plan saved.' });
-      router.refresh();
+      // Optionally refresh the list of saved plans
+      const lessonPlansRef = collection(db, `teachers/${user.uid}/lessonPlans`);
+      const q = query(lessonPlansRef);
+      getDocs(q)
+        .then(snapshot => {
+          setUserLessonPlans(
+            snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+          );
+        })
+        .catch(e => {
+          setError(e.message);
+          toast({
+            variant: 'destructive',
+            title: 'Error refreshing plans',
+            description: e.message,
+          });
+        });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Error', description: e.message });
     }
@@ -181,7 +212,7 @@ const LessonPlannerPage = () => {
 
   const chartData = lessonPlanData?.lessonPlan.map(item => ({
     name: `Week ${item.week}`,
-    Activities: item.activities.length,
+    Activities: item.activities.length, // Example metric, adjust as needed
   })) ?? [];
 
   const handleViewLessonPlan = (plan: any) => setSelectedLessonPlan(plan);
@@ -198,240 +229,253 @@ const LessonPlannerPage = () => {
   };
 
   return (
-    <>
-      <DashboardNavbar />
+    <div className="container mx-auto py-8">
+      <Card className="max-w-5xl mx-auto shadow-lg border border-gray-200">
+        <CardHeader>
+          <CardTitle>AI-Powered Lesson Planner</CardTitle>
+          <CardDescription>Define goals and dates to generate a plan.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6">
+          {/* Class Selection */}
+          <div className="grid gap-2">
+            <Label htmlFor="class">Select Class</Label>
+            <Select defaultValue={selectedClass} onValueChange={setSelectedClass}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a class" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map(cls => (
+                  <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      <div className="container mx-auto py-8">
-        <Card className="max-w-5xl mx-auto">
-          <CardHeader>
-            <CardTitle>AI-Powered Lesson Planner</CardTitle>
-            <CardDescription>Define goals and dates to generate a plan.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {/* Class Selection */}
+          {/* Subject & Grade */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="class">Select Class</Label>
-              <Select defaultValue={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a class" />
-                </SelectTrigger>
+              <Label htmlFor="subject">Subject</Label>
+              <Select defaultValue={subject} onValueChange={setSubject}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Select Subject" /></SelectTrigger>
                 <SelectContent>
-                  {classes.map(cls => (
-                    <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                  ))}
+                  {subjectOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Subject & Grade */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="subject">Subject</Label>
-                <Select defaultValue={subject} onValueChange={setSubject}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select Subject" /></SelectTrigger>
-                  <SelectContent>
-                    {subjectOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="gradeLevel">Grade Level</Label>
-                <Select
-                  defaultValue={gradeLevel}
-                  onValueChange={val => {
-                    setGradeLevel(val);
-                    setSelectedGrade(`grade-${val.split(' ')[1]}`);
-                  }}
-                >
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select Grade Level" /></SelectTrigger>
-                  <SelectContent>
-                    {gradeLevelOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Objectives, Topics, Dates */}
             <div className="grid gap-2">
-              <Label htmlFor="learningObjectives">Learning Objectives</Label>
-              <Textarea
-                id="learningObjectives"
-                placeholder="Enter objectives..."
-                value={learningObjectives}
-                onChange={e => setLearningObjectives(e.target.value)}
-              />
+              <Label htmlFor="gradeLevel">Grade Level</Label>
+              <Select
+                defaultValue={gradeLevel}
+                onValueChange={val => {
+                  setGradeLevel(val);
+                  setSelectedGrade(`grade-${val.split(' ')[1]}`);
+                }}
+              >
+                <SelectTrigger className="w-full"><SelectValue placeholder="Select Grade Level" /></SelectTrigger>
+                <SelectContent>
+                  {gradeLevelOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Objectives, Topics, Dates */}
+          <div className="grid gap-2">
+            <Label htmlFor="learningObjectives">Learning Objectives</Label>
+            <Textarea
+              id="learningObjectives"
+              placeholder="Enter objectives..."
+              value={learningObjectives}
+              onChange={e => setLearningObjectives(e.target.value)}
+              className="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="topics">Topics to be Covered</Label>
+            <Textarea
+              id="topics"
+              placeholder="Enter topics..."
+              value={topics}
+              onChange={e => setTopics(e.target.value)}
+              className="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="topics">Topics to be Covered</Label>
-              <Textarea
-                id="topics"
-                placeholder="Enter topics..."
-                value={topics}
-                onChange={e => setTopics(e.target.value)}
-              />
+              <Label htmlFor="endDate">End Date</Label>
+              <Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" />
             </div>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="startDate">Start Date</Label>
-                <Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="endDate">End Date</Label>
-                <Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
-              </div>
-            </div>
+          </div>
 
-            <Button onClick={handleGenerateLessonPlan} disabled={isLoading}>
-              {isLoading ? 'Generating Lesson Plan...' : 'Generate Lesson Plan'}
+          <div className="flex gap-4 mt-4">
+            <Button onClick={handleGenerateLessonPlan} disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+              {isLoading ? 'Generating...' : 'Generate Lesson Plan'}
             </Button>
-            <Button variant="secondary" onClick={() => setOpenViewPlans(true)}>
-              <CalendarIcon className="mr-2 h-4 w-4" /> View Saved Lesson Plans
+            <Button variant="outline" onClick={() => setOpenViewPlans(true)}>
+              <CalendarIcon className="mr-2 h-4 w-4" /> View Saved Plans
             </Button>
+          </div>
 
-            {error && <p className="text-red-500">{error}</p>}
+          {error && <p className="text-red-500 mt-2">{error}</p>}
 
-            {/* Generated Plan */}
-            {lessonPlanData && (
-              <div className="grid gap-4">
-                <Label htmlFor="lessonPlan">Generated Lesson Plan</Label>
-                <h2 className="text-xl font-bold">{lessonPlanData.lessonTitle}</h2>
+          {/* Generated Plan */}
+          {lessonPlanData && (
+            <div className="mt-6 border-t pt-6 grid gap-4">
+              <h2 className="text-xl font-semibold mb-2">{lessonPlanData.lessonTitle}</h2>
+              <div className="grid md:grid-cols-2 gap-4 text-sm text-muted-foreground">
                 <p><strong>Teaching Methods:</strong> {lessonPlanData.teachingMethods}</p>
                 <p><strong>Intended Outcomes:</strong> {lessonPlanData.intendedOutcomes}</p>
+              </div>
 
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="Activities" fill="hsl(var(--primary))" />
-                  </BarChart>
-                </ResponsiveContainer>
-
-                <div className="mb-4 border p-4 rounded">
-                  <ScrollArea className="h-[400px] w-full rounded-md border">
-                    {lessonPlanData.lessonPlan.map((item: LessonPlanItem, idx: number) => (
-                      <div key={idx} className="mb-4 border p-4 rounded">
-                        <Button className="mt-2" onClick={() => handleGenerateFlashcards(item.topic)}>
-                          Generate Flashcards
-                        </Button>
-                        <h3 className="text-lg font-semibold">Week {item.week}</h3>
-                        <p><strong>Topic:</strong> {item.topic}</p>
-                        <p><strong>Activities:</strong> {item.activities}</p>
-                        <p><strong>Teaching Methods:</strong> {item.teachingMethods}</p>
-                        <p><strong>Intended Outcomes:</strong> {item.intendedOutcomes}</p>
-                        <p><strong>Resources:</strong> {item.resources.join(', ')}</p>
-                        <p><strong>Assessment:</strong> {item.assessment}</p>
-                        {item.notes && <p><strong>Notes:</strong> {item.notes}</p>}
-                      </div>
-                    ))}
-                  </ScrollArea>
-                  <Button onClick={handleSaveLessonPlan} disabled={isLoading}>
-                    {isLoading ? 'Saving Lesson Plan...' : 'Save Lesson Plan'}
-                  </Button>
+              {/* Chart Visualization (Example) */}
+              {chartData.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-lg font-medium mb-2">Weekly Activity Load (Example)</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" fontSize={10} />
+                      <YAxis fontSize={10} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="Activities" fill="hsl(var(--primary))" name="Number of Activities" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
+              )}
 
-                {/* Flashcards */}
+              <div className="mt-4 border p-4 rounded-md bg-muted/50 shadow-inner">
+                <h3 className="text-lg font-semibold mb-3">Detailed Plan</h3>
+                <ScrollArea className="h-[400px] w-full rounded-md border bg-white p-4">
+                  {lessonPlanData.lessonPlan.map((item: LessonPlanItem, idx: number) => (
+                    <div key={idx} className="mb-6 border-b pb-4 last:border-b-0 last:pb-0">
+                      <h4 className="text-md font-semibold text-indigo-700 mb-2">Week {item.week}: {item.topic}</h4>
+                      <div className="grid gap-1 text-sm">
+                        <p><strong className="text-gray-600">Activities:</strong> {item.activities}</p>
+                        <p><strong className="text-gray-600">Teaching Methods:</strong> {item.teachingMethods}</p>
+                        <p><strong className="text-gray-600">Intended Outcomes:</strong> {item.intendedOutcomes}</p>
+                        <p><strong className="text-gray-600">Resources:</strong> {item.resources.join(', ')}</p>
+                        <p><strong className="text-gray-600">Assessment:</strong> {item.assessment}</p>
+                        {item.notes && <p><strong className="text-gray-600">Notes:</strong> {item.notes}</p>}
+                        <Button size="sm" variant="outline" className="mt-2 w-fit" onClick={() => handleGenerateFlashcards(item.topic)}>
+                          Generate Flashcards for "{item.topic}"
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </ScrollArea>
+                {/* Flashcards Display */}
                 {flashcards.length > 0 && (
-                  <div className="mt-4">
-                    <h4 className="text-lg font-semibold">Generated Flashcards:</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                  <div className="mt-6">
+                    <h4 className="text-md font-semibold mb-2">Generated Flashcards:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {flashcards.map((card, i) => (
-                        <Card key={i} className="border p-4 rounded shadow">
-                          <CardContent className="p-4">
-                            <p>{card}</p>
-                          </CardContent>
+                        <Card key={i} className="p-3 border rounded shadow-sm bg-white">
+                          <p className="text-sm">{card}</p>
                         </Card>
                       ))}
                     </div>
                   </div>
                 )}
+                <Button onClick={handleSaveLessonPlan} className="mt-4 bg-green-600 hover:bg-green-700 text-white">
+                  Save Lesson Plan
+                </Button>
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* View Saved Plans Dialog */}
+      <Dialog open={openViewPlans} onOpenChange={setOpenViewPlans}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Your Saved Lesson Plans</DialogTitle>
+            <DialogDescription>View and manage your saved lesson plans.</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[400px] w-full rounded-md border p-4">
+            {userLessonPlans.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {userLessonPlans.map(plan => (
+                  <Card key={plan.id} className="border p-4 rounded shadow-sm flex flex-col">
+                    <CardHeader className="p-0 pb-2">
+                      <CardTitle className="text-base">{plan.lessonTitle || 'Untitled Plan'}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0 flex-grow">
+                      <p className="text-xs text-muted-foreground">Subject: {plan.subject}</p>
+                      <p className="text-xs text-muted-foreground">Grade: {plan.gradeLevel}</p>
+                      <p className="text-xs text-muted-foreground">
+                         Created: {plan.dateCreated instanceof Timestamp ? format(plan.dateCreated.toDate(), 'PPP') : 'Date N/A'}
+                      </p>
+                    </CardContent>
+                    <CardFooter className="p-0 pt-3 mt-auto flex justify-between">
+                      <Button variant="outline" size="sm" onClick={() => handleViewLessonPlan(plan)}>
+                        View Details
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDeleteLessonPlan(plan.id)}>
+                        Delete
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-4">No lesson plans saved yet.</p>
             )}
-          </CardContent>
-        </Card>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setOpenViewPlans(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* View Saved Plans Dialog */}
-        <Dialog open={openViewPlans} onOpenChange={setOpenViewPlans}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Your Saved Lesson Plans</DialogTitle>
-              <DialogDescription>View and manage your saved lesson plans.</DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="h-[400px] w-full rounded-md border">
-              {userLessonPlans.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {userLessonPlans.map(plan => (
-                    <Card key={plan.id} className="border p-4 rounded">
-                      <CardHeader>
-                        <CardTitle>{plan.lessonTitle}</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground">Subject: {plan.subject}</p>
-                        <p className="text-sm text-muted-foreground">Grade: {plan.gradeLevel}</p>
-                        <div className="flex justify-between mt-4">
-                          <Button variant="secondary" onClick={() => handleViewLessonPlan(plan)}>
-                            View Details
-                          </Button>
-                          <Button variant="destructive" onClick={() => handleDeleteLessonPlan(plan.id)}>
-                            Delete
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <p>No lesson plans saved yet.</p>
-              )}
-            </ScrollArea>
-            <DialogFooter>
-              <Button variant="secondary" onClick={() => setOpenViewPlans(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* View Single Plan Dialog */}
-        <Dialog open={!!selectedLessonPlan} onOpenChange={() => setSelectedLessonPlan(null)}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>{selectedLessonPlan?.lessonTitle}</DialogTitle>
-              <DialogDescription>Details of the selected lesson plan.</DialogDescription>
-            </DialogHeader>
-            {selectedLessonPlan && (
-              <div className="grid gap-4">
-                <p><strong>Subject:</strong> {selectedLessonPlan.subject}</p>
-                <p><strong>Grade Level:</strong> {selectedLessonPlan.gradeLevel}</p>
-                <p><strong>Learning Objectives:</strong> {selectedLessonPlan.learningObjectives}</p>
-                <ScrollArea className="h-[400px] w-full rounded-md border">
-                  {selectedLessonPlan.lessonPlan.map((item: LessonPlanItem, idx: number) => (
-                    <div key={idx} className="mb-4 border p-4 rounded">
-                      <h3 className="text-lg font-semibold">Week {item.week}</h3>
-                      <p><strong>Topic:</strong> {item.topic}</p>
-                      <p><strong>Activities:</strong> {item.activities}</p>
-                      <p><strong>Teaching Methods:</strong> {item.teachingMethods}</p>
-                      <p><strong>Intended Outcomes:</strong> {item.intendedOutcomes}</p>
-                      <p><strong>Resources:</strong> {item.resources.join(', ')}</p>
-                      <p><strong>Assessment:</strong> {item.assessment}</p>
-                      {item.notes && <p><strong>Notes:</strong> {item.notes}</p>}
+      {/* View Single Plan Dialog */}
+      <Dialog open={!!selectedLessonPlan} onOpenChange={() => setSelectedLessonPlan(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{selectedLessonPlan?.lessonTitle}</DialogTitle>
+            <DialogDescription>Details of the selected lesson plan.</DialogDescription>
+          </DialogHeader>
+          {selectedLessonPlan && (
+            <div className="grid gap-4 mt-4">
+              <p><strong>Subject:</strong> {selectedLessonPlan.subject}</p>
+              <p><strong>Grade Level:</strong> {selectedLessonPlan.gradeLevel}</p>
+              <p><strong>Learning Objectives:</strong> {selectedLessonPlan.learningObjectives}</p>
+              <h3 className="text-lg font-semibold mt-2">Weekly Breakdown</h3>
+              <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-muted/50">
+                {selectedLessonPlan.lessonPlan.map((item: LessonPlanItem, idx: number) => (
+                  <div key={idx} className="mb-6 border-b pb-4 last:border-b-0 last:pb-0">
+                    <h4 className="text-md font-semibold text-indigo-700 mb-2">Week {item.week}: {item.topic}</h4>
+                    <div className="grid gap-1 text-sm">
+                      <p><strong className="text-gray-600">Activities:</strong> {item.activities}</p>
+                      <p><strong className="text-gray-600">Teaching Methods:</strong> {item.teachingMethods}</p>
+                      <p><strong className="text-gray-600">Intended Outcomes:</strong> {item.intendedOutcomes}</p>
+                      <p><strong className="text-gray-600">Resources:</strong> {item.resources.join(', ')}</p>
+                      <p><strong className="text-gray-600">Assessment:</strong> {item.assessment}</p>
+                      {item.notes && <p><strong className="text-gray-600">Notes:</strong> {item.notes}</p>}
                     </div>
-                  ))}
-                </ScrollArea>
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="secondary" onClick={() => setSelectedLessonPlan(null)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </>
+                  </div>
+                ))}
+              </ScrollArea>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setSelectedLessonPlan(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
 export default LessonPlannerPage;
+
+    
