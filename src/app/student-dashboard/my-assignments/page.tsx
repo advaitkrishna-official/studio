@@ -44,6 +44,7 @@ interface BaseAssignment {
   };
   createdBy: string;
   createdAt: Timestamp;
+  type: AssignmentType; // Add type here
 }
 
 interface McqQuestion {
@@ -97,9 +98,11 @@ const StudentAssignmentsPage: React.FC = () => {
       return;
     }
      if (!userClass) {
-       setError('Class not defined for user.'); // Specific error if class is missing
+       // setError('Class not defined for user.'); // Specific error if class is missing
+       // Instead of setting error, maybe show a message or handle gracefully
+       console.log("User class not yet available.");
        setIsLoading(false);
-       return;
+       return; // Don't proceed if class is not defined yet
      }
 
     setIsLoading(true);
@@ -130,18 +133,20 @@ const StudentAssignmentsPage: React.FC = () => {
           id: docSnap.id,
           title: data.title,
           description: data.description,
-          type: data.type,
+          type: data.type as AssignmentType, // Ensure type is correctly assigned
           dueDate: dueDate,
           assignedTo: data.assignedTo,
           createdBy: data.createdBy,
           createdAt: data.createdAt,
           mcqQuestions: data.type === 'MCQ' ? data.mcqQuestions : undefined,
-        } as Assignment;
+        };
 
         // Check if assignment is assigned to this specific student (if studentIds exist)
         // Note: If assignedTo.studentIds is empty or null, it implies assignment to the whole class
-        const isAssigned = !assignment.assignedTo?.studentIds?.length ||
-                           assignment.assignedTo.studentIds.includes(user.uid);
+         // Ensure assignedTo and studentIds exist before checking
+         const isAssigned = !assignment.assignedTo?.studentIds?.length ||
+         (assignment.assignedTo?.studentIds && assignment.assignedTo.studentIds.includes(user.uid));
+
 
         if (isAssigned) {
           assignmentsData.push(assignment);
@@ -191,14 +196,15 @@ const StudentAssignmentsPage: React.FC = () => {
 
   useEffect(() => {
     fetchAssignmentsAndSubmissions();
-  }, [fetchAssignmentsAndSubmissions]); // Depend on the memoized fetch function
+  }, [fetchAssignmentsAndSubmissions]); // Keep dependency on the memoized fetch function for now
 
 
   const handleStartAssignment = async (assignment: Assignment) => {
     setSelectedAssignment(assignment);
     // Reset previous submission state
     setSubmission(null);
-    setMcqAnswers(Array(assignment.type === 'MCQ' && assignment.mcqQuestions ? assignment.mcqQuestions.length : 0).fill(''));
+     // Initialize mcqAnswers based on the number of questions if it's an MCQ assignment
+     setMcqAnswers(Array(assignment.type === 'MCQ' && assignment.mcqQuestions ? assignment.mcqQuestions.length : 0).fill(''));
     setResponseText('');
 
     // Check if there's an existing submission to load (e.g., if they started but didn't finish)
@@ -220,8 +226,19 @@ const StudentAssignmentsPage: React.FC = () => {
          } else if (fetchedSubmission.responseText) {
             setResponseText(fetchedSubmission.responseText);
          } else if (fetchedSubmission.answers) {
-            setMcqAnswers(fetchedSubmission.answers);
+             // Ensure mcqAnswers length matches fetched answers length
+             const fetchedAnswers = fetchedSubmission.answers;
+             const expectedLength = assignment.type === 'MCQ' && assignment.mcqQuestions ? assignment.mcqQuestions.length : 0;
+             // Pad or truncate fetchedAnswers if necessary, though ideally lengths should match
+             const correctLengthAnswers = Array(expectedLength).fill('');
+             if (fetchedAnswers.length > 0) {
+                 for (let i = 0; i < Math.min(fetchedAnswers.length, expectedLength); i++) {
+                     correctLengthAnswers[i] = fetchedAnswers[i];
+                 }
+             }
+             setMcqAnswers(correctLengthAnswers);
          }
+
 
       } else {
          // Default status if no submission doc exists
@@ -238,7 +255,12 @@ const StudentAssignmentsPage: React.FC = () => {
   const handleMcqAnswerChange = (questionIndex: number, answer: string) => {
     setMcqAnswers((prevAnswers) => {
         const newAnswers = [...prevAnswers];
-        newAnswers[questionIndex] = answer;
+        // Ensure the index is within bounds
+        if (questionIndex >= 0 && questionIndex < newAnswers.length) {
+           newAnswers[questionIndex] = answer;
+        } else {
+            console.error(`Index ${questionIndex} out of bounds for mcqAnswers array of length ${newAnswers.length}`);
+        }
         return newAnswers;
      });
   };
@@ -351,7 +373,7 @@ const StudentAssignmentsPage: React.FC = () => {
                   <CardContent className="p-4 space-y-4">
                     <p className="text-muted-foreground">{selectedAssignment.description}</p>
                     <p className="text-sm font-medium">
-                       Due: {formatDueDate(selectedAssignment.dueDate)}
+                        Due: {formatDueDate(selectedAssignment.dueDate)}
                     </p>
 
 
@@ -438,7 +460,7 @@ const StudentAssignmentsPage: React.FC = () => {
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
                      <p className="text-sm text-muted-foreground">
-                        Due: {formatDueDate(assignment.dueDate)}
+                         Due: {formatDueDate(assignment.dueDate)}
                      </p>
                    </CardContent>
                 </Card>
