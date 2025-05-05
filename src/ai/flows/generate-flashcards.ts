@@ -18,13 +18,10 @@ const GenerateFlashcardsInputSchema = z.object({
 });
 export type GenerateFlashcardsInput = z.infer<typeof GenerateFlashcardsInputSchema>;
 
-const FlashcardSchema = z.object({
-  front: z.string().describe('The question or term on the front of the flashcard.'),
-  back: z.string().describe('The answer or definition on the back of the flashcard.'),
-});
+const FlashcardSchema = z.object({ front: z.string().describe('The question or term on the front of the flashcard.'), back: z.string().describe('The answer or definition on the back of the flashcard.') });
 
 const GenerateFlashcardsOutputSchema = z.object({
-  flashcards: z.array(FlashcardSchema).describe('An array of flashcards generated for the topic.'),
+  flashcards: z.array(FlashcardSchema).describe('An array of flashcards.'),
   progress: z.string().optional().describe('A short summary of what was generated.'), // Made optional
 });
 export type GenerateFlashcardsOutput = z.infer<typeof GenerateFlashcardsOutputSchema>;

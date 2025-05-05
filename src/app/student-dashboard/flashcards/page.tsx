@@ -5,6 +5,9 @@ import { motion } from 'framer-motion';
 import {
   Card,
   CardContent,
+  CardHeader, // Added CardHeader
+  CardTitle, // Added CardTitle
+  CardDescription // Added CardDescription
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,7 +41,7 @@ export default function AnimatedFlashcardPage() {
 
   // Fetch average score from previous grades
   const fetchTotalScore = useCallback(async () => {
-    if (!user) {
+    if (!user || authLoading) { // Also wait for auth loading to finish
       setTotalScore(null);
       return;
     }
@@ -52,30 +55,30 @@ export default function AnimatedFlashcardPage() {
       }
     } catch {
       toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch previous scores.' });
-      setTotalScore(0);
+      setTotalScore(0); // Set to 0 on error to avoid null state loops
     }
-  }, [user, toast]);
+  }, [user, toast, authLoading]); // Add authLoading
 
   useEffect(() => {
     fetchTotalScore();
-  }, [fetchTotalScore]);
+  }, [fetchTotalScore]); // Dependency array already correct
 
   const handleGenerate = async () => {
     console.log(`Flashcards: handleGenerate called. authLoading: ${authLoading}, user: ${!!user}, userClass: ${userClass}`); // Debug log
 
-    // Check auth status and userClass before proceeding
+    // Enhanced check for auth status and userClass
     if (authLoading) {
-        toast({ variant: 'destructive', title: 'Please wait', description: 'Authentication is still loading.' });
-        console.log("Flashcards: Generation blocked - auth is loading.");
-        return;
+      toast({ variant: 'destructive', title: 'Please wait', description: 'Authentication is still loading.' });
+      console.log("Flashcards: Generation blocked - auth is loading.");
+      return;
     }
     if (!user) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please log in to generate flashcards.' });
        console.log("Flashcards: Generation blocked - user not logged in.");
       return;
     }
+    // Check userClass AFTER checking authLoading and user
     if (!userClass) {
-      // This should ideally not happen if authLoading is false and user exists, but good to check
       toast({ variant: 'destructive', title: 'Error', description: 'Student grade information is missing. Cannot generate flashcards.' });
       console.error("Flashcard Generation Error: userClass is null or undefined even though authLoading is false and user exists.");
       setError("Could not load your grade information. Please try logging out and back in.");
@@ -96,19 +99,21 @@ export default function AnimatedFlashcardPage() {
       setProgress(50);
       // Prepare grade string for AI (e.g., "Grade 8" -> "grade-8")
       const gradeForAI = userClass.toLowerCase().replace(/\s+/g, '-');
-      console.log(`Flashcards: Generating for topic "${topic}" and grade "${gradeForAI}" (Original: ${userClass})`); // Debug log
+      console.log(`Flashcards: Generating for topic "${topic}", numCards: ${numCards}, and grade "${gradeForAI}" (Original: ${userClass})`); // Debug log
       const res = await generateFlashcards({ topic, numCards, grade: gradeForAI });
 
-      if (res?.flashcards && Array.isArray(res.flashcards) && res.flashcards.length > 0) {
-        setFlashcards(res);
-        setProgress(100);
-        toast({ title: 'Flashcards Generated', description: `${res.flashcards.length} cards ready!` });
-      } else if (res?.flashcards && Array.isArray(res.flashcards) && res.flashcards.length === 0) {
-         setError('No flashcards were generated for this topic and grade.');
-         toast({ variant: 'default', title: 'No Cards Generated', description: 'Try a different topic or number of cards.' });
-         setProgress(0);
-      }
-      else {
+      if (res?.flashcards && Array.isArray(res.flashcards)) {
+         if (res.flashcards.length > 0) {
+           setFlashcards(res);
+           setProgress(100);
+           toast({ title: 'Flashcards Generated', description: `${res.flashcards.length} cards ready!` });
+         } else {
+           // Handle case where AI returns an empty array
+           setError('No flashcards were generated for this topic and grade.');
+           toast({ variant: 'default', title: 'No Cards Generated', description: 'Try a different topic or number of cards.' });
+           setProgress(0);
+         }
+      } else {
         console.error("Flashcards: Received invalid response structure from AI:", res);
         throw new Error('Received invalid response from AI.');
       }
@@ -118,6 +123,8 @@ export default function AnimatedFlashcardPage() {
         ? 'API quota limit reached. Please try again later.'
         : e.message?.includes('invalid response')
         ? 'The AI returned an unexpected response. Please try again.'
+        : e.message?.includes('AI returned an invalid response structure') // Catch specific errors
+        ? 'The AI failed to generate cards in the expected format. Please try again.'
         : e.message || 'An error occurred during generation.';
       setError(msg);
       setProgress(0);
@@ -132,7 +139,17 @@ export default function AnimatedFlashcardPage() {
 
   // Disable button if auth is loading, AI is generating, user info missing, or topic empty
   const isGenerateDisabled = isLoading || authLoading || !user || !userClass || !topic.trim();
-  console.log(`Flashcards: isGenerateDisabled: ${isGenerateDisabled} (isLoading: ${isLoading}, authLoading: ${authLoading}, user: ${!!user}, userClass: ${userClass}, topic: ${!topic.trim()})`); // Debug log
+  console.log(`Flashcards: isGenerateDisabled: ${isGenerateDisabled} (isLoading: ${isLoading}, authLoading: ${authLoading}, user: ${!!user}, userClass: ${userClass}, topic empty: ${!topic.trim()})`); // Debug log
+
+  // UI Rendering
+  if (authLoading) {
+    // Show a loading indicator for the entire page while auth is loading
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-100">
+        <span className="loader"></span>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 md:p-10">
@@ -158,15 +175,13 @@ export default function AnimatedFlashcardPage() {
         <div className="text-center">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-800">Flashcard Generator</h1>
           <p className="text-gray-600 mt-1">Enter a topic and number of cards to study.</p>
-           {/* Display User Class or loading/error state */}
-          {authLoading ? (
-             <p className="text-sm text-gray-500 mt-1 animate-pulse">Loading grade info...</p>
-          ) : userClass ? (
+          {/* Display User Class or error state */}
+          {userClass ? (
             <p className="text-sm text-gray-500 mt-1">Grade Level: {userClass}</p>
-          ) : user ? ( // Added check for user existence before showing the error
-             <p className="text-sm text-red-500 mt-1">Grade information not loaded. Please log in again.</p>
+          ) : user ? ( // Check user existence before showing the error
+            <p className="text-sm text-red-500 mt-1">Grade information not loaded. Please log in again.</p>
           ) : (
-             <p className="text-sm text-gray-500 mt-1">Please log in to see grade info.</p> // Message for logged out users
+            <p className="text-sm text-gray-500 mt-1">Please log in to see grade info.</p> // Message for logged out users
           )}
         </div>
 
@@ -179,7 +194,7 @@ export default function AnimatedFlashcardPage() {
               value={topic}
               onChange={e => setTopic(e.target.value)}
               placeholder="e.g., Photosynthesis, World War II"
-              disabled={authLoading || !userClass} // Disable if auth or class info isn't ready
+              disabled={!userClass} // Disable only if userClass is missing (auth handled by outer check)
             />
           </div>
           <div className="space-y-2">
@@ -191,7 +206,7 @@ export default function AnimatedFlashcardPage() {
               onChange={e => setNumCards(Math.max(1, Math.min(20, +e.target.value)))}
               min={1}
               max={20}
-               disabled={authLoading || !userClass} // Disable if auth or class info isn't ready
+               disabled={!userClass} // Disable only if userClass is missing
             />
           </div>
           <Button
@@ -205,9 +220,9 @@ export default function AnimatedFlashcardPage() {
 
         {/* Progress & Feedback */}
         {isLoading && <Progress value={progress} className="h-2 w-full" />}
-        {error && <p className="text-red-500 text-center mt-2">{error}</p>} {/* Added margin top */}
+        {error && <p className="text-red-500 text-center mt-2">{error}</p>}
         {totalScore !== null && !isLoading && !error && ( // Only show score if not loading/erroring
-          <p className="text-right text-gray-700 font-medium mt-2"> {/* Added margin top */}
+          <p className="text-right text-gray-700 font-medium mt-2">
             Average Flashcard Score: {totalScore.toFixed(1)}%
           </p>
         )}
@@ -248,7 +263,7 @@ export default function AnimatedFlashcardPage() {
         ) : (
           !isLoading &&
           !error &&
-          flashcards === null && ( // Only show placeholder if not loading, no error, and no cards generated yet
+          flashcards === null && ( // Show placeholder only if not loading, no error, and no generation attempt made/failed
             <p className="text-center text-gray-500 mt-6">
               Enter a topic above to generate flashcards.
             </p>
@@ -280,7 +295,7 @@ const AnimatedFlashcard = React.forwardRef<HTMLDivElement, AnimatedFlashcardProp
         flipTimeoutRef.current = setTimeout(() => {
           setIsFlipped(false);
           flipTimeoutRef.current = null;
-        }, 5000);
+        }, 5000); // 5 seconds timeout
       }
     };
 
@@ -294,7 +309,7 @@ const AnimatedFlashcard = React.forwardRef<HTMLDivElement, AnimatedFlashcardProp
     }, []);
 
     useEffect(() => {
-      // Reset flip state and timeout when content changes
+      // Reset flip state and timeout when content changes (new card)
       setIsFlipped(false);
       if (flipTimeoutRef.current) {
         clearTimeout(flipTimeoutRef.current);
@@ -305,28 +320,28 @@ const AnimatedFlashcard = React.forwardRef<HTMLDivElement, AnimatedFlashcardProp
     return (
       <div
         ref={ref}
-        className="w-full h-56 perspective cursor-pointer"
+        className="w-full h-56 perspective cursor-pointer" // Added perspective class
         onClick={handleClick}
         aria-live="polite" // Announce content changes for screen readers
       >
         <motion.div
           animate={{ rotateY: isFlipped ? 180 : 0 }}
           transition={{ duration: 0.6 }}
-          className="relative w-full h-full preserve-3d"
+          className="relative w-full h-full preserve-3d" // Added preserve-3d
         >
           {/* Front Face */}
-          <Card className="absolute inset-0 backface-hidden flex items-center justify-center p-6 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-lg shadow-lg">
-            <CardContent className="text-center"> {/* Center align content */}
-              <h3 className="text-xl font-semibold text-indigo-800 mb-2">Question</h3>
-              <p className="text-lg text-gray-800">{front}</p>
-            </CardContent>
+          <Card className="absolute inset-0 backface-hidden flex items-center justify-center p-6 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-lg shadow-lg"> {/* Added backface-hidden */}
+             <CardContent className="text-center p-0"> {/* Removed default CardContent padding */}
+                <h3 className="text-xl font-semibold text-indigo-800 mb-2">Question</h3>
+                <p className="text-lg text-gray-800">{front}</p>
+             </CardContent>
           </Card>
           {/* Back Face */}
-          <Card className="absolute inset-0 backface-hidden rotate-y-180 flex items-center justify-center p-6 bg-gradient-to-br from-green-100 to-teal-100 rounded-lg shadow-lg">
-            <CardContent className="text-center"> {/* Center align content */}
-              <h3 className="text-xl font-semibold text-green-800 mb-2">Answer</h3>
-              <p className="text-lg text-gray-800">{back}</p>
-            </CardContent>
+          <Card className="absolute inset-0 backface-hidden rotate-y-180 flex items-center justify-center p-6 bg-gradient-to-br from-green-100 to-teal-100 rounded-lg shadow-lg"> {/* Added rotate-y-180 and backface-hidden */}
+             <CardContent className="text-center p-0"> {/* Removed default CardContent padding */}
+               <h3 className="text-xl font-semibold text-green-800 mb-2">Answer</h3>
+               <p className="text-lg text-gray-800">{back}</p>
+             </CardContent>
           </Card>
         </motion.div>
       </div>
