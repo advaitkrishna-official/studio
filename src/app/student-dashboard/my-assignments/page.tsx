@@ -80,20 +80,30 @@ const StudentAssignmentsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const {toast} = useToast();
-  const {user, userClass} = useAuth();
+  const {user, userClass, loading: authLoading} = useAuth(); // Get authLoading state
   const [mcqAnswers, setMcqAnswers] = useState<string[]>([]);
   const [responseText, setResponseText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchAssignmentsAndSubmissions = useCallback(async () => {
-    if (!user?.uid || !userClass) {
-      setError('User not logged in or class not defined.');
+    // Wait for auth to finish loading and check for user/class
+    if (authLoading) {
+      setIsLoading(true); // Keep loading state while auth is resolving
+      return;
+    }
+    if (!user?.uid) {
+      // setError('User not logged in.'); // No need to set error, just wait for auth
       setIsLoading(false);
       return;
     }
+     if (!userClass) {
+       setError('Class not defined for user.'); // Specific error if class is missing
+       setIsLoading(false);
+       return;
+     }
 
     setIsLoading(true);
-    setError(null);
+    setError(null); // Reset error on new fetch attempt
 
     try {
       // Query for assignments assigned to the student's class
@@ -111,7 +121,8 @@ const StudentAssignmentsPage: React.FC = () => {
         const data = docSnap.data() as DocumentData;
         let dueDate = null;
         if (data.dueDate) {
-          dueDate = data.dueDate instanceof Timestamp ? data.dueDate.toDate() : (typeof data.dueDate === 'string' ? new Date(data.dueDate) : null);
+          // Handle both Firestore Timestamp and JS Date (from previous submissions)
+          dueDate = data.dueDate instanceof Timestamp ? data.dueDate.toDate() : (data.dueDate instanceof Date ? data.dueDate : (typeof data.dueDate === 'string' ? new Date(data.dueDate) : null));
         }
 
 
@@ -128,7 +139,7 @@ const StudentAssignmentsPage: React.FC = () => {
         } as Assignment;
 
         // Check if assignment is assigned to this specific student (if studentIds exist)
-        // Note: If assignedTo.studentIds is empty, it implies assignment to the whole class
+        // Note: If assignedTo.studentIds is empty or null, it implies assignment to the whole class
         const isAssigned = !assignment.assignedTo?.studentIds?.length ||
                            assignment.assignedTo.studentIds.includes(user.uid);
 
@@ -155,6 +166,14 @@ const StudentAssignmentsPage: React.FC = () => {
          return !sub || sub.status !== 'Submitted';
       });
 
+      // Sort assignments by due date (ascending, nulls last)
+      filteredAssignments.sort((a, b) => {
+        const dateA = a.dueDate instanceof Date ? a.dueDate.getTime() : Infinity;
+        const dateB = b.dueDate instanceof Date ? b.dueDate.getTime() : Infinity;
+        return dateA - dateB;
+      });
+
+
       setAssignments(filteredAssignments);
 
     } catch (e: any) {
@@ -168,7 +187,7 @@ const StudentAssignmentsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, userClass, toast]);
+  }, [user, userClass, toast, authLoading]); // Add authLoading dependency
 
   useEffect(() => {
     fetchAssignmentsAndSubmissions();
@@ -185,8 +204,12 @@ const StudentAssignmentsPage: React.FC = () => {
     // Check if there's an existing submission to load (e.g., if they started but didn't finish)
     // This part can be enhanced if saving progress is needed.
     // For now, we just fetch the final submission status if it exists.
+    if (!user?.uid) {
+        setError("User not found");
+        return;
+    }
     try {
-      const submissionRef = doc(db, 'assignments', assignment.id, 'submissions', user!.uid);
+      const submissionRef = doc(db, 'assignments', assignment.id, 'submissions', user.uid);
       const submissionSnap = await getDoc(submissionRef);
       if (submissionSnap.exists()) {
          const fetchedSubmission = submissionSnap.data() as Submission;
@@ -294,9 +317,14 @@ const StudentAssignmentsPage: React.FC = () => {
     return 'Invalid date';
   };
 
-  if (isLoading) {
-     // Optional: Add a loading spinner or skeleton UI here
-    return <div className="container mx-auto py-8 text-center">Loading assignments...</div>;
+  // Show loading indicator if auth or assignments are loading
+  if (authLoading || isLoading) {
+    return <div className="container mx-auto py-8 text-center"><span className="loader"></span></div>;
+  }
+
+  // Show error message if any
+  if (error) {
+    return <div className="container mx-auto py-8 text-center text-red-500">{error}</div>;
   }
 
   return (
@@ -307,7 +335,6 @@ const StudentAssignmentsPage: React.FC = () => {
           <CardDescription>View and complete your assigned tasks.</CardDescription>
         </CardHeader>
         <CardContent className="p-6">
-          {error && <p className="text-red-500 mb-4">{error}</p>}
 
           {selectedAssignment ? (
             <div className="space-y-6">
@@ -339,6 +366,7 @@ const StudentAssignmentsPage: React.FC = () => {
                                 <RadioGroup
                                   value={mcqAnswers[index]}
                                   onValueChange={(value) => handleMcqAnswerChange(index, value)}
+                                  className="space-y-2"
                                 >
                                   {question.options.map((option, i) => (
                                     <div key={option + i} className="flex items-center space-x-2">
@@ -363,8 +391,6 @@ const StudentAssignmentsPage: React.FC = () => {
                               rows={8}
                               className="resize-none"
                             />
-                            {/* Optional: Input for link if needed */}
-                            {/* <Input placeholder="Optional: Link to your work (e.g., Google Doc)" className="mt-2" /> */}
                           </div>
                         )}
 
@@ -395,7 +421,7 @@ const StudentAssignmentsPage: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {assignments.length === 0 && !isLoading && (
+              {assignments.length === 0 && (
                 <p className="text-center text-muted-foreground">No assignments due at the moment.</p>
               )}
               {assignments.map((assignment) => (
@@ -413,8 +439,6 @@ const StudentAssignmentsPage: React.FC = () => {
                      <p className="text-sm text-muted-foreground">
                         Due: {formatDueDate(assignment.dueDate)}
                      </p>
-                     {/* Optional: Add a brief description snippet */}
-                     {/* <p className="text-sm mt-1 line-clamp-1">{assignment.description}</p> */}
                    </CardContent>
                 </Card>
               ))}
@@ -427,3 +451,4 @@ const StudentAssignmentsPage: React.FC = () => {
 };
 
 export default StudentAssignmentsPage;
+    
