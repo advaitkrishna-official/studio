@@ -7,7 +7,7 @@ import { auth, db } from '@/lib/firebase';
 import { motion } from 'framer-motion';
 import { collection, query, onSnapshot, where, DocumentData, Timestamp, getDocs, doc, getDoc, orderBy } from 'firebase/firestore';
 import { useAuth } from '@/components/auth-provider';
-import { format, isPast } from 'date-fns';
+import { format, isPast, isToday } from 'date-fns';
 import {
   Card,
   CardHeader,
@@ -16,7 +16,6 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import MyAssignments from './my-assignments/page'; // Ensure this path is correct
 import AITutorPage from './ai-tutor/page'; // Ensure this path is correct
 import { Progress } from '@/components/ui/progress';
 import {
@@ -29,32 +28,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  Menu,
-  Home,
-  ListChecks,
-  BookCopy,
-  LayoutGrid,
-  PencilRuler,
-  LineChart,
-  BookOpen,
-  Bell,
-  Settings,
-  HelpCircle,
-  LogOut,
-  Code,
-  Brain,
-  BrainCircuit,
-  BookText,
-  GraduationCap,
-  Database,
-  Cpu,
-  Hash,
-  FileQuestion,
-  FlaskConical,
-  History,
   BookOpenCheck,
   CalendarDays,
   Lightbulb,
+  LineChart,
+  ListChecks
 } from 'lucide-react';
 
 interface Assignment {
@@ -87,7 +65,7 @@ export default function StudentDashboardPage() {
   const [loadingProgress, setLoadingProgress] = useState(true);
   const [dueTodayCount, setDueTodayCount] = useState<number>(0); // State for tasks due today
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [chatOpen, setChatOpen] = useState(false); // AI Tutor chat state
+  const [chatOpen, setChatOpen] = useState(false); // AI Tutor chat state - Keep if AI tutor is floating button in layout
 
   // Fetch assignments and progress - Adjusted logic
   useEffect(() => {
@@ -103,8 +81,10 @@ export default function StudentDashboardPage() {
     const assignmentsQuery = query(
       collection(db, 'assignments'),
       where('assignedTo.classId', '==', userClass)
-      // Add filtering for specific student ID if necessary: where('assignedTo.studentIds', 'array-contains', user.uid)
+      // If assignments are assigned to specific students, add:
+      // where('assignedTo.studentIds', 'array-contains', user.uid)
     );
+
 
     const unsubAssignments = onSnapshot(assignmentsQuery, async (snap) => {
       const now = new Date();
@@ -119,32 +99,47 @@ export default function StudentDashboardPage() {
        // Iterate through assignments to fetch submission status
       for (const docSnap of snap.docs) {
         const d = docSnap.data() as DocumentData;
-        let dueDate: Date | null = null;
-        dueDate = isTimestamp(d.dueDate) ? d.dueDate.toDate() : (d.dueDate instanceof Date ? d.dueDate : null);
+         // Ensure assignedTo and assignedTo.studentIds exist before checking
+        const isAssignedToUser = d.assignedTo?.studentIds?.length === 0 || d.assignedTo?.studentIds?.includes(user.uid);
 
-        if (dueDate instanceof Date && !isNaN(dueDate.getTime())) {
-          const assignment: Assignment = {
-            id: docSnap.id,
-            title: d.title || 'Untitled Assignment',
-            description: d.description || '',
-            type: d.type || 'Other',
-            dueDate: dueDate,
-            assignedTo: d.assignedTo || { classId: userClass, studentIds: [] },
-          };
+        // If assignments can be assigned class-wide OR individually
+        if (isAssignedToUser) {
+            let dueDate: Date | null = null;
+             // Check if dueDate exists and is a Firestore Timestamp
+             if (d.dueDate && d.dueDate.seconds) {
+                 dueDate = new Timestamp(d.dueDate.seconds, d.dueDate.nanoseconds).toDate();
+             } else if (d.dueDate instanceof Date) {
+                 dueDate = d.dueDate;
+             }
 
-          assignmentsData.push(assignment); // Add assignment first
+            if (dueDate instanceof Date && !isNaN(dueDate.getTime())) {
+              const assignment: Assignment = {
+                id: docSnap.id,
+                title: d.title || 'Untitled Assignment',
+                description: d.description || '',
+                type: d.type || 'Other',
+                dueDate: dueDate,
+                assignedTo: d.assignedTo || { classId: userClass, studentIds: [] },
+              };
 
-          // Check if due today (before filtering submitted)
-          if (dueDate >= todayStart && dueDate < todayEnd) {
-        // Fetch submission status for this assignment
-            const subRef = doc(db, 'assignments', assignment.id, 'submissions', user.uid);
-            submissionPromises.push(
-              getDoc(subRef).then(subSnap => ({ id: assignment.id, submitted: subSnap.exists() && subSnap.data()?.status === 'Submitted' }))
-            );
-          }
-        } else {
-          console.warn(`Skipping assignment ${docSnap.id} due to invalid dueDate`);
+              assignmentsData.push(assignment); // Add assignment first
+
+               // Check if due today (before filtering submitted)
+               if (dueDate >= todayStart && dueDate < todayEnd) {
+                 // Fetch submission status for this assignment
+                 const subRef = doc(db, 'assignments', assignment.id, 'submissions', user.uid);
+                 submissionPromises.push(
+                   getDoc(subRef).then(subSnap => ({
+                     id: assignment.id,
+                     submitted: subSnap.exists() && (subSnap.data()?.status === 'Submitted' || subSnap.data()?.status === 'Graded')
+                   }))
+                 );
+               }
+            } else {
+              console.warn(`Skipping assignment ${docSnap.id} due to invalid dueDate:`, d.dueDate);
+            }
         }
+
       }
 
        // Wait for all submission checks
@@ -158,7 +153,7 @@ export default function StudentDashboardPage() {
       }).length;
 
 
-      setAssignments(assignmentsData); // Store all valid assignments for potential display elsewhere
+      setAssignments(assignmentsData.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())); // Store all valid assignments, sorted by due date
       setDueTodayCount(countDueToday); // Update count of *unsubmitted* tasks due today
       setLoadingTasks(false);
     }, (error) => {
@@ -205,26 +200,11 @@ export default function StudentDashboardPage() {
     return user.displayName || user.email?.split('@')[0] || 'Student';
   };
 
-  // Placeholder for handling logout
-  const handleLogout = async () => {
-    await signOut(); // Call signOut from context
-    // router.push('/login'); // Redirect is handled by AuthProvider
-  };
-
-    // Determine initials for Avatar fallback
-    const getInitials = (name: string) => {
-      return name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .toUpperCase();
-    };
-
 
   // Main render logic
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[calc(100vh-100px)]">
         <span className="loader"></span>
       </div>
     );
@@ -285,8 +265,8 @@ export default function StudentDashboardPage() {
                  </Button>
                </CardContent>
              </Card>
-             {/* AI Tutor Tip Card - Removed as AI Tutor is now floating button */}
-              {/* <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+             {/* AI Tutor Tip Card */}
+              <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-200 bg-gradient-to-r from-purple-50 to-indigo-50">
                  <CardHeader className="pb-2">
                    <CardTitle className="text-base font-medium text-gray-500 flex items-center">
                       <Lightbulb className="mr-2 h-4 w-4 text-yellow-500"/> AI Tutor Tip
@@ -296,51 +276,38 @@ export default function StudentDashboardPage() {
                      <p className="text-sm text-gray-700 mb-3">
                        "Stuck on Algebra? Ask me: 'Explain the quadratic formula step-by-step'!"
                      </p>
+                     {/* Removed the "Ask AI Tutor" button as the tutor is now a floating chat */}
                  </CardContent>
-              </Card> */}
+              </Card>
           </div>
 
           {/* Main Content Area - Quick Links or Recent Activity */}
           <section className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Example: Continue Learning Section */}
+              {/* Continue Learning Section - Only Programming */}
                <Card className="shadow-sm border border-gray-200">
                    <CardHeader>
                        <CardTitle className="flex items-center"><BookOpenCheck className="mr-2 h-5 w-5 text-blue-500"/> Continue Learning</CardTitle>
                        <CardDescription>Pick up where you left off.</CardDescription>
                    </CardHeader>
                    <CardContent className="space-y-3">
-                       {/* Replace with dynamic course data */}
                        <div className="flex items-center justify-between">
-                           <span>Mathematics</span>
-                           <Button size="sm" variant="outline" onClick={() => router.push('/student-dashboard/mathematics')}>Continue</Button>
-                       </div>
-                       <div className="flex items-center justify-between">
-                           <span>Data Science</span>
-                           <Button size="sm" variant="outline" onClick={() => router.push('/student-dashboard/data-science')}>Continue</Button>
-                       </div>
-                        {/* Add buttons for Programming and Machine Learning if needed */}
-                         <div className="flex items-center justify-between">
                             <span>Programming</span>
                             <Button size="sm" variant="outline" onClick={() => router.push('/student-dashboard/programming')}>Continue</Button>
-                        </div>
-                         <div className="flex items-center justify-between">
-                            <span>Machine Learning</span>
-                            <Button size="sm" variant="outline" onClick={() => router.push('/student-dashboard/machine-learning')}>Continue</Button>
                         </div>
                    </CardContent>
                </Card>
 
-                {/* Example: Upcoming Assignments */}
+                {/* Upcoming Assignments */}
                 <Card className="shadow-sm border border-gray-200">
                    <CardHeader>
                        <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5 text-orange-500"/> Upcoming Assignments</CardTitle>
                        <CardDescription>Stay on top of your deadlines.</CardDescription>
                    </CardHeader>
                    <CardContent>
-                       {loadingTasks ? <p>Loading...</p> : assignments.slice(0, 3).map(a => ( // Show top 3
+                       {loadingTasks ? <p>Loading...</p> : assignments.slice(0, 3).map(a => ( // Show top 3 upcoming
                            <div key={a.id} className="flex items-center justify-between text-sm py-1 border-b last:border-b-0">
                                <span>{a.title} ({a.type})</span>
-                               <span className="text-muted-foreground">{format(isTimestamp(a.dueDate) ? a.dueDate.toDate() : a.dueDate, 'MMM dd')}</span>
+                               <span className="text-muted-foreground">{format(a.dueDate, 'MMM dd')}</span>
                            </div>
                        ))}
                        {assignments.length === 0 && !loadingTasks && <p>No upcoming assignments.</p>}
@@ -351,45 +318,6 @@ export default function StudentDashboardPage() {
                </Card>
           </section>
 
-          {/* AI Tutor Floating Button - Moved to layout */}
-          {/* Fixed AI Tutor Button and Panel Container */}
-          {/* <div className="fixed bottom-6 right-6 z-50">
-             {chatOpen && (
-               <motion.div
-                 initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                 exit={{ opacity: 0, y: 50, scale: 0.9 }}
-                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                 className="mb-2 w-80 h-96 bg-white shadow-xl rounded-lg border border-gray-200 overflow-hidden flex flex-col"
-                 style={{ maxHeight: 'calc(100vh - 90px)' }} // Ensure it doesn't overflow viewport significantly
-               >
-                 <div className="flex items-center justify-between bg-indigo-600 p-2 text-white">
-                   <span className="font-semibold text-sm ml-1">AI Tutor</span>
-                   <button onClick={() => setChatOpen(false)} className="text-indigo-100 hover:text-white hover:bg-indigo-700 rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-white">
-                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                       </svg>
-                     </button>
-                 </div>
-                 <div className="flex-1 overflow-auto">
-                   <AITutorPage />
-                 </div>
-               </motion.div>
-             )}
-             <motion.button
-               onClick={() => setChatOpen(o => !o)}
-               className={`w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                 chatOpen ? 'bg-indigo-700 hover:bg-indigo-800' : 'bg-indigo-600 hover:bg-indigo-700'
-               }`}
-               whileHover={{ scale: 1.1 }}
-               whileTap={{ scale: 0.95 }}
-               aria-label="Toggle AI Tutor Chat"
-             >
-               {chatOpen ? <BrainCircuit size={28} /> : <Brain size={28} />}
-             </motion.button>
-           </div> */}
       </div>
   );
 }
-
-    
