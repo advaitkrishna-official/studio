@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -55,11 +54,6 @@ interface GradeData {
   feedback: string;
   timestamp: Timestamp | Date;
 }
-
-// Type guard to check if a value is a Firestore Timestamp - Moved outside component
-// function isTimestamp(value: any): value is Timestamp {
-//  return typeof value === 'object' && value !== null && value instanceof Timestamp;
-// }
 
 export default function StudentDashboardPage() {
   const { user, userClass, loading: authLoading, signOut } = useAuth(); // Added signOut
@@ -370,3 +364,4 @@ export default function StudentDashboardPage() {
       </div>
   );
 }
+
