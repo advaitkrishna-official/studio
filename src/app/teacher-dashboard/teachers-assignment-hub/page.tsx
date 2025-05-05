@@ -94,26 +94,24 @@ interface Submission {
 
 // Robust date formatting function
 const formatDate = (d: Date | Timestamp | undefined | null): string => {
-    if (!d) return 'No Date';
-    let dateObj: Date | null = null;
+  if (!d) return 'No Date';
+  let dateObj: Date | null = null;
+  if (isTimestamp(d)) { // Use the type guard
+      dateObj = d.toDate();
+  } else if (d instanceof Date) {
+      dateObj = d;
+  }
 
-    if (isTimestamp(d)) { // Use type guard
-        dateObj = d.toDate();
-    } else if (d instanceof Date) {
-        dateObj = d;
-    }
-
-    if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
-        try {
-            // Format to include date and time
-            return format(dateObj, 'PPP p'); // Example: Jun 20, 2024, 12:00 PM
-        } catch (e) {
-            console.error("Error formatting date:", e);
-            return 'Invalid Date';
-        }
-    }
-    console.warn("Received non-standard date object:", d);
-    return 'Invalid Date';
+  if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
+      try {
+          // Format to include time, adjust format as needed
+          return format(dateObj, 'PPP p'); // Example: Jun 20, 2024, 12:00 PM
+      } catch (e) {
+          console.error("Error formatting date:", e);
+          return 'Invalid Date';
+      }
+  }
+  return 'Invalid Date';
 };
 
 
@@ -201,13 +199,12 @@ export default function TeachersAssignmentHubPage() {
     setAssignmentError(null);
     console.log(`Fetching assignments for teacher ${user.uid} and class ${selectedClass}`);
 
-    // THIS IS THE QUERY REQUIRING THE INDEX:
-    // Index needed: assignedTo.classId (Asc), createdBy (Asc), createdAt (Desc)
+    // ** Temporarily Removed orderBy to simplify index requirement **
     const q = query(
       collection(db, 'assignments'),
       where('createdBy', '==', user.uid),
-      where('assignedTo.classId', '==', selectedClass),
-      orderBy('createdAt', 'desc')
+      where('assignedTo.classId', '==', selectedClass)
+      // orderBy('createdAt', 'desc') // Temporarily removed
     );
 
     const unsubscribe = onSnapshot(q, snap => {
@@ -216,13 +213,14 @@ export default function TeachersAssignmentHubPage() {
       snap.docs.forEach(d => {
         const data = d.data() as DocumentData;
         let due: Date | null = null;
-
         // Robust date handling
         if (isTimestamp(data.dueDate)) { // Use type guard
           due = data.dueDate.toDate();
         } else if (typeof data.dueDate === 'string') {
           try { due = new Date(data.dueDate); } catch { due = null; }
-        } else if (data.dueDate instanceof Date && !isNaN(data.dueDate.getTime())) { // Handle JS Date object
+        } else if (data.dueDate?.seconds) { // Handle Firestore Timestamp object format
+          due = new Timestamp(data.dueDate.seconds, data.dueDate.nanoseconds).toDate();
+        } else if (data.dueDate instanceof Date) { // Handle JS Date object
             due = data.dueDate;
         }
 
@@ -242,23 +240,17 @@ export default function TeachersAssignmentHubPage() {
            console.warn(`Invalid or missing dueDate for assignment ${d.id}:`, data.dueDate);
         }
       });
+       // Sort client-side if orderBy was removed
+       items.sort((a, b) => (b.createdAt?.toDate()?.getTime() ?? 0) - (a.createdAt?.toDate()?.getTime() ?? 0));
       console.log(`Processed ${items.length} valid assignments.`);
       setAssignments(items);
       setLoadingAssignments(false);
     }, (error) => {
         console.error(`Error fetching assignments for class ${selectedClass}:`, error);
-        // Check if the error message indicates a missing index
-        if (error.message.includes("query requires an index")) {
-             // Provide a more user-friendly message and the index creation link
-             const indexLink = error.message.substring(error.message.indexOf('https://'));
-             setAssignmentError(`Missing Firestore index. Please create it here: ${indexLink}`);
-             toast({ variant: 'destructive', title: 'Database Index Required', description: 'A required database index is missing. Click the link in the console or the error message on the page to create it.', duration: 10000 });
-        } else {
-            setAssignmentError(`Failed to load assignments: ${error.message}`);
-             toast({ variant: 'destructive', title: 'Loading Error', description: `Failed to load assignments for ${selectedClass}. Check console for details.` });
-        }
+        setAssignmentError(`Failed to load assignments: ${error.message}`);
         setLoadingAssignments(false);
         setAssignments([]); // Clear on error
+        toast({ variant: 'destructive', title: 'Loading Error', description: `Failed to load assignments for ${selectedClass}. ${error.message.includes('index') ? 'Firestore index might be missing or building.' : 'Check console for details.'}` });
     });
 
     // Cleanup listener
@@ -287,7 +279,7 @@ export default function TeachersAssignmentHubPage() {
                 return {
                     id: doc.id, // student UID
                     status: data.status || 'Not Started',
-                    submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt : undefined, // Handle timestamp
+                    submittedAt: isTimestamp(data.submittedAt) ? data.submittedAt : undefined, // Handle timestamp safely
                     answers: Array.isArray(data.answers) ? data.answers : undefined,
                     responseText: typeof data.responseText === 'string' ? data.responseText : undefined,
                     grade: data.grade, // Keep as is (could be number or string like 'N/A')
@@ -414,8 +406,10 @@ export default function TeachersAssignmentHubPage() {
     }
   };
 
+
+
   return (
-    <> {/* Use Fragment */}
+    <div className="container mx-auto py-8">
       <Card className="max-w-5xl mx-auto">
         <CardHeader>
           <CardTitle>Teachers Assignment Hub</CardTitle>
@@ -444,21 +438,7 @@ export default function TeachersAssignmentHubPage() {
 
           {/* Loading/Error/Empty States */}
           {loadingAssignments && <p className="text-center text-muted-foreground py-4">Loading assignments...</p>}
-          {assignmentError && (
-               <div className="text-red-500 text-center py-4">
-                 <p>{assignmentError.startsWith('Missing Firestore index.') ? 'Database Index Required' : 'Error Loading Assignments'}</p>
-                 {assignmentError.includes('https://console.firebase.google.com') && (
-                    <a
-                       href={assignmentError.substring(assignmentError.indexOf('https://'))}
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       className="text-blue-500 underline hover:text-blue-700 ml-1"
-                    >
-                      Click here to create the index
-                    </a>
-                 )}
-               </div>
-          )}
+          {assignmentError && <p className="text-center text-red-500 py-4">{assignmentError}</p>}
           {!loadingAssignments && !assignmentError && assignments.length === 0 && selectedClass && (
             <p className="text-center text-muted-foreground py-4">No assignments found for {selectedClass}.</p>
           )}
@@ -504,7 +484,7 @@ export default function TeachersAssignmentHubPage() {
                 <DialogHeader>
                     <DialogTitle>{selectedAssignment?.title}</DialogTitle>
                     <DialogDescription>
-                        Type: {selectedAssignment?.type} | Due: {formatDate(selectedAssignment?.dueDate)}
+                        Type: <Badge variant="outline">{selectedAssignment?.type}</Badge> | Due: {formatDate(selectedAssignment?.dueDate)}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2"> {/* Scrollable content */}
@@ -514,7 +494,7 @@ export default function TeachersAssignmentHubPage() {
                     {selectedAssignment?.type === 'MCQ' && selectedAssignment.mcqQuestions && (
                         <div className="mt-4 border-t pt-4">
                             <h4 className="text-lg font-semibold mb-2">MCQ Questions</h4>
-                            <ScrollArea className="h-[200px] border rounded p-2">
+                            <ScrollArea className="h-[200px] border rounded p-2 bg-muted/10">
                                 <ul className="space-y-3">
                                     {selectedAssignment.mcqQuestions.map((q, index) => (
                                         <li key={index} className="text-sm border-b pb-2">
@@ -580,13 +560,13 @@ export default function TeachersAssignmentHubPage() {
 
       {/* Create New Assignment Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-3xl md:grid md:grid-cols-2 md:gap-6 p-8"> {/* Apply grid layout, adjusted gap */}
+        <DialogContent className="max-w-[700px] grid grid-cols-1 md:grid-cols-2 gap-6 p-8 md:max-h-[90vh] md:overflow-y-auto"> {/* Adjusted for responsiveness & scroll */}
           {/* Left Column: General Info */}
           <div className="space-y-4 flex flex-col">
-             <DialogHeader className="mb-4"> {/* Moved title to Header */}
+             <DialogHeader className="mb-4">
                 <DialogTitle className="text-2xl font-semibold">Create New Assignment</DialogTitle>
              </DialogHeader>
-            <div className="grid gap-2"> {/* Use grid for alignment */}
+            <div className="grid gap-2">
               <Label htmlFor="new-title" className="text-sm font-medium">Title</Label>
               <Input
                 id="new-title"
@@ -596,18 +576,18 @@ export default function TeachersAssignmentHubPage() {
                 className="w-full p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-base"
               />
             </div>
-            <div className="grid gap-2 flex-grow"> {/* Use grid and flex-grow */}
+            <div className="grid gap-2 flex-grow">
               <Label htmlFor="new-desc" className="text-sm font-medium">Description</Label>
               <Textarea
                 id="new-desc"
                 value={newAssignment.description}
                 onChange={e => setNewAssignment({ ...newAssignment, description: e.target.value })}
                 placeholder="Instructions for the assignment..."
-                rows={5} // Adjusted rows
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-base min-h-[120px] flex-grow" // Added min-height
+                rows={5}
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-base min-h-[120px] flex-grow"
               />
             </div>
-            <div className="grid gap-2"> {/* Use grid */}
+            <div className="grid gap-2">
               <Label htmlFor="new-type" className="text-sm font-medium">Type</Label>
               <Select
                 value={newAssignment.type}
@@ -623,7 +603,7 @@ export default function TeachersAssignmentHubPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2"> {/* Use grid */}
+            <div className="grid gap-2">
               <Label htmlFor="new-due-date" className="text-sm font-medium">Due Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -642,7 +622,6 @@ export default function TeachersAssignmentHubPage() {
                     selected={newDueDate}
                     onSelect={setNewDueDate}
                     initialFocus
-                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} // Disable past dates
                   />
                   {/* Simple Time Picker Example (Optional) */}
                    <div className="p-2 border-t">
@@ -663,6 +642,17 @@ export default function TeachersAssignmentHubPage() {
                 </PopoverContent>
               </Popover>
             </div>
+             {/* Buttons moved to the bottom of the left column for mobile */}
+             <div className="flex justify-end gap-4 mt-auto pt-4 md:hidden">
+                 <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+                 <Button
+                     onClick={handleCreate}
+                     disabled={isSavingAssignment}
+                     className="bg-primary text-primary-foreground hover:bg-primary/90"
+                 >
+                     {isSavingAssignment ? 'Creating...' : 'Create Assignment'}
+                 </Button>
+             </div>
           </div>
 
           {/* Right Column: MCQ (Conditional) */}
@@ -705,7 +695,7 @@ export default function TeachersAssignmentHubPage() {
                   <div className="mt-4">
                     <Label className="text-sm font-medium">Preview ({mcqCurrentIndex + 1}/{generatedMCQs.questions.length})</Label>
                     <Card className="p-4 min-h-[200px] border rounded-md bg-muted/50 flex flex-col">
-                        <ScrollArea className="flex-grow">
+                        <ScrollArea className="flex-grow h-[150px]"> {/* Fixed height for scroll */}
                            <p className="font-medium mb-2">{generatedMCQs.questions[mcqCurrentIndex].question}</p>
                            <ul className="list-disc pl-5 text-sm space-y-1">
                               {generatedMCQs.questions[mcqCurrentIndex].options.map((o, i) => (
@@ -744,21 +734,20 @@ export default function TeachersAssignmentHubPage() {
             ) : (
                <p className="text-center text-sm text-muted-foreground p-4">Select "MCQ" type to generate questions.</p>
             )}
+             {/* Buttons moved to the bottom of the right column for desktop */}
+             <div className="hidden md:flex justify-end gap-4 mt-auto pt-4">
+                 <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+                 <Button
+                     onClick={handleCreate}
+                     disabled={isSavingAssignment}
+                     className="bg-primary text-primary-foreground hover:bg-primary/90"
+                 >
+                     {isSavingAssignment ? 'Creating...' : 'Create Assignment'}
+                 </Button>
+             </div>
           </div>
-
-            {/* Footer Actions - Moved outside the grid columns */}
-            <DialogFooter className="md:col-span-2 mt-8 flex justify-end gap-4"> {/* Added col-span and margin */}
-              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-              <Button
-                onClick={handleCreate}
-                disabled={isSavingAssignment}
-                className="bg-primary text-primary-foreground hover:bg-primary/90" // Use primary theme color
-              >
-                {isSavingAssignment ? 'Creating...' : 'Create Assignment'}
-              </Button>
-            </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
