@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -31,57 +32,53 @@ export default function AnimatedFlashcardPage() {
   const [totalScore, setTotalScore] = useState<number | null>(null);
   const { toast } = useToast(); // Use the toast hook
 
-  // Fetch total score
-  useEffect(() => {
+  // Fetch total score - Wrap in useCallback to prevent re-renders
+  const fetchTotalScore = React.useCallback(async () => {
     if (user) {
-      getGrades(user.uid)
-        .then((grades: Grade[]) => {
-          // Filter grades for flashcard tasks if needed, otherwise sum all
-          const flashcardGrades = grades; // Assuming all grades contribute for now
-          if (flashcardGrades.length) setTotalScore(flashcardGrades.reduce((a, g) => a + g.score, 0));
-          else setTotalScore(0); // Set to 0 if no grades
-        })
-        .catch((e) => {
-            console.error("Failed to fetch grades:", e);
-            // Optionally set an error state or show a toast
-        });
+      try {
+        const grades: Grade[] = await getGrades(user.uid);
+        const flashcardGrades = grades; // Assuming all grades contribute for now
+        if (flashcardGrades.length) {
+          setTotalScore(flashcardGrades.reduce((a, g) => a + g.score, 0));
+        } else {
+          setTotalScore(0); // Set to 0 if no grades
+        }
+      } catch (e) {
+        console.error("Failed to fetch grades:", e);
+        // Optionally set an error state or show a toast
+      }
+    } else {
+      setTotalScore(null); // Reset score if user logs out
     }
-  }, [user]);
+  }, [user]); // Dependency on user
+
+  useEffect(() => {
+    fetchTotalScore();
+  }, [fetchTotalScore]); // Fetch score when component mounts or user changes
 
   // Handle flashcard generation
   const handleGenerate = async () => {
-    console.log("handleGenerate called"); // Add log
-    console.log("userClass:", userClass); // Debug log
-    console.log("authLoading:", authLoading); // Debug log
-    console.log("user:", !!user); // Debug log
-    console.log("topic:", topic); // Debug log
-    console.log("isLoading:", isLoading); // Debug log
-
     // Prevent generation if auth is still loading or user/class info is missing
-    if (authLoading || !user || !userClass) {
-      setError("User information not available yet. Please wait.");
-      toast({ variant: 'destructive', title: 'Error', description: 'User information is loading or missing.' });
-      console.error("Aborting generation: Auth loading or user/class missing"); // Add log
+    if (authLoading) {
+      setError("User information is loading. Please wait.");
+      toast({ variant: 'destructive', title: 'Error', description: 'User information is loading.' });
       return;
     }
-
-    // Explicitly log why generation might be blocked, mirroring the disabled logic
-    if (isLoading) { console.log("Blocking generation: isLoading is true."); return; }
-    // Redundant check as it's in the primary if block, but good for clarity
-    // if (authLoading) { console.log("Blocking generation: authLoading is true."); return; }
+    if (!user) {
+      setError("User not logged in.");
+      toast({ variant: 'destructive', title: 'Error', description: 'Please log in to generate flashcards.' });
+      return;
+    }
     if (!userClass) {
-      console.log("Blocking generation: userClass is missing.");
       setError("Student class information is missing. Cannot generate flashcards.");
       toast({ variant: 'destructive', title: 'Error', description: 'Student class info missing.' });
       return;
-     }
+    }
     if (!topic.trim()) {
-       console.log("Blocking generation: topic is empty.");
        setError("Please enter a topic.");
        toast({ variant: 'destructive', title: 'Error', description: 'Please enter a topic to generate flashcards.' });
        return;
     }
-
 
     setIsLoading(true);
     setError(null);
@@ -89,13 +86,15 @@ export default function AnimatedFlashcardPage() {
     setProgress(10); // Initial progress
     setCurrentCard(0); // Reset card position
 
+    let progressInterval: NodeJS.Timeout | null = null;
+
     try {
       // Simulate progress
       let currentProgress = 10;
-      const interval = setInterval(() => {
+      progressInterval = setInterval(() => {
         currentProgress += Math.floor(Math.random() * 10) + 5;
         if (currentProgress >= 90) {
-          clearInterval(interval); // Stop before reaching 100, wait for AI call
+          if (progressInterval) clearInterval(progressInterval); // Stop before reaching 100, wait for AI call
         } else {
           setProgress(currentProgress);
         }
@@ -103,10 +102,8 @@ export default function AnimatedFlashcardPage() {
 
       // Call the AI flow
       console.log(`Generating flashcards for topic: ${topic}, grade: ${userClass}`); // Debug log
-      // Ensure userClass is not null before calling
-      const gradeToUse = userClass ?? "Grade 8"; // Default grade if null, though the check above should prevent this
-      const res = await generateFlashcards({ topic, numCards, grade: gradeToUse });
-      clearInterval(interval); // Ensure interval is cleared
+      const res = await generateFlashcards({ topic, numCards, grade: userClass });
+      if (progressInterval) clearInterval(progressInterval); // Ensure interval is cleared
 
       if (res && res.flashcards) {
         setFlashcards(res);
@@ -117,6 +114,7 @@ export default function AnimatedFlashcardPage() {
       }
 
     } catch (e: any) {
+      if (progressInterval) clearInterval(progressInterval); // Clear interval on error too
       console.error("Error generating flashcards:", e); // Log the actual error
       setError(e.message || 'An error occurred during generation.');
       setProgress(0); // Reset progress on error
@@ -126,13 +124,15 @@ export default function AnimatedFlashcardPage() {
          description: e.message || 'Could not generate flashcards.',
        });
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Ensure loading state is always reset
       console.log("handleGenerate finished"); // Add log
     }
   };
 
   const nextCard = () => setCurrentCard(i => Math.min(i + 1, (flashcards?.flashcards.length || 1) - 1));
   const prevCard = () => setCurrentCard(i => Math.max(i - 1, 0));
+
+  const canGenerate = !isLoading && !authLoading && !!userClass && !!topic.trim();
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 md:p-10">
@@ -163,8 +163,8 @@ export default function AnimatedFlashcardPage() {
           {/* Ensure button is clickable and checks for userClass */}
           <Button
              onClick={handleGenerate}
-             disabled={isLoading || authLoading || !userClass || !topic.trim()} // Disable if auth loading, no class, no topic, or generating
-             className="md:col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white"
+             disabled={!canGenerate} // Simplified disabled logic
+             className="md:col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
            >
              {isLoading ? 'Generating...' : 'Generate Flashcards'}
           </Button>
@@ -284,3 +284,11 @@ const AnimatedFlashcard = React.forwardRef<HTMLDivElement, AnimatedFlashcardProp
 });
 
 AnimatedFlashcard.displayName = 'AnimatedFlashcard';
+
+// Add these styles to globals.css or a relevant CSS module
+/*
+.perspective { perspective: 1000px; }
+.preserve-3d { transform-style: preserve-3d; }
+.backface-hidden { backface-visibility: hidden; }
+.rotate-y-180 { transform: rotateY(180deg); }
+*/

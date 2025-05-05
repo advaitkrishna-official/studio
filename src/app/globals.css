@@ -1,3 +1,4 @@
+
 /** @format */
 @tailwind base;
 @tailwind components;
@@ -31,6 +32,30 @@ body {
     --destructive-foreground: 210 40% 98%;
     --ring: 222.2 84.9% 4.9%;
     --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 213 31% 91%;
+    --sidebar-muted: 223 47% 11%;
+    --sidebar-muted-foreground: 215.4 16.3% 69.1%;
+    --sidebar-popover: 224 71% 4%;
+    --sidebar-popover-foreground: 215 20.2% 65.9%;
+    --sidebar-card: 224 71% 4%;
+    --sidebar-card-foreground: 213 31% 91%;
+    --sidebar-border: 216 12% 23.9%;
+    --sidebar-input: 216 12% 23.9%;
+    --sidebar-primary: 48 96% 53%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-secondary: 217.2 32.6% 17.5%;
+    --sidebar-secondary-foreground: 210 40% 98%;
+    --sidebar-accent: 48 96% 53%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-destructive: 0 62.8% 30.6%;
+    --sidebar-destructive-foreground: 210 40% 98%;
+    --sidebar-ring: 217.2 32.6% 17.5%;
   }
 
   .dark {
@@ -54,6 +79,30 @@ body {
     --destructive-foreground: 210 40% 98%;
     --ring: 217.2 32.6% 17.5%;
     --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222.2 47.4% 11.2%;
+    --sidebar-muted: 210 40% 96.1%;
+    --sidebar-muted-foreground: 215.4 16.3% 46.9%;
+    --sidebar-popover: 0 0% 100%;
+    --sidebar-popover-foreground: 222.2 47.4% 11.2%;
+    --sidebar-card: 0 0% 100%;
+    --sidebar-card-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-input: 214.3 31.8% 91.4%;
+    --sidebar-primary: 48 96% 53%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-secondary: 210 40% 96.1%;
+    --sidebar-secondary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-accent: 48 96% 53%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-destructive: 0 84.2% 60.2%;
+    --sidebar-destructive-foreground: 210 40% 98%;
+    --sidebar-ring: 222.2 84.9% 4.9%;
   }
 }
 
@@ -67,6 +116,46 @@ body {
   }
 }
 
+/* Chart Styles */
 .chart-labels .recharts-cartesian-axis-tick-value text {
   fill: hsl(var(--foreground));
 }
+
+/* Loader Animation */
+.loader {
+  width: 64px;
+  height: 64px;
+  position: relative;
+  animation: rotate 1.5s ease-in infinite alternate;
+}
+.loader::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  color: hsl(var(--primary)); /* Use primary color */
+  background: currentColor;
+  width: 64px;
+  height: 32px;
+  border-radius: 0 0 50px 50px;
+}
+.loader::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  background: hsl(var(--background)); /* Use background color */
+  width: 8px;
+  height: 64px;
+  animation: rotate 1.2s linear infinite alternate-reverse;
+}
+
+@keyframes rotate {
+  100% { transform: rotate(360deg)}
+}
+
+/* Flashcard Animation Styles */
+.perspective { perspective: 1000px; }
+.preserve-3d { transform-style: preserve-3d; }
+.backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; } /* Added vendor prefix for broader compatibility */
+.rotate-y-180 { transform: rotateY(180deg); }

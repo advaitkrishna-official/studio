@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Flashcard generation AI agent.
@@ -24,7 +25,7 @@ const FlashcardSchema = z.object({
 
 const GenerateFlashcardsOutputSchema = z.object({
   flashcards: z.array(FlashcardSchema).describe('An array of flashcards generated for the topic.'),
-  progress: z.string().describe('A short summary of what was generated.'),
+  progress: z.string().describe('A short summary of what was generated.'), // Keep progress field for potential future use
 });
 export type GenerateFlashcardsOutput = z.infer<typeof GenerateFlashcardsOutputSchema>;
 
@@ -111,12 +112,24 @@ const generateFlashcardsFlow = ai.defineFlow<
       - Social Studies: Communities and Citizenship
     `;
         break;
-      default: context = `The student is in an unspecified grade, please provide answer based on the best information you know.`;
+      default: context = `The student is in an unspecified grade (Received: ${input.grade}). Please provide age-appropriate answers based on the topic: ${input.topic}.`;
     }
-    const {output} = await prompt({...input, context});
-    return {
-      flashcards: output!.flashcards,
-      progress: `Generated ${input.numCards} flashcards on the topic of ${input.topic}.`,
-    };
+    try {
+        const {output} = await prompt({...input, context});
+        if (!output || !output.flashcards) {
+            throw new Error("AI did not return valid flashcard data.");
+        }
+        return {
+          flashcards: output.flashcards,
+          progress: `Generated ${output.flashcards.length} flashcards on the topic of ${input.topic}.`, // Updated progress message
+        };
+    } catch (error: any) {
+        console.error("Error in generateFlashcardsFlow:", error);
+        // Handle quota errors specifically if needed, or re-throw
+        if (error.message.includes('Quota')) {
+             throw new Error('API quota limit reached. Please try again later.');
+        }
+        throw new Error(`Failed to generate flashcards: ${error.message}`);
+    }
   }
 );
