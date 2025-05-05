@@ -70,6 +70,7 @@ const ClassCalendarPage = () => {
       try {
         if (!user) {
           setError("User not logged in.");
+          setIsLoading(false); // Stop loading if no user
           return;
         }
          if (!selectedClass) {
@@ -96,12 +97,18 @@ const ClassCalendarPage = () => {
                 eventDate = new Timestamp(data.date.seconds, data.date.nanoseconds).toDate();
              }
 
-             return {
-              id: doc.id,
-              ...(data as any),
-              date: eventDate, // Use the converted date
-             } as ClassEvent;
-          }).filter(event => event.date); // Filter out events with invalid dates
+             // Check if date conversion was successful
+             if (eventDate instanceof Date && !isNaN(eventDate.getTime())) {
+                return {
+                 id: doc.id,
+                 ...(data as any),
+                 date: eventDate, // Use the converted date
+                } as ClassEvent;
+             } else {
+                console.warn(`Invalid or missing date for event ${doc.id}:`, data.date);
+                return null; // Return null for invalid dates
+             }
+          }).filter(event => event !== null) as ClassEvent[]; // Filter out null entries and assert type
 
           console.log("Fetched events data:", eventsData); // Debug log
           setEvents(eventsData);
@@ -283,11 +290,11 @@ const ClassCalendarPage = () => {
   const AnimatedDayContent = (props: DayContentProps) => {
     const hasEvent = eventDates.some(eventDate => isSameDay(props.date, eventDate));
     return (
-      <div className="relative flex flex-col items-center justify-center h-full">
+      <div className="relative flex flex-col items-center justify-center h-full w-full">
         <span>{format(props.date, 'd')}</span>
         {hasEvent && (
           <motion.div
-            className="absolute bottom-1 w-1.5 h-1.5 bg-indigo-500 rounded-full"
+            className="absolute bottom-0.5 w-1.5 h-1.5 bg-primary rounded-full" // Use primary color
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -304,9 +311,9 @@ const ClassCalendarPage = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <Card className="max-w-4xl mx-auto">
+      <Card className="max-w-4xl mx-auto shadow-lg border border-gray-200"> {/* Added shadow */}
         <CardHeader>
-          <CardTitle>Class Calendar</CardTitle>
+          <CardTitle className="text-2xl">Class Calendar</CardTitle> {/* Increased size */}
           <CardDescription>Schedule classes, assignments, and sync with student dashboards.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6">
@@ -326,51 +333,65 @@ const ClassCalendarPage = () => {
             </Select>
           </div>
 
-          {/* Calendar */}
-          <div className="rounded-md border p-4 flex flex-col items-center">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={setSelectedDate}
-              // Removed disabled dates to allow viewing past events
-              initialFocus
-              className="w-full max-w-md" // Ensure calendar takes space
-              components={{ DayContent: AnimatedDayContent }} // Use custom component
-              modifiers={{
-                hasEvent: eventDates, // Modifier to potentially style dates with events
-              }}
-              modifiersClassNames={{
-                hasEvent: 'font-bold', // Example: make dates with events bold (needs Tailwind/CSS)
-              }}
-            />
-          </div>
+          {/* Calendar and Events Display side-by-side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            {/* Calendar */}
+            <div className="rounded-md border p-4 bg-gradient-to-br from-indigo-50 to-blue-50"> {/* Added gradient */}
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                // Removed disabled dates to allow viewing past events
+                initialFocus
+                className="w-full" // Ensure calendar takes space
+                components={{ DayContent: AnimatedDayContent }} // Use custom component
+                modifiers={{
+                  hasEvent: eventDates, // Modifier to potentially style dates with events
+                  selected: selectedDate || new Date(0), // Ensure selected modifier works
+                  today: new Date(), // Highlight today
+                }}
+                modifiersClassNames={{
+                  hasEvent: 'relative font-bold', // Add relative for positioning dot inside
+                  selected: 'bg-primary text-primary-foreground rounded-md', // Style selected date
+                  today: 'bg-accent text-accent-foreground rounded-md', // Style today's date
+                }}
+                classNames={{ // Further custom styling
+                    caption_label: 'text-lg font-medium text-indigo-800',
+                    head_cell: 'text-indigo-600 w-full', // Style weekday names
+                    day: 'h-10 w-full rounded-md text-sm transition-colors hover:bg-accent/50', // Base day style
+                    day_outside: 'text-muted-foreground/50', // Dim outside days
+                }}
+              />
+            </div>
 
-          <div className="flex gap-2">
-            <Button onClick={() => setIsAddEventModalOpen(true)} disabled={!selectedDate}>Add Event</Button>
-            <Button onClick={() => setIsAddTaskModalOpen(true)} disabled={!selectedDate}>Assign Task</Button>
-          </div>
-
-          {/* Display Events for Selected Date */}
-          <div className="mt-4">
-            <h3 className="text-xl font-semibold">Events on {selectedDate ? format(selectedDate, "PPP") : "Select a date"}</h3>
-            {isLoading && <p>Loading events...</p>}
-            {error && !isLoading && <p className="text-red-500">{error}</p>}
-            {!isLoading && eventsForSelectedDate.length === 0 && selectedDate && <p>No events scheduled for this date.</p>}
-            {!isLoading && eventsForSelectedDate.length > 0 && (
-              <ul className="space-y-2 mt-2">
-                {eventsForSelectedDate.map(event => (
-                  <li key={event.id} className="py-2 px-3 border rounded-md flex items-center justify-between bg-muted/50 shadow-sm">
-                    <div>
-                      <h4 className={`font-semibold ${event.type === 'task' ? 'text-blue-600' : ''}`}>{event.title}</h4>
-                      <p className="text-sm text-muted-foreground">{event.description}</p>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => handleDeleteEvent(event.id)} className="text-destructive hover:bg-destructive/10">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            {/* Display Events for Selected Date */}
+            <div className="mt-4 md:mt-0">
+              <h3 className="text-xl font-semibold mb-3 border-b pb-2">
+                  Events on {selectedDate ? format(selectedDate, "PPP") : "Select a date"}
+              </h3>
+              {isLoading && <p className="text-muted-foreground">Loading events...</p>}
+              {error && !isLoading && <p className="text-red-500">{error}</p>}
+              {!isLoading && eventsForSelectedDate.length === 0 && selectedDate && <p className="text-muted-foreground">No events scheduled for this date.</p>}
+              {!isLoading && eventsForSelectedDate.length > 0 && (
+                <ul className="space-y-3 max-h-[300px] overflow-y-auto pr-2"> {/* Added scroll */}
+                  {eventsForSelectedDate.map(event => (
+                    <li key={event.id} className="py-3 px-4 border rounded-lg flex items-center justify-between bg-white shadow-sm hover:bg-muted/30 transition-colors">
+                      <div>
+                        <h4 className={`font-semibold ${event.type === 'task' ? 'text-blue-600' : 'text-gray-800'}`}>{event.title}</h4>
+                        <p className="text-sm text-muted-foreground">{event.description}</p>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteEvent(event.id)} className="text-destructive hover:bg-destructive/10">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+               <div className="flex gap-2 mt-4">
+                <Button onClick={() => setIsAddEventModalOpen(true)} disabled={!selectedDate}>Add Event</Button>
+                <Button onClick={() => setIsAddTaskModalOpen(true)} disabled={!selectedDate} variant="secondary">Assign Task</Button> {/* Changed variant */}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -483,4 +504,3 @@ const ClassCalendarPage = () => {
 };
 
 export default ClassCalendarPage;
-    
