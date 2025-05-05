@@ -9,12 +9,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { generateFlashcards, GenerateFlashcardsOutput } from '@/ai/flows/generate-flashcards';
+import { generateFlashcards, GenerateFlashcardsOutput } from '@/ai/flows/generate-flashcards'; // AI flow import
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { useAuth } from '@/components/auth-provider';
-import { getGrades } from '@/lib/firebase';
-import { useToast } from '@/hooks/use-toast'; // Import useToast
+import { useAuth } from '@/components/auth-provider'; // Auth context import
+import { getGrades } from '@/lib/firebase'; // Firebase grades import
+import { useToast } from '@/hooks/use-toast'; // Toast import
 
 type Grade = { id: string; score: number };
 
@@ -27,7 +27,7 @@ export default function AnimatedFlashcardPage() {
   const [progress, setProgress] = useState(0); // Renamed from loadingProgress for clarity
   const [currentCard, setCurrentCard] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
-  const { user, userClass } = useAuth(); // Get userClass (student's grade)
+  const { user, userClass, loading: authLoading } = useAuth(); // Get user, userClass, and auth loading state
   const [totalScore, setTotalScore] = useState<number | null>(null);
   const { toast } = useToast(); // Use the toast hook
 
@@ -36,24 +36,32 @@ export default function AnimatedFlashcardPage() {
     if (user) {
       getGrades(user.uid)
         .then((grades: Grade[]) => {
-          if (grades.length) setTotalScore(grades.reduce((a, g) => a + g.score, 0));
+          // Filter grades for flashcard tasks if needed, otherwise sum all
+          const flashcardGrades = grades; // Assuming all grades contribute for now
+          if (flashcardGrades.length) setTotalScore(flashcardGrades.reduce((a, g) => a + g.score, 0));
+          else setTotalScore(0); // Set to 0 if no grades
         })
-        .catch(() => {});
+        .catch((e) => {
+            console.error("Failed to fetch grades:", e);
+            // Optionally set an error state or show a toast
+        });
     }
   }, [user]);
 
   // Handle flashcard generation
   const handleGenerate = async () => {
-    if (!userClass) {
-      setError("Student grade not found.");
-      toast({ variant: 'destructive', title: 'Error', description: 'Student grade not found.' });
+    // Prevent generation if auth is still loading or user/class info is missing
+    if (authLoading || !user || !userClass) {
+      setError("User information not available yet. Please wait.");
+      toast({ variant: 'destructive', title: 'Error', description: 'User information is loading or missing.' });
       return;
     }
-    if (!topic.trim()) {
+    if (!topic.trim()) { // Check if topic is entered
       setError("Please enter a topic.");
       toast({ variant: 'destructive', title: 'Error', description: 'Please enter a topic to generate flashcards.' });
       return;
     }
+
     setIsLoading(true);
     setError(null);
     setFlashcards(null); // Reset previous flashcards
@@ -73,13 +81,20 @@ export default function AnimatedFlashcardPage() {
       }, 200);
 
       // Call the AI flow
+      console.log(`Generating flashcards for topic: ${topic}, grade: ${userClass}`); // Debug log
       const res = await generateFlashcards({ topic, numCards, grade: userClass });
       clearInterval(interval); // Ensure interval is cleared
-      setFlashcards(res);
-      setProgress(100); // Final progress
-      toast({ title: 'Flashcards Generated', description: `${res.flashcards.length} cards ready!` });
+
+      if (res && res.flashcards) {
+        setFlashcards(res);
+        setProgress(100); // Final progress
+        toast({ title: 'Flashcards Generated', description: `${res.flashcards.length} cards ready!` });
+      } else {
+         throw new Error("Received invalid response from AI.");
+      }
 
     } catch (e: any) {
+      console.error("Error generating flashcards:", e); // Log the actual error
       setError(e.message || 'An error occurred during generation.');
       setProgress(0); // Reset progress on error
        toast({
@@ -121,8 +136,13 @@ export default function AnimatedFlashcardPage() {
             <Label htmlFor="numCards">Number of Cards</Label>
             <Input id="numCards" type="number" value={numCards} onChange={e => setNumCards(Math.max(1, Math.min(20, +e.target.value)))} min="1" max="20" />
           </div>
-          <Button onClick={handleGenerate} disabled={isLoading || !userClass || !topic.trim()} className="md:col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white">
-            {isLoading ? 'Generating...' : 'Generate Flashcards'}
+          {/* Ensure button is clickable and checks for userClass */}
+          <Button
+             onClick={handleGenerate}
+             disabled={isLoading || authLoading || !userClass || !topic.trim()} // Disable if auth loading, no class, no topic, or generating
+             className="md:col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white"
+           >
+             {isLoading ? 'Generating...' : 'Generate Flashcards'}
           </Button>
         </div>
 
@@ -240,4 +260,3 @@ const AnimatedFlashcard = React.forwardRef<HTMLDivElement, AnimatedFlashcardProp
 });
 
 AnimatedFlashcard.displayName = 'AnimatedFlashcard';
-    
