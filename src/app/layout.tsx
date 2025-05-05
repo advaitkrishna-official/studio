@@ -1,11 +1,11 @@
 'use client';
 
-import {Geist, Geist_Mono} from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google';
 import '@/app/globals.css';
-import AuthProvider from '@/components/auth-provider';
-import {Metadata} from 'next';
-import { metadata } from './metadata';
-import { useEffect } from 'react';
+import { ReactNode } from 'react';
+import AuthProvider from '@/components/auth-provider'; // Corrected import path
+import { Toaster } from "@/components/ui/toaster"; // Import Toaster
+import { metadata } from './metadata'; // Import metadata
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -16,18 +16,21 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
-
   return (
     <html lang="en">
+      {/* Removed potentially problematic attributes often added by extensions */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <Toaster /> {/* Add Toaster here for app-wide toasts */}
+        </AuthProvider>
       </body>
     </html>
   );
 }
-

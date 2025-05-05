@@ -13,18 +13,11 @@ import { generateMcqExplanation } from '@/ai/flows/generate-mcq-explanation';
 import { useAuth } from '@/components/auth-provider';
 import { saveGrade, getGrades } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@/components/ui/select';
 
 export default function AnimatedMCQPage() {
   const [topic, setTopic] = useState('');
   const [numQuestions, setNumQuestions] = useState(5);
-  const [selectedGrade, setSelectedGrade] = useState('grade-8');
+  const { user, userClass } = useAuth(); // Get userClass (student's grade)
   const [mcq, setMcq] = useState<GenerateMCQOutput | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
   const [showAnswers, setShowAnswers] = useState(false);
@@ -32,7 +25,6 @@ export default function AnimatedMCQPage() {
   const [quizScore, setQuizScore] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
   const [totalScore, setTotalScore] = useState<number | null>(null);
   const { toast } = useToast();
 
@@ -52,10 +44,16 @@ export default function AnimatedMCQPage() {
   }, [user]);
 
   const handleGenerate = async () => {
+     if (!userClass) {
+        setError("Student grade not found.");
+        toast({ variant: 'destructive', title: 'Error', description: 'Student grade not found.' });
+        return;
+    }
     setIsLoading(true);
     setError(null);
     try {
-      const result = await generateMCQ({ topic, numQuestions, grade: selectedGrade });
+      // Pass the student's grade from userClass
+      const result = await generateMCQ({ topic, numQuestions, grade: userClass });
       setMcq(result);
       setAnswers(Array(result.questions.length).fill(''));
       setShowAnswers(false);
@@ -75,27 +73,39 @@ export default function AnimatedMCQPage() {
   };
 
   const handleSubmitQuiz = async () => {
+    if (!mcq || !userClass) return; // Need userClass for explanation generation
     setShowAnswers(true);
-    if (!mcq) return;
+
     let correct = 0;
     mcq.questions.forEach((q, i) => { if (answers[i] === q.correctAnswer) correct += 1; });
-    setQuizScore(correct);
+    const scorePercentage = (correct / mcq.questions.length) * 100;
+    setQuizScore(correct); // Keep track of the raw score if needed
 
-    // explanations
+    // Explanations - Now use userClass
     const expl = await Promise.all(
       mcq.questions.map(q =>
-        generateMcqExplanation({ question: q.question, options: q.options, correctAnswer: q.correctAnswer, grade: selectedGrade })
+        generateMcqExplanation({ question: q.question, options: q.options, correctAnswer: q.correctAnswer, grade: userClass })
           .then(r => r.explanation)
           .catch(() => 'No explanation available')
       )
     );
     setExplanations(expl);
 
-    // save
+    // Save the grade
     if (user) {
-      const perc = (correct / mcq.questions.length) * 100;
-      await saveGrade(user.uid, `Quiz: ${topic}`, perc, `${correct} of ${mcq.questions.length}`);
-      toast({ title: 'Quiz submitted', description: `${correct} correct` });
+      try {
+        await saveGrade(user.uid, `MCQ Quiz: ${topic}`, scorePercentage, `${correct} of ${mcq.questions.length} correct`);
+        toast({ title: 'Quiz submitted', description: `${correct} out of ${mcq.questions.length} correct (${scorePercentage.toFixed(1)}%)` });
+        // Update total score display locally
+        getGrades(user.uid).then((grades) => {
+            const sum = (grades as { score: number }[]).reduce((a, g) => a + g.score, 0);
+            setTotalScore(sum);
+          }).catch(console.error);
+      } catch(saveError: any) {
+         console.error("Failed to save grade:", saveError);
+         toast({ variant: 'destructive', title: 'Error Saving Grade', description: saveError.message });
+      }
+
     }
   };
 
@@ -132,17 +142,10 @@ export default function AnimatedMCQPage() {
             type="number"
             value={numQuestions}
             onChange={e => setNumQuestions(+e.target.value)}
+            min="1"
           />
-          <Label>Grade</Label>
-          <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="grade-8">Grade 8</SelectItem>
-              <SelectItem value="grade-6">Grade 6</SelectItem>
-              <SelectItem value="grade-4">Grade 4</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={handleGenerate} disabled={isLoading}>
+          {/* Removed Grade Selector */}
+          <Button onClick={handleGenerate} disabled={isLoading || !userClass}>
             {isLoading ? 'Generating...' : 'Generate MCQs'}
           </Button>
           {error && <p className="text-red-500">{error}</p>}
@@ -154,7 +157,7 @@ export default function AnimatedMCQPage() {
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">MCQs on "{topic}"</h2>
               {totalScore != null && (
-                <p>Your total score: {totalScore}%</p>
+                <p>Your total score: {totalScore.toFixed(1)}%</p>
               )}
             </div>
 
@@ -163,7 +166,7 @@ export default function AnimatedMCQPage() {
                 <CardHeader><CardTitle>Question {i + 1}</CardTitle></CardHeader>
                 <CardContent>
                   <p className="font-semibold mb-2">{q.question}</p>
-                  <RadioGroup onValueChange={val => handleAnswerChange(i, val)}>
+                  <RadioGroup onValueChange={val => handleAnswerChange(i, val)} value={answers[i]} disabled={showAnswers}>
                     {q.options.map((opt, j) => (
                       <div key={j} className="flex items-center space-x-2">
                         <RadioGroupItem value={opt} id={`opt-${i}-${j}`} />
@@ -172,12 +175,16 @@ export default function AnimatedMCQPage() {
                     ))}
                   </RadioGroup>
                   {showAnswers && (
-                    <div className="mt-4 space-y-1">
-                      <p className={`font-medium ${answers[i]===q.correctAnswer?'text-green-600':'text-red-600'}`}>
-                        {answers[i]===q.correctAnswer ? <><CheckCircle className="inline"/> Correct</> : <><Circle className="inline"/> Incorrect</>}
+                    <div className="mt-4 space-y-1 border-t pt-3">
+                      <p className={`font-medium ${answers[i] === q.correctAnswer ? 'text-green-600' : 'text-red-600'}`}>
+                        {answers[i] === q.correctAnswer ? <><CheckCircle className="inline h-4 w-4 mr-1"/> Correct</> : <><Circle className="inline h-4 w-4 mr-1"/> Incorrect</>}
+                        {answers[i] !== q.correctAnswer && ` (Your answer: ${answers[i] || 'Not answered'})`}
                       </p>
-                      <p>Answer: {q.correctAnswer}</p>
-                      <p className="text-sm text-gray-700">Explanation: {explanations[i]}</p>
+                      <p>Correct Answer: {q.correctAnswer}</p>
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-sm text-blue-600 hover:underline">Explanation</summary>
+                        <p className="text-sm text-gray-700 mt-1 p-2 bg-gray-50 rounded">{explanations[i]}</p>
+                      </details>
                     </div>
                   )}
                 </CardContent>
@@ -185,7 +192,10 @@ export default function AnimatedMCQPage() {
             ))}
 
             {!showAnswers && (
-              <Button onClick={handleSubmitQuiz}>Submit Quiz</Button>
+              <Button onClick={handleSubmitQuiz} disabled={answers.some(a => a === '')}>Submit Quiz</Button>
+            )}
+            {showAnswers && (
+                 <p className="text-center font-semibold text-lg">Quiz Score: {quizScore} / {mcq.questions.length}</p>
             )}
           </div>
         )}

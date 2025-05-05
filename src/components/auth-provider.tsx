@@ -1,28 +1,28 @@
 'use client';
 
+import React from "react";
 import {useState, useEffect, createContext, useContext, ReactNode, useCallback} from 'react';
 import {useRouter} from 'next/navigation';
 import {
-  getAuth,
   onAuthStateChanged, signOut as firebaseSignOut, User} from 'firebase/auth';
-import {auth as firebaseAuth, db, getUserData} from '@/lib/firebase';
+import {auth as firebaseAuth, db, getUserData} from '@/lib/firebase'; // Ensure auth is imported correctly
 import {Auth} from "firebase/auth";
 import {doc, getDoc} from 'firebase/firestore';
 
 interface AuthContextType {
-  user: User | null | undefined;
+  user: User | null | undefined; // undefined signifies initial loading state
   loading: boolean;
   userType: 'student' | 'teacher' | null;
   userClass: string | null;
-  signOut: (auth:any) => Promise<void>;
+  signOut: () => Promise<void>; // Simplified signOut signature
 }
 
 const AuthContext = createContext<AuthContextType>({
-  user: null,
+  user: undefined, // Start with undefined to indicate loading
   loading: true,
   userType: null,
   userClass: null,
-  signOut: async (auth: any) => {},
+  signOut: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -31,68 +31,95 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export default function AuthProvider({children}: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
+// Renaming the component to avoid conflict if AuthProvider is also used elsewhere or expected as default
+export default function AuthProviderComponent({ children }: AuthProviderProps) {
+  const [user, setUser] = useState<User | null | undefined>(undefined); // Start as undefined
   const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState<'student' | 'teacher' | null>(null);
   const [userClass, setUserClass] = useState<string | null>(null);
   const router = useRouter();
 
 
-  const fetchUserData = useCallback(async (user: User) => {
-    try {
-      const userData = await getUserData(user.uid);
-      if (userData) {
-        setUserType(userData.role);
-        setUserClass(userData.class);
-      } else {
-        setUserType(user.email?.endsWith('@teacher.com') ? 'teacher' : 'student');
-        setUserClass(null);
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      setUserType(user.email?.endsWith('@teacher.com') ? 'teacher' : 'student');
+  const fetchUserData = useCallback(async (currentUser: User) => {
+    // Ensure db is initialized before using it
+    if (!db) {
+      console.error("Firestore DB is not initialized");
+      setUserType(null); // Set defaults if DB fails
       setUserClass(null);
+      return;
     }
+     try {
+       const userData = await getUserData(currentUser.uid);
+       if (userData) {
+         setUserType(userData.role);
+         // Ensure class/grade is set based on role
+         setUserClass(userData.role === 'teacher' ? userData.teacherGrade : userData.class);
+       } else {
+         // Fallback logic if user document doesn't exist (should ideally not happen after registration)
+         console.warn(`User document not found for UID: ${currentUser.uid}`);
+         setUserType(null);
+         setUserClass(null);
+       }
+     } catch (error) {
+       console.error('Error fetching user data:', error);
+       setUserType(null); // Reset on error
+       setUserClass(null);
+     }
   }, []);
 
 
   useEffect(() => {
-    const unsubscribe = firebaseAuth ? onAuthStateChanged(firebaseAuth, async user => {
-      if (!user) {
+    // Ensure firebaseAuth is initialized
+    if (!firebaseAuth) {
+        console.error("Firebase Auth is not initialized.");
+        setLoading(false); // Stop loading if auth is not available
+        setUser(null); // Set user to null explicitly
+        return;
+    }
+
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async firebaseUser => {
+      setLoading(true); // Set loading true when auth state changes
+      if (!firebaseUser) {
         setUser(null);
         setUserType(null);
         setUserClass(null);
-        setLoading(false);
-        router.push('/login');
+        // No automatic redirect here, handle in page components or Home page
       } else {
-        setUser(user);
-        await fetchUserData(user);
-        setLoading(false);
+        setUser(firebaseUser);
+        await fetchUserData(firebaseUser);
       }
-    }) : () => {};
-    return () => unsubscribe();
-  }, [router, fetchUserData]);
+      setLoading(false); // Set loading false after processing
+    });
 
-  const signOutFunc = async (auth: any) => {
-      const authAux = getAuth();
-    if (authAux) {
-       try {
-        await firebaseSignOut(authAux);
-        await router.push('/login');
-      } catch (error) {
-        console.error('Error signing out:', error);
-      }
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [router, fetchUserData]); // Dependencies
+
+  const signOutFunc = async () => {
+    if (!firebaseAuth) {
+        console.error("Firebase Auth is not initialized for sign out.");
+        return;
+    }
+    try {
+      await firebaseSignOut(firebaseAuth);
+      setUser(null); // Clear user state immediately
+      setUserType(null);
+      setUserClass(null);
+      router.push('/login'); // Redirect after sign out
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Optionally show a toast message on error
     }
   };
 
-  const value: AuthContextType = {
+  // Memoize the context value to prevent unnecessary re-renders
+  const value = React.useMemo(() => ({
     user,
     loading,
     userType,
     userClass,
     signOut: signOutFunc,
-  };
+  }), [user, loading, userType, userClass]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

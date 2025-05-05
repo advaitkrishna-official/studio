@@ -1,19 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useState, useEffect } from "react"; // Added useEffect
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { personalizeLearningPath } from "@/ai/flows/personalize-learning-path";
+import { useAuth } from '@/components/auth-provider'; // Import useAuth
+import { useToast } from "@/hooks/use-toast"; // Import useToast
 
 interface Recommendations {
   recommendedTopics: { topic: string; reason: string; }[];
@@ -23,29 +18,39 @@ interface Recommendations {
 
 
 const LearningPathPage = () => {
-  const [studentId, setStudentId] = useState("");
   const [performanceData, setPerformanceData] = useState("");
   const [learningStyle, setLearningStyle] = useState("");
   const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
-
-
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedGrade, setSelectedGrade] = useState<string>("grade-8"); // Default grade
+  const { user, userClass } = useAuth(); // Get user and userClass
+  const { toast } = useToast(); // Use the toast hook
+
+  // Removed studentId state as we get it from useAuth
+  // Removed selectedGrade state as we get it from useAuth (userClass)
 
   const handleSubmit = async () => {
+    // Ensure user and userClass are available
+    if (!user || !userClass) {
+        setError("User information is not available. Please log in again.");
+        toast({ variant: 'destructive', title: 'Error', description: 'User information missing.' });
+        return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
       const result = await personalizeLearningPath({
-        grade: selectedGrade,
-        studentId,
+        grade: userClass, // Use the student's grade from auth context
+        studentId: user.uid, // Use the student's ID from auth context
         performanceData,
         learningStyle,
       });
       setRecommendations(result);
+      toast({ title: 'Learning Path Generated', description: 'Recommendations are ready.' });
     } catch (e: any) {
       setError(e.message || "An error occurred while generating the learning path.");
+      toast({ variant: 'destructive', title: 'Error Generating Path', description: e.message });
     } finally {
       setIsLoading(false);
     }
@@ -57,91 +62,76 @@ const LearningPathPage = () => {
             <CardHeader>
                 <CardTitle>Personalized Learning Path</CardTitle>
                 <CardDescription>
-                    Enter your student ID, performance data, and learning style to get a personalized learning path.
+                    Enter your performance data and optional learning style to get AI-driven recommendations.
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
-                <div className="grid gap-2">
-                    <Label htmlFor="studentId">Student ID</Label>
-                    <Input
-                        id="studentId"
-                        placeholder="Enter student ID..."
-                        value={studentId}
-                        onChange={(e) => setStudentId(e.target.value)}
-                    />
-                </div>
+                {/* Removed Student ID input */}
                 <div className="grid gap-2">
                     <Label htmlFor="performanceData">Performance Data (JSON)</Label>
                     <Textarea
                         id="performanceData"
-                        placeholder="Enter performance data in JSON format..."
+                        placeholder='Example: {"topics": {"Algebra": 75, "Geometry": 50}, "questionTypes": {"MCQ": 80, "LongAnswer": 60}}'
                         value={performanceData}
                         onChange={(e) => setPerformanceData(e.target.value)}
+                        rows={5}
                     />
+                    <p className="text-xs text-muted-foreground">
+                        Provide data on topics/questions attempted and accuracy (%).
+                    </p>
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="learningStyle">Learning Style (Optional)</Label>
                     <Input
                         id="learningStyle"
-                        placeholder="Enter learning style (e.g., visual, auditory, kinesthetic)..."
+                        placeholder="e.g., visual, auditory, kinesthetic"
                         value={learningStyle}
                         onChange={(e) => setLearningStyle(e.target.value)}
                     />
                 </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="grade">Grade</Label>
-                    <Select onValueChange={setSelectedGrade} defaultValue={selectedGrade}>
-                        <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Grade" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="grade-8">Grade 8</SelectItem>
-                            <SelectItem value="grade-6">Grade 6</SelectItem>
-                            <SelectItem value="grade-4">Grade 4</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+                {/* Removed Grade Selector */}
 
-                <Button onClick={handleSubmit} disabled={isLoading}>
+                <Button onClick={handleSubmit} disabled={isLoading || !user || !userClass}>
                     {isLoading ? "Generating Learning Path..." : "Generate Learning Path"}
                 </Button>
-                {error && <p className="text-red-500">{error}</p>}
+                {error && <p className="text-red-500 mt-2">{error}</p>}
             </CardContent>
         </Card>
 
       {recommendations && (
-        <div className="mt-8 max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold tracking-tight">Recommendations</h2>
-          <p className="text-sm text-muted-foreground">
-            Here are your AI generated personalized learning path recommendations.
-          </p>
-          <div className="grid gap-4 mt-4">
-            <div>
-              <h3 className="text-xl font-bold tracking-tight">Recommended Topics</h3>
-              <ul>
-                {recommendations.recommendedTopics.map((topic, index) => (
-                  <li key={index}>
-                    {topic.topic} : {topic.reason}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold tracking-tight">Recommended Question Types</h3>
-              <ul>
-                {recommendations.recommendedQuestionTypes.map((questionType, index) => (
-                  <li key={index}>
-                    {questionType.questionType} : {questionType.reason}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold tracking-tight">Summary</h3>
-              <p>{recommendations.summary}</p>
-            </div>
-          </div>
-        </div>
+        <Card className="max-w-3xl mx-auto mt-8">
+           <CardHeader>
+              <CardTitle>Your Personalized Recommendations</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-6">
+                 <div>
+                   <h3 className="text-lg font-semibold mb-2">Summary</h3>
+                   <p className="text-muted-foreground">{recommendations.summary}</p>
+                 </div>
+                 <div className="grid md:grid-cols-2 gap-6">
+                     <div>
+                       <h3 className="text-lg font-semibold mb-2">Recommended Topics</h3>
+                       <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                         {recommendations.recommendedTopics.map((topic, index) => (
+                           <li key={index}>
+                             <strong>{topic.topic}:</strong> {topic.reason}
+                           </li>
+                         ))}
+                       </ul>
+                     </div>
+                     <div>
+                       <h3 className="text-lg font-semibold mb-2">Recommended Question Types</h3>
+                       <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                         {recommendations.recommendedQuestionTypes.map((qt, index) => (
+                           <li key={index}>
+                             <strong>{qt.questionType}:</strong> {qt.reason}
+                           </li>
+                         ))}
+                       </ul>
+                     </div>
+                 </div>
+            </CardContent>
+        </Card>
       )}
     </div>
   );

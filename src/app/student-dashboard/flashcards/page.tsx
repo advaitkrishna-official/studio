@@ -1,227 +1,167 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { generateFlashcards, GenerateFlashcardsOutput } from "@/ai/flows/generate-flashcards";
-import { cn } from "@/lib/utils";
-import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import React from "react";
-import { useAuth } from "@/components/auth-provider";
-import { getGrades } from "@/lib/firebase";
+  Card,
+  CardContent,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { generateFlashcards, GenerateFlashcardsOutput } from '@/ai/flows/generate-flashcards';
+import { Progress } from '@/components/ui/progress';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { useAuth } from '@/components/auth-provider';
+import { getGrades } from '@/lib/firebase';
 
-type Grade = {
-  id: string;
-  score: number
-}
+type Grade = { id: string; score: number };
 
-const FlashcardPage = () => {
-  const [topic, setTopic] = useState("");
+export default function AnimatedFlashcardPage() {
+  const [topic, setTopic] = useState('');
   const [numCards, setNumCards] = useState(10);
   const [flashcards, setFlashcards] = useState<GenerateFlashcardsOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [currentCard, setCurrentCard] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuth();
-  const [selectedGrade, setSelectedGrade] = useState<string>("grade-8"); // Default grade
+  const { user, userClass } = useAuth(); // Get userClass (student's grade)
   const [totalScore, setTotalScore] = useState<number | null>(null);
 
+  // Fetch total score
   useEffect(() => {
     if (user) {
       getGrades(user.uid)
-        .then((grades) => {
-          const gradesData = grades as Grade[];
-          if (gradesData.length > 0) {
-            const sum = gradesData.reduce((acc, grade) => acc + grade.score, 0);
-            setTotalScore(sum);
-          }
-            }).catch(e => {
-                console.error("Error fetching grades:", e);
-                setError(e.message || "An error occurred while fetching grades.");
-            });
-        }
-    }, [user]);
+        .then((grades: Grade[]) => {
+          if (grades.length) setTotalScore(grades.reduce((a, g) => a + g.score, 0));
+        })
+        .catch(() => {});
+    }
+  }, [user]);
 
-  const handleSubmit = async () => {
+  const handleGenerate = async () => {
+    if (!userClass) {
+        setError("Student grade not found.");
+        return;
+    }
     setIsLoading(true);
     setError(null);
     setProgress(0);
     try {
-      const result = await generateFlashcards({ topic, numCards, grade: selectedGrade });
-      setFlashcards(result);
+      // Pass the student's grade from userClass
+      const res = await generateFlashcards({ topic, numCards, grade: userClass });
+      setFlashcards(res);
       setProgress(100);
-      setCurrentCardIndex(0); // Reset to the first card after generating new flashcards
+      setCurrentCard(0);
     } catch (e: any) {
-      setError(e.message || "An error occurred while generating flashcards.");
-      setProgress(0);
+      setError(e.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleNextCard = () => {
-    setCurrentCardIndex((prevIndex) => Math.min(prevIndex + 1, (flashcards?.flashcards?.length || 1) - 1));
-  };
-
-  const handlePreviousCard = () => {
-    setCurrentCardIndex((prevIndex) => Math.max(prevIndex - 1, 0));
-  };
+  const nextCard = () => setCurrentCard(i => Math.min(i + 1, (flashcards?.flashcards.length || 1) - 1));
+  const prevCard = () => setCurrentCard(i => Math.max(i - 1, 0));
 
   return (
-    <div className="container mx-auto py-8">
-      <Card className="max-w-3xl mx-auto">
-        <CardHeader>
-          <CardTitle>Flashcard Generator</CardTitle>
-          <CardDescription>
-            Enter a topic and the number of flashcards to generate.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="topic">Topic</Label>
-            <Input
-              id="topic"
-              placeholder="Enter topic..."
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="numCards">Number of Flashcards</Label>
-            <Input
-              id="numCards"
-              type="number"
-              placeholder="Number of flashcards to generate"
-              value={numCards.toString()}
-              onChange={(e) => {
-                const parsedValue = parseInt(e.target.value);
-                if (!isNaN(parsedValue)) {
-                  setNumCards(parsedValue);
-                }
-              }}
-            />
-            </div><div className="grid gap-2">
-            <Label htmlFor="grade">Grade</Label>
-            <Select
-              onValueChange={setSelectedGrade}
-              defaultValue={selectedGrade}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Grade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="grade-8">Grade 8</SelectItem>
-                <SelectItem value="grade-6">Grade 6</SelectItem>
-                <SelectItem value="grade-4">Grade 4</SelectItem>
-              </SelectContent>
-            </Select>
-            </div>
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? "Generating Flashcards..." : "Generate Flashcards"}
-          </Button>
-          {isLoading && (
-            <Progress value={progress} className="mt-2" />
-          )}
-          {error && <p className="text-red-500">{error}</p>}
-        </CardContent>
-      </Card>{totalScore !== null && (
-        <div className="mt-4 max-w-3xl mx-auto">
-          <h3 className="text-xl font-bold tracking-tight">Total Score</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Your total score: {totalScore}%
-          </p>
-        </div>
-      )}
+    <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-10">
+      {/* Animated Blobs */}
+      <motion.div className="absolute w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply blur-3xl opacity-30 top-0 left-0"
+        animate={{ x: [0, 200, 0], y: [0, 50, 0] }} transition={{ duration: 20, repeat: Infinity }} />
+      <motion.div className="absolute w-56 h-56 bg-pink-300 rounded-full mix-blend-multiply blur-2xl opacity-25 bottom-0 right-0"
+        animate={{ x: [0, -150, 0], y: [0, -50, 0] }} transition={{ duration: 18, repeat: Infinity }} />
 
-      
-      {flashcards && flashcards.flashcards && (
-        <div className="mt-8 max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold tracking-tight">Generated Flashcards</h2>
-          <p className="text-sm text-muted-foreground">
-            Here are your AI generated flashcards on the topic of {topic}
-          </p>
-          <div className="flex justify-between items-center mt-4">
-            <Button variant="outline" size="icon" onClick={handlePreviousCard} disabled={currentCardIndex === 0}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="w-full">
-              {flashcards.flashcards[currentCardIndex] && (
-                <AnimatedFlashcard
-                  front={flashcards.flashcards[currentCardIndex].front}
-                  back={flashcards.flashcards[currentCardIndex].back}
-                  ref={cardRef}
-                />
-              )}
-            </div>
-              <Button
-              variant="outline"
-              size="icon"
-              onClick={handleNextCard}
-              disabled={currentCardIndex === flashcards.flashcards.length - 1}
-            >
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
+      <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6 }}
+        className="relative z-10 max-w-3xl mx-auto bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-8 space-y-6">
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-800">Flashcard Generator</h1>
+          <p className="text-gray-600">Enter a topic and number of cards to study.</p>
         </div>
-      )}
+
+        {/* Controls */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Topic</Label>
+            <Input value={topic} onChange={e => setTopic(e.target.value)} placeholder="Photosynthesis" />
+          </div>
+          <div className="space-y-2">
+            <Label>Number of Cards</Label>
+            <Input type="number" value={numCards} onChange={e => setNumCards(+e.target.value)} min="1" max="20" />
+          </div>
+          {/* Removed Grade Selector */}
+          <Button onClick={handleGenerate} disabled={isLoading || !userClass} className="col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white">
+            {isLoading ? 'Generating...' : 'Generate'}
+          </Button>
+        </div>
+
+        {isLoading && <Progress value={progress} className="h-2" />}
+        {error && <p className="text-red-500">{error}</p>}
+        {totalScore !== null && <p className="text-right text-gray-700">Total Score: {totalScore}%</p>}
+
+        {/* Flashcards */}
+        {flashcards && (
+          <div className="mt-6 flex items-center space-x-4">
+            <Button variant="outline" size="icon" onClick={prevCard} disabled={currentCard === 0}><ArrowLeft /></Button>
+            <AnimatedFlashcard front={flashcards.flashcards[currentCard].front} back={flashcards.flashcards[currentCard].back} ref={cardRef} />
+            <Button variant="outline" size="icon" onClick={nextCard} disabled={currentCard === flashcards.flashcards.length - 1}><ArrowRight /></Button>
+          </div>
+        )}
+      </motion.div>
     </div>
   );
-};
-
-interface AnimatedFlashcardProps {
-  front: string;
-  back: string
 }
 
-const AnimatedFlashcard = React.forwardRef<
-  HTMLDivElement,
-  AnimatedFlashcardProps
->(({ front, back }, ref) => {
-  const [isFlipped, setIsFlipped] = useState(false)
+// Define props type for AnimatedFlashcard
+interface AnimatedFlashcardProps {
+  front: string;
+  back: string;
+}
 
-  const handleClick = () => {
-    setIsFlipped(!isFlipped)
-  }
 
+const AnimatedFlashcard = React.forwardRef<HTMLDivElement, AnimatedFlashcardProps>(({ front, back }, ref) => {
+    const [isFlipped, setIsFlipped] = useState(false);
+
+    const handleClick = () => {
+      setIsFlipped(!isFlipped);
+      if (!isFlipped) { // If we are flipping to show the back
+        // Set a timeout to flip back after 5 seconds
+        setTimeout(() => {
+          setIsFlipped(false);
+        }, 5000); // 5000 milliseconds = 5 seconds
+      }
+    };
+
+
+    // Use useEffect to reset flip state when card content changes (optional, good practice)
     useEffect(() => {
-    if (isFlipped) {
-      const timer = setTimeout(() => {
-        setIsFlipped(false)
-      }, 5000) // 5 seconds
-      return () => clearTimeout(timer)
-    }
-  }, [isFlipped])
+        setIsFlipped(false);
+    }, [front, back]);
 
-  return (<Card className="w-full h-48 relative transform-style-3d">
-    <div className={cn("w-full h-full absolute transition-transform duration-500 transform-style-3d",
-      "backface-hidden",
-      isFlipped ? "rotate-y-180" : "")}>
-        <div
-          className="absolute w-full h-full"
-          onClick={handleClick}
+
+    return (
+      <Card ref={ref} onClick={handleClick} className="w-full h-56 perspective cursor-pointer overflow-hidden rounded-lg shadow-lg bg-white hover:shadow-xl transition-shadow duration-300">
+        <motion.div
+          animate={{ rotateY: isFlipped ? 180 : 0 }}
+          transition={{ duration: 0.6 }}
+          className="relative w-full h-full preserve-3d" // Added preserve-3d
         >
-          <CardContent className="flex items-center justify-center h-full">
-            <p className="text-xl font-bold">{!isFlipped ? front : back}</p>
-          </CardContent>
-        </div>
-      </div>
-  </Card>);
-})
+          {/* Front Face */}
+          <div className="absolute inset-0 backface-hidden flex flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-indigo-100 to-blue-100 rounded-lg">
+            <h3 className="text-xl font-semibold text-indigo-800 mb-2">Question</h3>
+            <p className="text-lg text-gray-700">{ front }</p>
+          </div>
 
-AnimatedFlashcard.displayName = "AnimatedFlashcard"
+          {/* Back Face */}
+          <div className="absolute inset-0 backface-hidden rotate-y-180 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-green-100 to-teal-100 rounded-lg">
+            <h3 className="text-xl font-semibold text-green-800 mb-2">Answer</h3>
+            <p className="text-lg text-gray-700">{ back }</p>
+          </div>
+        </motion.div>
+      </Card>
+    );
+});
 
-export default FlashcardPage
 
-
+AnimatedFlashcard.displayName = 'AnimatedFlashcard';

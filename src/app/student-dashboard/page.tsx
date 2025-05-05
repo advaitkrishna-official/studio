@@ -3,13 +3,12 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { useAuth } from '@/components/auth-provider';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, onSnapshot, where, DocumentData, Timestamp } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
-import { format } from 'date-fns';
+import { motion } from 'framer-motion';
+import { collection, query, onSnapshot, where, DocumentData, Timestamp, getDocs } from 'firebase/firestore'; // Corrected import for getDocs
+import { useAuth } from '@/components/auth-provider';
 
+import { format } from 'date-fns';
 import {
   Card,
   CardHeader,
@@ -165,6 +164,7 @@ export default function StudentDashboardPage() {
     // Progress Fetch (using getGrades which should exist in firebase.ts)
     // This assumes getGrades fetches from Users/{uid}/grades
     const fetchGrades = async () => {
+      if (!user) return; // Ensure user exists
       try {
         const gradesRef = collection(db, 'Users', user.uid, 'grades');
         const gradesSnap = await getDocs(gradesRef);
@@ -231,10 +231,6 @@ export default function StudentDashboardPage() {
             ))}
           </nav>
           <div className="flex items-center space-x-3">
-            {/* <Button variant="ghost" size="icon" className="text-gray-500 hover:text-indigo-600 hover:bg-indigo-50">
-              <Bell size={20} />
-              <span className="sr-only">Notifications</span>
-            </Button> */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -254,26 +250,12 @@ export default function StudentDashboardPage() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {/* <DropdownMenuItem onClick={() => router.push('/student-dashboard/settings')}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/student-dashboard/help')}>
-                  <HelpCircle className="mr-2 h-4 w-4" />
-                  <span>Help</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator /> */}
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            {/* Mobile Menu Trigger */}
-            {/* <Button variant="ghost" size="icon" className="md:hidden text-gray-500 hover:text-indigo-600 hover:bg-indigo-50">
-              <Menu size={20} />
-              <span className="sr-only">Toggle Menu</span>
-            </Button> */}
           </div>
         </div>
       </header>
@@ -293,7 +275,7 @@ export default function StudentDashboardPage() {
              <CardContent>
                <p className="text-4xl font-semibold text-indigo-600">
                  {loadingTasks ? (
-                    <span className="animate-pulse">...</span>
+                    <span className="loader"></span>
                  ) : (
                    dueTodayCount
                  )}
@@ -372,4 +354,4 @@ export default function StudentDashboardPage() {
   );
 };
 
-    
+
