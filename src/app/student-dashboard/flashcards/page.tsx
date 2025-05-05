@@ -16,11 +16,10 @@ import { generateFlashcards, GenerateFlashcardsOutput } from '@/ai/flows/generat
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
-import { getGrades } from '@/lib/firebase';
+import { getGrades, GradeData } from '@/lib/firebase'; // Import GradeData type
 import { useToast } from '@/hooks/use-toast';
 
-type Grade = { id: string; score: number };
-
+// Define AnimatedFlashcard component here as it's used only on this page
 interface AnimatedFlashcardProps {
   front: string;
   back: string;
@@ -95,9 +94,7 @@ const AnimatedFlashcard = React.forwardRef<HTMLDivElement, AnimatedFlashcardProp
     );
   }
 );
-
 AnimatedFlashcard.displayName = 'AnimatedFlashcard';
-
 
 export default function AnimatedFlashcardPage() {
   const [topic, setTopic] = useState('');
@@ -109,56 +106,52 @@ export default function AnimatedFlashcardPage() {
   const [currentCard, setCurrentCard] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
   const { user, userClass, loading: authLoading } = useAuth(); // Get user, class, and auth loading state
-  const [totalScore, setTotalScore] = useState<number | null>(null);
+  const [averageScore, setAverageScore] = useState<number | null>(null); // State for average score
+  const [loadingScore, setLoadingScore] = useState(true); // State for score loading
   const { toast } = useToast();
 
-  // Debug log for auth state changes
-  useEffect(() => {
-    console.log(`Flashcards Page - Auth State: user: ${!!user}, userClass: ${userClass}, authLoading: ${authLoading}`);
-  }, [user, userClass, authLoading]);
-
   // Fetch average score from previous grades
-  const fetchTotalScore = useCallback(async () => {
+  const fetchAverageScore = useCallback(async () => {
     if (!user || authLoading) { // Also wait for auth loading to finish
-      setTotalScore(null);
+      setAverageScore(null);
+      setLoadingScore(true); // Start loading score
       return;
     }
+    setLoadingScore(true); // Start loading score
     try {
-      const grades: Grade[] = await getGrades(user.uid);
-      if (grades.length) {
-        const avg = grades.reduce((sum, g) => sum + (g.score || 0), 0) / grades.length;
-        setTotalScore(avg);
+      const grades: GradeData[] = await getGrades(user.uid);
+      if (grades.length > 0) {
+         // Filter for flashcard-related scores if needed, or calculate overall average
+         // Example: Calculate overall average score for now
+        const validScores = grades.map(g => g.score).filter(s => typeof s === 'number' && !isNaN(s));
+        const avg = validScores.length > 0 ? validScores.reduce((sum, g) => sum + g, 0) / validScores.length : 0;
+        setAverageScore(avg);
       } else {
-        setTotalScore(0);
+        setAverageScore(0);
       }
-    } catch {
+    } catch (err: any) {
       toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch previous scores.' });
-      setTotalScore(0); // Set to 0 on error to avoid null state loops
+      setAverageScore(0); // Set to 0 on error to avoid null state loops
+    } finally {
+        setLoadingScore(false); // Finish loading score
     }
   }, [user, toast, authLoading]); // Add authLoading
 
   useEffect(() => {
-    fetchTotalScore();
-  }, [fetchTotalScore]); // Dependency array already correct
+    fetchAverageScore();
+  }, [fetchAverageScore]); // Dependency array already correct
 
   const handleGenerate = async () => {
-    console.log(`[Flashcards Page] handleGenerate called. authLoading: ${authLoading}, user: ${!!user}, userClass: ${userClass}`); // Debug log
-
-    // Enhanced check for auth status and userClass
     if (authLoading) {
       toast({ variant: 'destructive', title: 'Please wait', description: 'Authentication is still loading.' });
-      console.log("Flashcards: Generation blocked - auth is loading.");
       return;
     }
     if (!user) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please log in to generate flashcards.' });
-       console.log("Flashcards: Generation blocked - user not logged in.");
       return;
     }
-    // Check userClass AFTER checking authLoading and user
     if (!userClass) {
       toast({ variant: 'destructive', title: 'Error', description: 'Student grade information is missing. Cannot generate flashcards.' });
-      console.error("Flashcard Generation Error: userClass is null or undefined even though authLoading is false and user exists.");
       setError("Could not load your grade information. Please try logging out and back in.");
       return;
     }
@@ -178,22 +171,19 @@ export default function AnimatedFlashcardPage() {
       // Prepare grade string for AI (e.g., "Grade 8" -> "grade-8")
       const gradeForAI = userClass.toLowerCase().replace(/\s+/g, '-');
       const inputData = { topic, numCards, grade: gradeForAI };
-      console.log(`[Flashcards Page] Sending input to generateFlashcards flow:`, inputData); // Log input data
 
       // Use a timeout to ensure the progress bar is visible for a moment
       await new Promise(resolve => setTimeout(resolve, 300)); // Wait for 300ms
 
       // Call the AI flow
-      const res = await generateFlashcards({ topic, numCards, grade: gradeForAI });
+      const res = await generateFlashcards(inputData);
 
       if (res?.flashcards && Array.isArray(res.flashcards)) {
          if (res.flashcards.length > 0) {
            setFlashcards(res);
            setProgress(100);
            toast({ title: 'Flashcards Generated', description: `${res.flashcards.length} cards ready!` });
-           console.log(`[Flashcards Page] Successfully generated ${res.flashcards.length} flashcards.`); // Log success
          } else {
-           // Handle case where AI returns an empty array
            setError('No flashcards were generated for this topic and grade.');
            toast({ variant: 'default', title: 'No Cards Generated', description: 'Try a different topic or number of cards.' });
            setProgress(0);
@@ -224,7 +214,6 @@ export default function AnimatedFlashcardPage() {
 
   // Disable button if auth is loading, AI is generating, user info missing, or topic empty
   const isGenerateDisabled = isLoading || authLoading || !user || !userClass || !topic.trim();
-  console.log(`Flashcards: isGenerateDisabled: ${isGenerateDisabled} (isLoading: ${isLoading}, authLoading: ${authLoading}, user: ${!!user}, userClass: ${userClass}, topic empty: ${!topic.trim()})`); // Debug log
 
   // UI Rendering
   if (authLoading) {
@@ -308,11 +297,18 @@ export default function AnimatedFlashcardPage() {
         {/* Progress & Feedback */}
         {isLoading && <Progress value={progress} className="h-2 w-full" />}
         {error && <p className="text-red-500 text-center mt-2">{error}</p>}
-        {totalScore !== null && !isLoading && !error && ( // Only show score if not loading/erroring
-          <p className="text-right text-gray-700 font-medium mt-2">
-            Average Flashcard Score: {totalScore.toFixed(1)}%
-          </p>
-        )}
+        {/* Display Score */}
+        <div className="text-right mt-2">
+          {loadingScore ? (
+            <p className="text-gray-500 text-sm">Loading score...</p>
+          ) : averageScore !== null ? (
+            <p className="text-gray-700 font-medium">
+              Average Score: {averageScore.toFixed(1)}%
+            </p>
+          ) : (
+            <p className="text-gray-500 text-sm">No score data available.</p>
+          )}
+        </div>
 
         {/* Flashcard Viewer */}
         {flashcards?.flashcards && flashcards.flashcards.length > 0 ? (
