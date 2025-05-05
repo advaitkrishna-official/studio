@@ -125,66 +125,7 @@ export default function AnimatedFlashcardPage() {
   const [currentCard, setCurrentCard] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
   const { user, userClass, loading: authLoading } = useAuth(); // Get user, class, and auth loading state
-  const [averageScore, setAverageScore] = useState<number | null>(null); // State for average score
-  const [loadingScore, setLoadingScore] = useState(true); // State for score loading
   const { toast } = useToast();
-
-  // Use useEffect to listen for real-time grade updates
-  useEffect(() => {
-    if (authLoading || !user || !db) {
-      setLoadingScore(true); // Keep loading if auth is pending or user/db not available
-      setAverageScore(null);
-      return;
-    }
-
-    setLoadingScore(true); // Start loading score
-    console.log("Setting up grades listener for user:", user.uid);
-
-    const gradesCollection = collection(db, 'Users', user.uid, 'grades');
-    const q = query(gradesCollection);
-
-    const unsubscribe = onSnapshot(
-      q,
-      snapshot => {
-        console.log("Grades snapshot received, size:", snapshot.size);
-        const gradesData = snapshot.docs.map(
-          doc => ({ id: doc.id, ...doc.data() } as GradeData)
-        );
-
-        if (gradesData.length > 0) {
-          const validScores = gradesData
-            .map(g => g.score)
-            .filter(s => typeof s === 'number' && !isNaN(s));
-          const avg =
-            validScores.length > 0
-              ? validScores.reduce((sum, g) => sum + g, 0) / validScores.length
-              : 0;
-          console.log("Calculated average score:", avg);
-          setAverageScore(avg);
-        } else {
-          console.log("No grades found, setting average score to 0");
-          setAverageScore(0);
-        }
-        setLoadingScore(false); // Finish loading score after processing
-      },
-      err => {
-        console.error('Error listening to grades:', err);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Could not fetch real-time scores.',
-        });
-        setAverageScore(0); // Set to 0 on error
-        setLoadingScore(false); // Finish loading score even on error
-      }
-    );
-
-    // Cleanup listener on unmount or when user/authLoading changes
-    return () => {
-      console.log("Cleaning up grades listener");
-      unsubscribe();
-    };
-  }, [user, authLoading, toast]); // Rerun when user or auth state changes
 
   const handleGenerate = async () => {
     if (authLoading) {
@@ -296,7 +237,7 @@ export default function AnimatedFlashcardPage() {
     isLoading || authLoading || !user || !userClass || !topic.trim();
 
   // UI Rendering
-  if (authLoading && averageScore === null) { // Show loader only if auth is loading AND score hasn't been calculated yet
+  if (authLoading) { // Show loader only if auth is loading
     // Show a loading indicator for the entire page while auth is loading
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-100">
@@ -391,18 +332,7 @@ export default function AnimatedFlashcardPage() {
         {/* Progress & Feedback */}
         {isLoading && <Progress value={progress} className="h-2 w-full" />}
         {error && <p className="text-red-500 text-center mt-2">{error}</p>}
-        {/* Display Score */}
-        <div className="text-right mt-2">
-          {loadingScore ? (
-            <p className="text-gray-500 text-sm">Loading score...</p>
-          ) : averageScore !== null ? (
-            <p className="text-gray-700 font-medium">
-              Average Score: {averageScore.toFixed(1)}%
-            </p>
-          ) : (
-            <p className="text-gray-500 text-sm">No score data available.</p>
-          )}
-        </div>
+
 
         {/* Flashcard Viewer */}
         {flashcards?.flashcards && flashcards.flashcards.length > 0 ? (
