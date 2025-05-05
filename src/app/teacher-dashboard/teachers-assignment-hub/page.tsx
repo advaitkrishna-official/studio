@@ -1,3 +1,4 @@
+// src/app/teacher-dashboard/teachers-assignment-hub/page.tsx
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -119,7 +120,7 @@ export default function TeachersAssignmentHubPage() {
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
   const [mcqCurrentIndex, setMcqCurrentIndex] = useState(0);
 
-  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [loadingAssignments, setLoadingAssignments] = useState(false); // Initial state false, set true before fetch
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
   // --- State for View Details Dialog ---
@@ -139,7 +140,12 @@ export default function TeachersAssignmentHubPage() {
 
   // Effect to fetch assignments when class or user changes
   useEffect(() => {
-    if (authLoading) return; // Wait for auth to finish loading
+    console.log("Assignment fetch effect triggered. Auth loading:", authLoading, "User:", user?.uid, "Selected Class:", selectedClass);
+
+    if (authLoading) {
+        console.log("Auth is loading, skipping assignment fetch.");
+        return; // Wait for auth to finish loading
+    }
 
     if (!user) {
       console.log("No user logged in, clearing assignments.");
@@ -152,9 +158,17 @@ export default function TeachersAssignmentHubPage() {
     if (!selectedClass) {
        console.log("No class selected, clearing assignments.");
        setAssignments([]);
-       setLoadingAssignments(false);
+       setLoadingAssignments(false); // Ensure loading stops if no class is selected
        setAssignmentError(null);
        return; // Don't query if no class is selected
+    }
+
+    if (!db) {
+        console.error("Firestore DB not initialized.");
+        setAssignmentError("Database connection failed.");
+        setLoadingAssignments(false);
+        setAssignments([]);
+        return;
     }
 
     setLoadingAssignments(true);
@@ -169,7 +183,7 @@ export default function TeachersAssignmentHubPage() {
     );
 
     const unsubscribe = onSnapshot(q, snap => {
-      console.log(`Assignment snapshot received: ${snap.size} docs`);
+      console.log(`Assignment snapshot received: ${snap.size} docs for class ${selectedClass}`);
       const items: Assignment[] = [];
       snap.docs.forEach(d => {
         const data = d.data() as DocumentData;
@@ -201,13 +215,15 @@ export default function TeachersAssignmentHubPage() {
            console.warn(`Invalid or missing dueDate for assignment ${d.id}:`, data.dueDate);
         }
       });
+      console.log(`Processed ${items.length} valid assignments.`);
       setAssignments(items);
       setLoadingAssignments(false);
     }, (error) => {
-        console.error("Error fetching assignments:", error);
+        console.error(`Error fetching assignments for class ${selectedClass}:`, error);
         setAssignmentError(`Failed to load assignments: ${error.message}`);
         setLoadingAssignments(false);
         setAssignments([]); // Clear on error
+        toast({ variant: 'destructive', title: 'Loading Error', description: `Failed to load assignments for ${selectedClass}. Check console for details.` });
     });
 
     // Cleanup listener
@@ -215,22 +231,40 @@ export default function TeachersAssignmentHubPage() {
        console.log("Unsubscribing from assignments listener for class:", selectedClass);
        unsubscribe();
     };
-  }, [user, selectedClass, authLoading]); // Add authLoading dependency
+  }, [user, selectedClass, authLoading, toast]); // Add authLoading and toast dependencies
 
 
   // --- Function to fetch submissions for a selected assignment ---
     const fetchSubmissions = async (assignmentId: string) => {
-        if (!assignmentId) return;
+        if (!assignmentId || !db) {
+             console.warn("Cannot fetch submissions: Missing assignment ID or DB connection.");
+             return;
+        }
         setLoadingSubmissions(true);
         setSubmissions([]); // Clear previous
+        console.log(`Fetching submissions for assignment: ${assignmentId}`);
         try {
             const submissionsRef = collection(db, 'assignments', assignmentId, 'submissions');
             const submissionsSnap = await getDocs(submissionsRef);
-            const subsData = submissionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Submission));
+            const subsData = submissionsSnap.docs.map(doc => {
+                const data = doc.data();
+                // Basic validation for submission data
+                return {
+                    id: doc.id, // student UID
+                    status: data.status || 'Not Started',
+                    submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt : undefined, // Handle timestamp
+                    answers: Array.isArray(data.answers) ? data.answers : undefined,
+                    responseText: typeof data.responseText === 'string' ? data.responseText : undefined,
+                    grade: data.grade, // Keep as is (could be number or string like 'N/A')
+                    feedback: typeof data.feedback === 'string' ? data.feedback : undefined,
+                } as Submission;
+            });
+            console.log(`Fetched ${subsData.length} submissions for assignment ${assignmentId}`);
             setSubmissions(subsData);
         } catch (error: any) {
-            console.error("Error fetching submissions:", error);
+            console.error(`Error fetching submissions for assignment ${assignmentId}:`, error);
             toast({ variant: "destructive", title: "Error", description: "Could not load submissions." });
+            setSubmissions([]); // Clear on error
         } finally {
             setLoadingSubmissions(false);
         }
@@ -251,7 +285,7 @@ export default function TeachersAssignmentHubPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Title and Description are required.' });
       return;
     }
-    if (newAssignment.type === 'MCQ' && newAssignment.mcqQuestions.length === 0) {
+    if (newAssignment.type === 'MCQ' && (!newAssignment.mcqQuestions || newAssignment.mcqQuestions.length === 0)) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please generate or add MCQs for an MCQ assignment.' });
       return;
     }
@@ -262,13 +296,22 @@ export default function TeachersAssignmentHubPage() {
 
     setIsSavingAssignment(true);
     try {
-      const assignmentData = {
-        ...newAssignment,
-        dueDate: newDueDate, // Ensure dueDate is a Date object
-        createdBy: user.uid,
-        createdAt: serverTimestamp(),
+      // Ensure assignedTo has the currently selected class
+      const finalAssignmentData = {
+          ...newAssignment,
+          assignedTo: { ...newAssignment.assignedTo, classId: selectedClass },
+          dueDate: Timestamp.fromDate(newDueDate), // Convert Date to Firestore Timestamp
+          createdBy: user.uid,
+          createdAt: serverTimestamp(),
       };
-      await addDoc(collection(db, 'assignments'), assignmentData);
+
+      // Remove mcqQuestions field if type is not MCQ to avoid storing unnecessary data
+      if (finalAssignmentData.type !== 'MCQ') {
+          delete (finalAssignmentData as any).mcqQuestions;
+      }
+
+
+      await addDoc(collection(db, 'assignments'), finalAssignmentData);
       toast({ title: 'Success', description: 'Assignment created successfully.' });
       setIsCreateOpen(false);
       // Reset form state
@@ -307,10 +350,11 @@ export default function TeachersAssignmentHubPage() {
         grade: gradeForAI, // Pass selected class/grade
       });
 
-      const cleanMCQs: McqQuestion[] = (res.questions || [])
+      // More robust filtering for valid MCQ structure
+      const cleanMCQs: McqQuestion[] = (res?.questions ?? []) // Handle potential null/undefined res or res.questions
         .filter(
-          (q): q is McqQuestion =>
-            !!q && // Ensure q is not null/undefined
+          (q): q is McqQuestion => // Type guard to ensure structure
+            q &&
             typeof q.question === 'string' && q.question.trim() !== '' &&
             Array.isArray(q.options) && q.options.length > 0 && q.options.every(opt => typeof opt === 'string') &&
             typeof q.correctAnswer === 'string' && q.correctAnswer.trim() !== '' &&
@@ -323,7 +367,8 @@ export default function TeachersAssignmentHubPage() {
           toast({ title: 'MCQs Generated', description: `${cleanMCQs.length} valid questions created.` });
       }
       setGeneratedMCQs({ questions: cleanMCQs });
-      setNewAssignment(a => ({ ...a, mcqQuestions: cleanMCQs }));
+      // Update the mcqQuestions in the newAssignment state
+      setNewAssignment(a => ({ ...a, mcqQuestions: cleanMCQs, type: 'MCQ' })); // Automatically set type to MCQ
       setMcqCurrentIndex(0); // Reset preview index
     } catch (e: any) {
         console.error("Error generating MCQs:", e);
@@ -334,18 +379,30 @@ export default function TeachersAssignmentHubPage() {
     }
   };
 
+  // Robust date formatting
   const formatDate = (d: Date | Timestamp | undefined | null): string => {
     if (!d) return 'No Date';
-    const dateObj = d instanceof Timestamp ? d.toDate() : d;
-    try {
-        return format(dateObj, 'PPP p'); // Format including time
-    } catch {
-        return 'Invalid Date';
+    let dateObj: Date | null = null;
+    if (d instanceof Timestamp) {
+        dateObj = d.toDate();
+    } else if (d instanceof Date) {
+        dateObj = d;
     }
-  };
+
+    if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
+        try {
+            // Format to include time, adjust format as needed
+            return format(dateObj, 'PPP p'); // Example: Jun 20, 2024, 12:00 PM
+        } catch (e) {
+            console.error("Error formatting date:", e);
+            return 'Invalid Date';
+        }
+    }
+    return 'Invalid Date';
+};
 
   return (
-    <div className="container mx-auto py-8">
+    <> {/* Wrap in Fragment */}
       <Card className="max-w-5xl mx-auto">
         <CardHeader>
           <CardTitle>Teachers Assignment Hub</CardTitle>
@@ -356,8 +413,8 @@ export default function TeachersAssignmentHubPage() {
              <div className="flex flex-col sm:flex-row gap-4 items-center mb-6">
                 <div className="flex-grow w-full sm:w-auto">
                     <Label htmlFor="class">Select Class</Label>
-                    <Select onValueChange={setSelectedClass} defaultValue={selectedClass}>
-                        <SelectTrigger className="w-full sm:min-w-[200px]">
+                    <Select onValueChange={setSelectedClass} value={selectedClass}> {/* Controlled component */}
+                        <SelectTrigger id="class" className="w-full sm:min-w-[200px]">
                             <SelectValue placeholder="Select a class" />
                         </SelectTrigger>
                         <SelectContent>
@@ -367,7 +424,7 @@ export default function TeachersAssignmentHubPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                 <Button onClick={() => setIsCreateOpen(true)} className="w-full sm:w-auto">
+                 <Button onClick={() => setIsCreateOpen(true)} className="w-full sm:w-auto" disabled={!selectedClass}> {/* Disable if no class selected */}
                     <Plus className="mr-2 h-4 w-4" /> New Assignment
                  </Button>
             </div>
@@ -469,7 +526,11 @@ export default function TeachersAssignmentHubPage() {
                                         {submissions.map(sub => (
                                             <TableRow key={sub.id}>
                                                 <TableCell className="truncate max-w-[100px]">{sub.id}</TableCell> {/* Show student ID */}
-                                                <TableCell><Badge variant={sub.status === 'Submitted' || sub.status === 'Graded' ? 'default' : sub.status === 'Overdue' ? 'destructive' : 'secondary'}>{sub.status}</Badge></TableCell>
+                                                <TableCell>
+                                                    <Badge variant={sub.status === 'Submitted' || sub.status === 'Graded' ? 'secondary' : sub.status === 'Overdue' ? 'destructive' : 'outline'}>
+                                                       {sub.status}
+                                                    </Badge>
+                                                </TableCell>
                                                 <TableCell>{formatDate(sub.submittedAt)}</TableCell>
                                                 <TableCell>{sub.grade ?? 'Not Graded'}</TableCell>
                                                 <TableCell className="truncate max-w-[150px]">{sub.feedback ?? '-'}</TableCell>
@@ -492,165 +553,184 @@ export default function TeachersAssignmentHubPage() {
 
       {/* Create New Assignment Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogContent className="max-w-3xl"> {/* Responsive max width */}
-            <DialogHeader>
-              <DialogTitle>New Assignment</DialogTitle>
-              <DialogDescription>Fill in the details below.</DialogDescription>
-            </DialogHeader>
-
-            {/* Grid Layout */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-                {/* Left Column: General Info */}
-                <div className="space-y-4">
-                    <div>
-                        <Label htmlFor="new-title">Title</Label>
-                        <Input
-                            id="new-title"
-                            value={newAssignment.title}
-                            onChange={e => setNewAssignment({...newAssignment, title: e.target.value})}
-                            placeholder="e.g., Algebra Worksheet 1"
-                        />
-                    </div>
-                    <div>
-                        <Label htmlFor="new-desc">Description</Label>
-                        <Textarea
-                            id="new-desc"
-                            value={newAssignment.description}
-                            onChange={e => setNewAssignment({...newAssignment, description: e.target.value})}
-                            placeholder="Instructions for the assignment..."
-                            rows={4} // Adjust rows as needed
-                        />
-                    </div>
-                    <div>
-                        <Label htmlFor="new-type">Type</Label>
-                        <Select
-                            value={newAssignment.type}
-                            onValueChange={v => setNewAssignment({...newAssignment, type: v as AssignmentType})}
-                        >
-                        <SelectTrigger id="new-type">
-                            <SelectValue placeholder="Select Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {(['Written', 'MCQ', 'Test', 'Other'] as AssignmentType[]).map(t => (
-                            <SelectItem key={t} value={t}>{t}</SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
-                    </div>
-                    <div>
-                        <Label htmlFor="new-due-date">Due Date</Label>
-                        <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                            id="new-due-date"
-                            variant="outline"
-                            className="w-full justify-start text-left font-normal"
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {newDueDate ? format(newDueDate, "PPP p") : <span>Pick a date</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
-                            mode="single"
-                            selected={newDueDate}
-                            onSelect={setNewDueDate}
-                            initialFocus
-                            />
-                            {/* Consider adding time input here if needed */}
-                        </PopoverContent>
-                        </Popover>
-                    </div>
-                </div>
-
-                {/* Right Column: MCQ Generation (Conditional) */}
-                {newAssignment.type === 'MCQ' ? (
-                    <div className="space-y-4 border-l md:pl-6"> {/* Add border and padding for separation */}
-                         <h3 className="text-lg font-semibold">MCQ Generator</h3>
-                        <div>
-                            <Label htmlFor="mcq-topic">Topic</Label>
-                            <Input
-                                id="mcq-topic"
-                                value={mcqTopic}
-                                onChange={e => setMcqTopic(e.target.value)}
-                                placeholder="e.g., Photosynthesis"
-                            />
-                        </div>
-                        <div>
-                            <Label htmlFor="mcq-count">Number of Questions</Label>
-                            <Input
-                                id="mcq-count"
-                                type="number"
-                                min={1}
-                                max={20}
-                                value={mcqCount}
-                                onChange={e => setMcqCount(Math.max(1, parseInt(e.target.value) || 1))}
-                            />
-                        </div>
-                         <Button
-                            onClick={handleGenMCQ}
-                            disabled={isGenMCQ || !mcqTopic.trim()}
-                            className="w-full" // Full width button
-                        >
-                            {isGenMCQ ? 'Generating...' : 'Generate MCQs'}
-                        </Button>
-
-                         {/* MCQ Preview */}
-                        {generatedMCQs && generatedMCQs.questions.length > 0 && (
-                            <div className="mt-4">
-                                <Label>Preview ({mcqCurrentIndex + 1}/{generatedMCQs.questions.length})</Label>
-                                <Card className="p-4 h-[200px] overflow-y-auto border rounded-md bg-muted/50">
-                                     <p className="font-medium mb-2">{generatedMCQs.questions[mcqCurrentIndex].question}</p>
-                                     <ul className="list-disc pl-5 text-sm space-y-1">
-                                        {generatedMCQs.questions[mcqCurrentIndex].options.map((o, i) => (
-                                        <li
-                                            key={i}
-                                            className={o === generatedMCQs.questions[mcqCurrentIndex].correctAnswer ? 'text-green-600 font-semibold' : ''}
-                                        >
-                                            {o} {o === generatedMCQs.questions[mcqCurrentIndex].correctAnswer && '(Correct)'}
-                                        </li>
-                                        ))}
-                                    </ul>
-                                </Card>
-                                <div className="flex justify-between mt-2">
-                                <Button
-                                    variant="outline" size="sm"
-                                    onClick={() => setMcqCurrentIndex(i => Math.max(i - 1, 0))}
-                                    disabled={mcqCurrentIndex === 0}
-                                >
-                                    <ArrowLeft className="mr-1 h-4 w-4"/> Prev
-                                </Button>
-                                <Button
-                                    variant="outline" size="sm"
-                                    onClick={() => setMcqCurrentIndex(i => Math.min(i + 1, generatedMCQs.questions.length - 1))}
-                                    disabled={mcqCurrentIndex === generatedMCQs.questions.length - 1}
-                                >
-                                    Next <ArrowRight className="ml-1 h-4 w-4"/>
-                                </Button>
-                                </div>
-                            </div>
-                        )}
-                         {generatedMCQs && generatedMCQs.questions.length === 0 && !isGenMCQ && (
-                            <p className="text-sm text-muted-foreground mt-4">No valid questions generated for this topic.</p>
-                         )}
-                    </div>
-                ) : (
-                   // Placeholder or instructions for non-MCQ types
-                   <div className="flex items-center justify-center h-full border-l md:pl-6 text-muted-foreground">
-                       <p className="text-center text-sm">MCQ generation options will appear here if you select "MCQ" as the assignment type.</p>
-                   </div>
-                )}
+        <DialogContent className="max-w-3xl md:grid md:grid-cols-2 md:gap-8 p-8"> {/* Apply grid layout */}
+          {/* Left Column: General Info */}
+          <div className="space-y-4 flex flex-col">
+             <DialogHeader>
+                <DialogTitle className="text-2xl font-semibold mb-4">Create New Assignment</DialogTitle> {/* Moved title here */}
+             </DialogHeader>
+            <div className="grid gap-2"> {/* Use grid for alignment */}
+              <Label htmlFor="new-title" className="text-sm font-medium">Title</Label>
+              <Input
+                id="new-title"
+                value={newAssignment.title}
+                onChange={e => setNewAssignment({ ...newAssignment, title: e.target.value })}
+                placeholder="e.g., Algebra Worksheet 1"
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-base"
+              />
             </div>
+            <div className="grid gap-2 flex-grow"> {/* Use grid and flex-grow */}
+              <Label htmlFor="new-desc" className="text-sm font-medium">Description</Label>
+              <Textarea
+                id="new-desc"
+                value={newAssignment.description}
+                onChange={e => setNewAssignment({ ...newAssignment, description: e.target.value })}
+                placeholder="Instructions for the assignment..."
+                rows={5} // Adjusted rows
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-base min-h-[120px] flex-grow" // Added min-height
+              />
+            </div>
+            <div className="grid gap-2"> {/* Use grid */}
+              <Label htmlFor="new-type" className="text-sm font-medium">Type</Label>
+              <Select
+                value={newAssignment.type}
+                onValueChange={v => setNewAssignment({ ...newAssignment, type: v as AssignmentType })}
+              >
+                <SelectTrigger id="new-type" className="w-full p-3 border border-gray-300 rounded-md text-base">
+                  <SelectValue placeholder="Select Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(['Written', 'MCQ', 'Test', 'Other'] as AssignmentType[]).map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2"> {/* Use grid */}
+              <Label htmlFor="new-due-date" className="text-sm font-medium">Due Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="new-due-date"
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal p-3 border border-gray-300 rounded-md text-base"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {newDueDate ? format(newDueDate, "PPP p") : <span>Pick a date & time</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={newDueDate}
+                    onSelect={setNewDueDate}
+                    initialFocus
+                  />
+                  {/* Simple Time Picker Example (Optional) */}
+                   <div className="p-2 border-t">
+                      <Input type="time" step="300" // 5-minute steps
+                         defaultValue={newDueDate ? format(newDueDate, 'HH:mm') : '09:00'}
+                         onChange={(e) => {
+                           const time = e.target.value;
+                           setNewDueDate(currentDate => {
+                               if (!currentDate) return new Date(); // Handle case where date isn't set
+                               const [hours, minutes] = time.split(':').map(Number);
+                               const newDate = new Date(currentDate);
+                               newDate.setHours(hours, minutes, 0, 0);
+                               return newDate;
+                           });
+                         }}
+                      />
+                   </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
 
-            {/* Dialog Footer */}
-            <DialogFooter className="mt-6">
-              <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreate} disabled={isSavingAssignment}>
+          {/* Right Column: MCQ (Conditional) */}
+          <div className={`space-y-4 ${newAssignment.type !== 'MCQ' ? 'hidden md:flex md:items-center md:justify-center md:border-l md:pl-6' : 'md:border-l md:pl-6'}`}>
+            {newAssignment.type === 'MCQ' ? (
+              <>
+                <h3 className="text-lg font-semibold">MCQ Generator</h3>
+                <div className="grid gap-2">
+                  <Label htmlFor="mcq-topic" className="text-sm font-medium">Topic</Label>
+                  <Input
+                    id="mcq-topic"
+                    value={mcqTopic}
+                    onChange={e => setMcqTopic(e.target.value)}
+                    placeholder="e.g., Photosynthesis"
+                    className="w-full p-3 border border-gray-300 rounded-md text-base"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="mcq-count" className="text-sm font-medium">Number of Questions</Label>
+                  <Input
+                    id="mcq-count"
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={mcqCount}
+                    onChange={e => setMcqCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full p-3 border border-gray-300 rounded-md text-base"
+                  />
+                </div>
+                <Button
+                  onClick={handleGenMCQ}
+                  disabled={isGenMCQ || !mcqTopic.trim()}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3"
+                >
+                  {isGenMCQ ? 'Generating...' : 'Generate MCQs'}
+                </Button>
+
+                {/* MCQ Preview */}
+                {generatedMCQs && generatedMCQs.questions.length > 0 && (
+                  <div className="mt-4">
+                    <Label className="text-sm font-medium">Preview ({mcqCurrentIndex + 1}/{generatedMCQs.questions.length})</Label>
+                    <Card className="p-4 min-h-[200px] border rounded-md bg-muted/50 flex flex-col">
+                        <ScrollArea className="flex-grow">
+                           <p className="font-medium mb-2">{generatedMCQs.questions[mcqCurrentIndex].question}</p>
+                           <ul className="list-disc pl-5 text-sm space-y-1">
+                              {generatedMCQs.questions[mcqCurrentIndex].options.map((o, i) => (
+                              <li
+                                  key={i}
+                                  className={o === generatedMCQs.questions[mcqCurrentIndex].correctAnswer ? 'text-green-600 font-semibold' : ''}
+                              >
+                                  {o} {o === generatedMCQs.questions[mcqCurrentIndex].correctAnswer && '(Correct)'}
+                              </li>
+                              ))}
+                          </ul>
+                        </ScrollArea>
+                    </Card>
+                    <div className="flex justify-between mt-2">
+                      <Button
+                        variant="outline" size="sm"
+                        onClick={() => setMcqCurrentIndex(i => Math.max(i - 1, 0))}
+                        disabled={mcqCurrentIndex === 0}
+                      >
+                        <ArrowLeft className="mr-1 h-4 w-4" /> Prev
+                      </Button>
+                      <Button
+                        variant="outline" size="sm"
+                        onClick={() => setMcqCurrentIndex(i => Math.min(i + 1, generatedMCQs.questions.length - 1))}
+                        disabled={mcqCurrentIndex === generatedMCQs.questions.length - 1}
+                      >
+                        Next <ArrowRight className="ml-1 h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {generatedMCQs && generatedMCQs.questions.length === 0 && !isGenMCQ && (
+                  <p className="text-sm text-muted-foreground mt-4">No valid questions generated.</p>
+                )}
+              </>
+            ) : (
+               <p className="text-center text-sm text-muted-foreground p-4">Select "MCQ" type to generate questions.</p>
+            )}
+          </div>
+
+            {/* Footer Actions - Moved outside the grid columns */}
+            <DialogFooter className="md:col-span-2 mt-8 flex justify-end gap-4"> {/* Added col-span and margin */}
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+              <Button
+                onClick={handleCreate}
+                disabled={isSavingAssignment}
+                className="bg-primary text-primary-foreground hover:bg-primary/90" // Use primary theme color
+              >
                 {isSavingAssignment ? 'Creating...' : 'Create Assignment'}
               </Button>
             </DialogFooter>
-          </DialogContent>
+        </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
