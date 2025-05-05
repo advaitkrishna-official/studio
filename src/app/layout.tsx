@@ -1,12 +1,11 @@
-'use client'; // This directive might be causing issues if metadata is exported here. Move metadata export.
+// src/app/layout.tsx
+'use client'; // This directive is necessary because AuthProvider is used here
 
 import { Geist, Geist_Mono } from 'next/font/google';
 import '@/app/globals.css';
-import AuthProvider from '@/components/auth-provider'; // Import AuthProvider directly
-import { Toaster } from "@/components/ui/toaster";
-import type { ReactNode } from 'react';
-// Metadata should be exported from a server component or the metadata.ts file, not a 'use client' file.
-// import { metadata } from './metadata'; // Remove metadata import/export from client component layout
+import { ReactNode } from 'react'; // Removed useEffect import as it's not used directly here
+import AuthProvider from '@/components/auth-provider';
+import { Toaster } from "@/components/ui/toaster"; // Ensure Toaster is imported
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -17,6 +16,7 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+// Metadata should be defined in metadata.ts or a server component, not here.
 
 export default function RootLayout({
   children,
@@ -25,11 +25,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      {/*
+        The hydration error mentioning 'data-new-gr-c-s-check-loaded' and 'data-gr-ext-installed'
+        strongly suggests that a browser extension (like Grammarly) is modifying the HTML
+        after the server renders it but before React hydrates on the client. This mismatch
+        causes the hydration error.
+
+        The code below follows best practices for avoiding hydration issues originating
+        from the application code itself. The root cause is likely external.
+        Ensure browser extensions are disabled for testing if the error persists.
+      */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {/* AuthProvider is a Client Component, wrapping children here */}
         <AuthProvider>
           {children}
-          <Toaster />
+          <Toaster /> {/* Ensure Toaster is included */}
         </AuthProvider>
       </body>
     </html>
