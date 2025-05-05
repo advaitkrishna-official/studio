@@ -1,4 +1,3 @@
-
 // src/app/student-dashboard/long-answer/page.tsx
 "use client";
 
@@ -45,33 +44,38 @@ const LongAnswerPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { user, userClass, loading: authLoading } = useAuth(); // Get userClass (student's grade) and auth loading state
   const { toast } = useToast();
-  const [totalScore, setTotalScore] = useState<number | null>(null);
+  const [longAnswerScore, setLongAnswerScore] = useState<number | null>(null); // Changed state name
 
-  // Fetch total score on mount or when user changes
+  // Fetch long answer specific score on mount or when user changes
   useEffect(() => {
-      if (user) {
-          setTotalScore(null); // Reset score while fetching
+      if (user && !authLoading) { // Check authLoading is false
+          setLongAnswerScore(null); // Reset score while fetching
           getGrades(user.uid)
               .then((grades) => {
                   const typedGrades = grades as GradeData[]; // Explicitly type grades
-                  if (typedGrades.length > 0) {
-                      // Calculate total score (sum of scores)
-                      const sum = typedGrades.reduce((acc, grade) => acc + (grade.score || 0), 0); // Handle potential undefined score
-                      const total = Math.min(sum, 100); // Cap the total score at 100
-                      setTotalScore(total);
+                  // Filter for long answer tasks
+                  const longAnswerGrades = typedGrades.filter(grade =>
+                    grade.taskName?.toLowerCase().includes('long answer')
+                  );
+
+                  if (longAnswerGrades.length > 0) {
+                      // Calculate average score for long answer tasks
+                      const sum = longAnswerGrades.reduce((acc, grade) => acc + (grade.score || 0), 0); // Handle potential undefined score
+                      const avg = sum / longAnswerGrades.length;
+                      setLongAnswerScore(Math.min(avg, 100)); // Use average and cap at 100
                   } else {
-                    setTotalScore(0); // Set to 0 if no grades exist
+                    setLongAnswerScore(0); // Set to 0 if no long answer grades exist
                   }
               })
               .catch((e: any) => {
                   console.error("Error fetching grades:", e);
                   setError(e.message || "An error occurred while fetching grades.");
-                  setTotalScore(0); // Set to 0 on error
+                  setLongAnswerScore(0); // Set to 0 on error
               });
       } else {
-        setTotalScore(null); // Clear score if no user
+        setLongAnswerScore(null); // Clear score if no user or auth is loading
       }
-  }, [user]); // Rerun when user changes
+  }, [user, authLoading]); // Rerun when user or authLoading changes
 
 
   const handleGenerate = async () => {
@@ -157,19 +161,22 @@ const LongAnswerPage = () => {
       setFeedback(feedbackResults);
       toast({ title: 'Answers Submitted', description: `Score: ${scorePercentage.toFixed(1)}%` });
 
-      // Save the overall score for this set of long answer questions
+      // Save the score for this specific long answer task
       await saveGrade(user.uid, `Long Answer: ${topic}`, scorePercentage, `${correctCount} of ${questions.questions.length} correct. See feedback.`);
 
-       // Re-fetch total score to update display
+       // Re-fetch long answer specific score to update display
        getGrades(user.uid)
          .then((grades) => {
            const typedGrades = grades as GradeData[];
-           if (typedGrades.length > 0) {
-             const sum = typedGrades.reduce((acc, grade) => acc + (grade.score || 0), 0);
-             const total = Math.min(sum, 100); // Cap the total score at 100
-             setTotalScore(total);
+           const longAnswerGrades = typedGrades.filter(grade =>
+             grade.taskName?.toLowerCase().includes('long answer')
+           );
+           if (longAnswerGrades.length > 0) {
+             const sum = longAnswerGrades.reduce((acc, grade) => acc + (grade.score || 0), 0);
+             const avg = sum / longAnswerGrades.length;
+             setLongAnswerScore(Math.min(avg, 100)); // Cap at 100
            } else {
-             setTotalScore(0);
+             setLongAnswerScore(0);
            }
          }).catch(console.error);
 
@@ -187,7 +194,7 @@ const LongAnswerPage = () => {
   const isGenerateDisabled = isLoading || authLoading || !userClass || !topic.trim();
 
   return (
-    // Container and layout handled by src/app/student-dashboard/layout.tsx
+    // Container and layout are handled by src/app/student-dashboard/layout.tsx
     <>
         <h1 className="text-3xl font-bold mb-4">Long Answer Practice</h1>
         <Card className="max-w-3xl mx-auto mb-8 shadow-lg border border-gray-200">
@@ -229,10 +236,10 @@ const LongAnswerPage = () => {
                      </div>
                 </div>
                 {error && <p className="text-red-500 text-center mt-2">{error}</p>}
-                 {/* Display Total Score */}
-                 {totalScore !== null && (
+                 {/* Display Overall Long Answer Score */}
+                 {longAnswerScore !== null && (
                    <p className="text-right font-medium text-gray-700 mt-2">
-                      Overall Long Answer Score: {totalScore.toFixed(1)}%
+                      Overall Long Answer Score: {longAnswerScore.toFixed(1)}%
                    </p>
                  )}
             </CardContent>

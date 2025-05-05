@@ -118,6 +118,7 @@ export default function StudentDashboardLayout({
     { icon: ListChecks, label: 'Assignments', href: '/student-dashboard/my-assignments' },
     { icon: BookCopy, label: 'Flashcards', href: '/student-dashboard/flashcards' },
     { icon: LayoutGrid, label: 'MCQs', href: '/student-dashboard/mcq' },
+    { icon: BookText, label: 'Long Answer', href: '/student-dashboard/long-answer' },
     { icon: PencilRuler, label: 'Essay Feedback', href: '/student-dashboard/essay-feedback' },
     { icon: LineChart, label: 'Progress', href: '/student-dashboard/progress' },
     { icon: BookOpen, label: 'Learning Path', href: '/student-dashboard/learning-path' },
