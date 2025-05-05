@@ -31,6 +31,11 @@ export default function AnimatedFlashcardPage() {
   const [totalScore, setTotalScore] = useState<number | null>(null);
   const { toast } = useToast();
 
+  // Debug log for auth state changes
+  useEffect(() => {
+    console.log(`Flashcards Page - Auth State: user: ${!!user}, userClass: ${userClass}, authLoading: ${authLoading}`);
+  }, [user, userClass, authLoading]);
+
   // Fetch average score from previous grades
   const fetchTotalScore = useCallback(async () => {
     if (!user) {
@@ -56,13 +61,17 @@ export default function AnimatedFlashcardPage() {
   }, [fetchTotalScore]);
 
   const handleGenerate = async () => {
+    console.log(`Flashcards: handleGenerate called. authLoading: ${authLoading}, user: ${!!user}, userClass: ${userClass}`); // Debug log
+
     // Check auth status and userClass before proceeding
     if (authLoading) {
         toast({ variant: 'destructive', title: 'Please wait', description: 'Authentication is still loading.' });
+        console.log("Flashcards: Generation blocked - auth is loading.");
         return;
     }
     if (!user) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please log in to generate flashcards.' });
+       console.log("Flashcards: Generation blocked - user not logged in.");
       return;
     }
     if (!userClass) {
@@ -123,6 +132,7 @@ export default function AnimatedFlashcardPage() {
 
   // Disable button if auth is loading, AI is generating, user info missing, or topic empty
   const isGenerateDisabled = isLoading || authLoading || !user || !userClass || !topic.trim();
+  console.log(`Flashcards: isGenerateDisabled: ${isGenerateDisabled} (isLoading: ${isLoading}, authLoading: ${authLoading}, user: ${!!user}, userClass: ${userClass}, topic: ${!topic.trim()})`); // Debug log
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 md:p-10">
@@ -153,8 +163,10 @@ export default function AnimatedFlashcardPage() {
              <p className="text-sm text-gray-500 mt-1 animate-pulse">Loading grade info...</p>
           ) : userClass ? (
             <p className="text-sm text-gray-500 mt-1">Grade Level: {userClass}</p>
-          ) : (
+          ) : user ? ( // Added check for user existence before showing the error
              <p className="text-sm text-red-500 mt-1">Grade information not loaded. Please log in again.</p>
+          ) : (
+             <p className="text-sm text-gray-500 mt-1">Please log in to see grade info.</p> // Message for logged out users
           )}
         </div>
 

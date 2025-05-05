@@ -59,22 +59,24 @@ export default function AuthProviderComponent({ children }: AuthProviderProps) {
        const userDoc = await getDoc(userDocRef);
        if (userDoc.exists()) {
          const userData = userDoc.data();
+         console.log("AuthProvider: Fetched userData:", userData); // Log fetched data
          const role = userData.role as 'student' | 'teacher' | null;
          let determinedClass: string | null = null;
 
          // Correctly fetch class/grade based on role
          if (role === 'teacher') {
             determinedClass = userData.teacherGrade || null;
-            console.log(`AuthProvider: User is a teacher, grade/class: ${determinedClass}`);
+            console.log(`AuthProvider: User is a teacher, setting teacherGrade: ${determinedClass}`);
          } else if (role === 'student') {
             determinedClass = userData.class || null; // 'class' field for students
-            console.log(`AuthProvider: User is a student, class: ${determinedClass}`);
+            console.log(`AuthProvider: User is a student, setting class: ${determinedClass}`);
          } else {
             console.warn(`AuthProvider: User role is unknown or missing: ${role}`);
          }
 
          setUserType(role);
          setUserClass(determinedClass); // Set the determined class/grade
+         console.log(`AuthProvider: State updated - userType: ${role}, userClass: ${determinedClass}`);
        } else {
          // Fallback logic if user document doesn't exist (should ideally not happen after registration)
          console.warn(`AuthProvider: User document not found for UID: ${currentUser.uid}`);
@@ -153,7 +155,9 @@ export default function AuthProviderComponent({ children }: AuthProviderProps) {
     userType,
     userClass,
     signOut: signOutFunc,
-  }), [user, loading, userType, userClass, router]); // Include router in dependencies for signOutFunc stability
+  }), [user, loading, userType, userClass, signOutFunc]); // Include router in dependencies for signOutFunc stability
+
+  console.log("AuthProvider: Rendering with context value:", value); // Log context value on render
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
