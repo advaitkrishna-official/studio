@@ -239,9 +239,15 @@ const StudentAssignmentsPage: React.FC = () => {
     try {
       const submissionRef = doc(db, 'assignments', selectedAssignment.id, 'submissions', user.uid);
       const submissionData: Partial<Submission> = {
-        status: 'Submitted',
-        submittedAt: serverTimestamp(), // Use server timestamp for accuracy
+ status: 'Submitted',
       };
+
+      // Use server timestamp for submittedAt
+ submissionData.submittedAt = serverTimestamp() as Timestamp; // Explicitly cast to Timestamp
+
+      // If submitting an overdue assignment, update status to Overdue first? Or handle on fetch?
+      // For simplicity, we'll assume submitting marks it as Submitted regardless of due date past.
+      // Status 'Overdue' will be determined on fetch based on due date and lack of 'Submitted'/'Graded' status.
 
       // Add answers or response text based on type
       if (selectedAssignment.type === 'MCQ') {

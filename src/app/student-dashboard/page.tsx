@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { motion } from 'framer-motion';
-import { collection, query, onSnapshot, where, DocumentData, Timestamp, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, where, DocumentData, Timestamp, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/components/auth-provider';
 import { format } from 'date-fns';
 import {
@@ -20,18 +20,22 @@ import { Button } from '@/components/ui/button';
 import MyAssignments from './my-assignments/page'; // Ensure this path is correct
 import AITutorPage from './ai-tutor/page'; // Ensure this path is correct
 import { Progress } from '@/components/ui/progress';
-import {
-  BookOpenCheck, // Changed icon for courses
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Dot } from 'recharts';
+import { // Changed icon for courses
+  BookOpenCheck,
   CalendarDays, // Changed icon for calendar
+
+
   Lightbulb, // Changed icon for AI tip
 } from 'lucide-react';
+import { ListChecks } from 'lucide-react';
 
 
 interface Assignment {
   id: string;
   title: string;
   description: string;
-  type: string;
+  type: string; 
   dueDate: Timestamp | Date; // Accept both Timestamp and Date
   assignedTo: { classId: string; studentIds: string[] };
 }
@@ -42,6 +46,11 @@ interface GradeData {
   score: number;
   feedback: string;
   timestamp: Timestamp | Date;
+}
+
+// Type guard to check if a value is a Firestore Timestamp
+function isTimestamp(value: any): value is Timestamp {
+ return typeof value === 'object' && value !== null && value instanceof Timestamp;
 }
 
 export default function StudentDashboardPage() {
@@ -84,12 +93,7 @@ export default function StudentDashboardPage() {
       for (const docSnap of snap.docs) {
         const d = docSnap.data() as DocumentData;
         let dueDate: Date | null = null;
-
-        // Handle various date formats from Firestore
-        if (d.dueDate instanceof Timestamp) dueDate = d.dueDate.toDate();
-        else if (d.dueDate instanceof Date) dueDate = d.dueDate;
-        else if (typeof d.dueDate === 'string') try { dueDate = new Date(d.dueDate); } catch (e) { console.warn(`Invalid date: ${d.dueDate}`); }
-        else if (d.dueDate?.seconds) dueDate = new Timestamp(d.dueDate.seconds, d.dueDate.nanoseconds).toDate();
+        dueDate = isTimestamp(d.dueDate) ? d.dueDate.toDate() : (d.dueDate instanceof Date ? d.dueDate : null);
 
         if (dueDate instanceof Date && !isNaN(dueDate.getTime())) {
           const assignment: Assignment = {
@@ -105,7 +109,7 @@ export default function StudentDashboardPage() {
 
           // Check if due today (before filtering submitted)
           if (dueDate >= todayStart && dueDate < todayEnd) {
-            // Fetch submission status for this assignment
+        // Fetch submission status for this assignment
             const subRef = doc(db, 'assignments', assignment.id, 'submissions', user.uid);
             submissionPromises.push(
               getDoc(subRef).then(subSnap => ({ id: assignment.id, submitted: subSnap.exists() && subSnap.data()?.status === 'Submitted' }))
@@ -267,12 +271,12 @@ export default function StudentDashboardPage() {
                  </CardHeader>
                  <CardContent>
                      {loadingTasks ? <p>Loading...</p> : assignments.slice(0, 3).map(a => ( // Show top 3
-                         <div key={a.id} className="flex items-center justify-between text-sm py-1 border-b last:border-b-0">
+                         <div key={a.id} className="flex items-center justify-between text-sm py-1 border-b last:border-b-0"> {/* Added closing div tag */}
                              <span>{a.title} ({a.type})</span>
-                             <span className="text-muted-foreground">{format(a.dueDate, 'MMM dd')}</span>
+                             <span className="text-muted-foreground">{format(isTimestamp(a.dueDate) ? a.dueDate.toDate() : a.dueDate, 'MMM dd')}</span>
                          </div>
                      ))}
-                      {assignments.length === 0 && !loadingTasks && <p>No upcoming assignments.</p>}
+                     {assignments.length === 0 && !loadingTasks && <p>No upcoming assignments.</p>}
                       {assignments.length > 3 &&
                         <Button variant="link" size="sm" className="px-0 mt-2" onClick={() => router.push('/student-dashboard/my-assignments')}>View all &rarr;</Button>
                       }
@@ -280,5 +284,4 @@ export default function StudentDashboardPage() {
              </Card>
         </section>
       </>
-    );
-};
+)};

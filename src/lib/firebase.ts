@@ -1,8 +1,8 @@
 'use client';
 
 import { FirebaseApp, initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth } from 'firebase/auth';
-import { getFirestore, Firestore, collection, doc, setDoc, getDoc, DocumentData, addDoc, query, where, getDocs, DocumentReference, Timestamp, updateDoc } from 'firebase/firestore'; // Added Timestamp and updateDoc
+import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, Firestore, collection, doc, setDoc, getDoc, DocumentData, addDoc, query, where, getDocs, DocumentReference, Timestamp, updateDoc, connectFirestoreEmulator } from 'firebase/firestore'; // Added Timestamp and updateDoc
 
 
 // Define User Types
@@ -49,6 +49,10 @@ let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
 
+// Check if emulators are running from environment variables
+const firebaseEmulatorHost = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_HOST;
+const authEmulatorPort = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_PORT;
+const firestoreEmulatorPort = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_PORT;
 
 // Initialize Firebase only on the client side
 if (typeof window !== 'undefined') {
@@ -68,6 +72,16 @@ if (typeof window !== 'undefined') {
         app = getApp();
         db = getFirestore(app);
         auth = getAuth(app); // Use getAuth instead of initializeAuth for existing apps
+    }
+
+    // Connect to emulators if configured
+    if (firebaseEmulatorHost) {
+        if (auth && authEmulatorPort) {
+            connectAuthEmulator(auth, `http://${firebaseEmulatorHost}:${authEmulatorPort}`);
+        }
+        if (db && firestoreEmulatorPort) {
+             connectFirestoreEmulator(db, firebaseEmulatorHost, parseInt(firestoreEmulatorPort, 10));
+        }
     }
 }
 

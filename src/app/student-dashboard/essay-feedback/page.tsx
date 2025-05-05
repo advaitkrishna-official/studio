@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Copy } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { saveGrade, getGrades } from "@/lib/firebase";
+import { Label } from "@/components/ui/label"; // Added import
+import { Input } from "@/components/ui/input"; // Added import
 
 type GradeData = {
   id: string;
