@@ -14,7 +14,7 @@ import {z} from 'genkit';
 const GenerateFlashcardsInputSchema = z.object({
   topic: z.string().describe('The topic for which to generate flashcards.'),
   numCards: z.number().min(1).max(20).default(10).describe('The number of flashcards to generate.'),
-  grade: z.string().describe('The grade of the student.').nonempty(),
+  grade: z.string().describe('The grade of the student.').nonempty(), // Ensure grade is non-empty
 });
 export type GenerateFlashcardsInput = z.infer<typeof GenerateFlashcardsInputSchema>;
 
@@ -25,7 +25,7 @@ const FlashcardSchema = z.object({
 
 const GenerateFlashcardsOutputSchema = z.object({
   flashcards: z.array(FlashcardSchema).describe('An array of flashcards generated for the topic.'),
-  progress: z.string().describe('A short summary of what was generated.'), // Keep progress field for potential future use
+  progress: z.string().optional().describe('A short summary of what was generated.'), // Made optional
 });
 export type GenerateFlashcardsOutput = z.infer<typeof GenerateFlashcardsOutputSchema>;
 
@@ -43,33 +43,34 @@ const prompt = ai.definePrompt({
     }),
   },
   output: {
+    // Specify a more precise output schema for the prompt itself
     schema: z.object({
       flashcards: z.array(FlashcardSchema).describe('An array of flashcards generated for the topic.'),
     }),
   },
-  prompt: `You are an AI flashcard generator. Generate a set of flashcards for the given topic based on the context provided.
+  prompt: `You are an AI flashcard generator. Generate exactly {{numCards}} flashcards for the given topic based on the context provided.
 
   <CODE_BLOCK>
   Context:\n
   {{{context}}}\n
   Topic: {{{topic}}}\n
   </CODE_BLOCK>
-Number of flashcards: {{{numCards}}}
-Each flashcard should have a clear question or term on the front and a concise answer or definition on the back.
-Ensure that the flashcards are informative and helpful for studying the topic. Return a JSON array of flashcards.
 
-Your output MUST be a JSON array of flashcard objects. Each flashcard object must have a \"front\" and \"back\" field.
+Each flashcard should have a clear question or term on the front and a concise answer or definition on the back.
+Ensure that the flashcards are informative and helpful for studying the topic.
+
+Your output MUST be a valid JSON object containing a single key "flashcards" which holds an array of flashcard objects. Each flashcard object must have a "front" and "back" field.
 Here is an example of what the output format should look like:
 
 {
-  \"flashcards\": [
+  "flashcards": [
     {
-      \"front\": \"What is the capital of France?\",
-      \"back\": \"Paris\"
+      "front": "What is the capital of France?",
+      "back": "Paris"
     },
     {
-      \"front\": \"What is the chemical symbol for water?\",
-      \"back\": \"H2O\"
+      "front": "What is the chemical symbol for water?",
+      "back": "H2O"
     }
   ]
 }`,
@@ -86,8 +87,10 @@ const generateFlashcardsFlow = ai.defineFlow<
   },
   async input => {
     let context: string = '';
+    // Ensure grade is lowercase for consistent matching
+    const gradeLower = input.grade.toLowerCase();
 
-    switch (input.grade) {
+    switch (gradeLower) {
       case 'grade-8':
         context = `Grade 8 Subjects:
       - Mathematics: Algebra, Geometry, Data Handling
@@ -112,16 +115,34 @@ const generateFlashcardsFlow = ai.defineFlow<
       - Social Studies: Communities and Citizenship
     `;
         break;
-      default: context = `The student is in an unspecified grade (Received: ${input.grade}). Please provide age-appropriate answers based on the topic: ${input.topic}.`;
+      default:
+         // Handle potentially unexpected grade formats gracefully
+         console.warn(`Received potentially unsupported grade: ${input.grade}. Providing generic context.`);
+         context = `The student is in an unspecified grade (Received: ${input.grade}). Please provide age-appropriate answers based on the topic: ${input.topic}.`;
     }
     try {
-        const {output} = await prompt({...input, context});
-        if (!output || !output.flashcards) {
+        const {output} = await prompt({
+            topic: input.topic,
+            numCards: input.numCards,
+            context: context,
+        });
+
+        // Validate the output structure
+        if (!output || !output.flashcards || !Array.isArray(output.flashcards)) {
+            console.error("AI did not return a valid flashcards array:", output);
             throw new Error("AI did not return valid flashcard data.");
         }
+
+        // Optionally validate individual flashcards
+        if (output.flashcards.some(card => typeof card.front !== 'string' || typeof card.back !== 'string')) {
+            console.error("Received malformed flashcard objects:", output.flashcards);
+            throw new Error("Received malformed flashcard objects from AI.");
+        }
+
         return {
           flashcards: output.flashcards,
-          progress: `Generated ${output.flashcards.length} flashcards on the topic of ${input.topic}.`, // Updated progress message
+          // Keep progress message optional or remove if not needed
+          // progress: `Generated ${output.flashcards.length} flashcards on the topic of ${input.topic}.`,
         };
     } catch (error: any) {
         console.error("Error in generateFlashcardsFlow:", error);
@@ -129,7 +150,13 @@ const generateFlashcardsFlow = ai.defineFlow<
         if (error.message.includes('Quota')) {
              throw new Error('API quota limit reached. Please try again later.');
         }
+        // Provide a more user-friendly error for parsing issues
+        if (error.message.includes('JSON')) {
+             throw new Error('Failed to parse the response from the AI. Please try again.');
+        }
         throw new Error(`Failed to generate flashcards: ${error.message}`);
     }
   }
 );
+
+    

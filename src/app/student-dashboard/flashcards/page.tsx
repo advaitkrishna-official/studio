@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react'; // Added useCallback
 import { motion } from 'framer-motion';
 import {
   Card,
@@ -33,24 +33,27 @@ export default function AnimatedFlashcardPage() {
   const { toast } = useToast(); // Use the toast hook
 
   // Fetch total score - Wrap in useCallback to prevent re-renders
-  const fetchTotalScore = React.useCallback(async () => {
+  const fetchTotalScore = useCallback(async () => {
     if (user) {
       try {
         const grades: Grade[] = await getGrades(user.uid);
         const flashcardGrades = grades; // Assuming all grades contribute for now
         if (flashcardGrades.length) {
-          setTotalScore(flashcardGrades.reduce((a, g) => a + g.score, 0));
+          const sum = flashcardGrades.reduce((a, g) => a + (g.score || 0), 0); // Sum valid scores
+          const average = flashcardGrades.length > 0 ? sum / flashcardGrades.length : 0; // Calculate average
+           setTotalScore(average); // Store the average score
         } else {
           setTotalScore(0); // Set to 0 if no grades
         }
       } catch (e) {
         console.error("Failed to fetch grades:", e);
         // Optionally set an error state or show a toast
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch previous scores.' });
       }
     } else {
       setTotalScore(null); // Reset score if user logs out
     }
-  }, [user]); // Dependency on user
+  }, [user, toast]); // Dependency on user and toast
 
   useEffect(() => {
     fetchTotalScore();
@@ -86,53 +89,52 @@ export default function AnimatedFlashcardPage() {
     setProgress(10); // Initial progress
     setCurrentCard(0); // Reset card position
 
-    let progressInterval: NodeJS.Timeout | null = null;
-
     try {
-      // Simulate progress
-      let currentProgress = 10;
-      progressInterval = setInterval(() => {
-        currentProgress += Math.floor(Math.random() * 10) + 5;
-        if (currentProgress >= 90) {
-          if (progressInterval) clearInterval(progressInterval); // Stop before reaching 100, wait for AI call
-        } else {
-          setProgress(currentProgress);
-        }
-      }, 200);
+       setProgress(50); // Progress before AI call
+
+       // Ensure userClass is lowercase for matching in the AI flow
+       const gradeForAI = userClass.toLowerCase().replace(" ", "-");
+       console.log(`Generating flashcards for topic: ${topic}, grade: ${gradeForAI}`); // Debug log
 
       // Call the AI flow
-      console.log(`Generating flashcards for topic: ${topic}, grade: ${userClass}`); // Debug log
-      const res = await generateFlashcards({ topic, numCards, grade: userClass });
-      if (progressInterval) clearInterval(progressInterval); // Ensure interval is cleared
+      const res = await generateFlashcards({ topic, numCards, grade: gradeForAI });
 
-      if (res && res.flashcards) {
+      if (res && res.flashcards && Array.isArray(res.flashcards)) {
         setFlashcards(res);
         setProgress(100); // Final progress
         toast({ title: 'Flashcards Generated', description: `${res.flashcards.length} cards ready!` });
       } else {
+         console.error("Invalid response format from AI:", res);
          throw new Error("Received invalid response from AI.");
       }
 
     } catch (e: any) {
-      if (progressInterval) clearInterval(progressInterval); // Clear interval on error too
-      console.error("Error generating flashcards:", e); // Log the actual error
-      setError(e.message || 'An error occurred during generation.');
+      console.error("Error during flashcard generation:", e); // Log the actual error
+      let errorMessage = e.message || 'An error occurred during generation.';
+       if (e.message.includes('Quota')) {
+          errorMessage = 'API quota limit reached. Please try again later.';
+       } else if (e.message.includes('invalid response')) {
+            errorMessage = 'The AI returned an unexpected response. Please try again or rephrase your topic.';
+       }
+
+      setError(errorMessage);
       setProgress(0); // Reset progress on error
        toast({
          variant: 'destructive',
          title: 'Generation Failed',
-         description: e.message || 'Could not generate flashcards.',
+         description: errorMessage,
        });
     } finally {
       setIsLoading(false); // Ensure loading state is always reset
-      console.log("handleGenerate finished"); // Add log
     }
   };
 
   const nextCard = () => setCurrentCard(i => Math.min(i + 1, (flashcards?.flashcards.length || 1) - 1));
   const prevCard = () => setCurrentCard(i => Math.max(i - 1, 0));
 
-  const canGenerate = !isLoading && !authLoading && !!userClass && !!topic.trim();
+   // Derive disabled state for the button
+   const isGenerateDisabled = isLoading || authLoading || !user || !userClass || !topic.trim();
+
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 md:p-10">
@@ -157,13 +159,13 @@ export default function AnimatedFlashcardPage() {
             <Input id="topic" value={topic} onChange={e => setTopic(e.target.value)} placeholder="e.g., Photosynthesis, World War II" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="numCards">Number of Cards</Label>
+            <Label htmlFor="numCards">Number of Cards (1-20)</Label>
             <Input id="numCards" type="number" value={numCards} onChange={e => setNumCards(Math.max(1, Math.min(20, +e.target.value)))} min="1" max="20" />
           </div>
           {/* Ensure button is clickable and checks for userClass */}
           <Button
              onClick={handleGenerate}
-             disabled={!canGenerate} // Simplified disabled logic
+             disabled={isGenerateDisabled} // Use derived disabled state
              className="md:col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
            >
              {isLoading ? 'Generating...' : 'Generate Flashcards'}
@@ -177,7 +179,7 @@ export default function AnimatedFlashcardPage() {
         {error && <p className="text-red-500 text-center">{error}</p>}
 
         {/* Total Score Display */}
-        {totalScore !== null && <p className="text-right text-gray-700 font-medium">Flashcard Score: {totalScore}%</p>}
+        {totalScore !== null && <p className="text-right text-gray-700 font-medium">Average Flashcard Score: {totalScore.toFixed(1)}%</p>}
 
         {/* Flashcards Display Area */}
         {flashcards && flashcards.flashcards.length > 0 ? (
@@ -199,7 +201,7 @@ export default function AnimatedFlashcardPage() {
             </div>
           </div>
         ) : (
-          !isLoading && flashcards === null && ( // Show only if not loading and no flashcards generated yet
+          !isLoading && !error && flashcards === null && ( // Show only if not loading, no error, and no flashcards generated yet
             <p className="text-center text-gray-500 mt-6">Enter a topic above to generate flashcards.</p>
           )
         )}
@@ -292,3 +294,5 @@ AnimatedFlashcard.displayName = 'AnimatedFlashcard';
 .backface-hidden { backface-visibility: hidden; }
 .rotate-y-180 { transform: rotateY(180deg); }
 */
+
+    
