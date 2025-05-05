@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react"; // Added useEffect
@@ -114,7 +115,7 @@ const LearningPathPage = () => {
                 </CardHeader>
                 <CardContent className="grid gap-6">
                     <div className="grid gap-2">
-                        <Label htmlFor="performanceData" className="font-medium">Performance Data (JSON Format)</Label>
+                        <Label htmlFor="performanceData" className="font-medium">Performance Data</Label>
                         <Textarea
                             id="performanceData"
                             placeholder='Example: {"topics": {"Algebra": 75, "Geometry": 50}, "questionTypes": {"MCQ": 80, "LongAnswer": 60}}'
@@ -216,3 +217,6 @@ const LearningPathPage = () => {
 };
 
 export default LearningPathPage;
+
+
+    
