@@ -2,6 +2,8 @@
 
 /**
  * @fileOverview AI flow to assign multiple choice questions (MCQs) to students.
+ * THIS FLOW IS DEPRECATED. Assignment creation is now handled directly via Firestore
+ * in the teacher dashboard (Quiz Builder). This file is kept for reference but should not be used.
  *
  * - assignMCQ - A function that handles the assignment of MCQs to students.
  * - AssignMCQInput - The input type for the assignMCQ function.
@@ -24,12 +26,18 @@ const AssignMCQOutputSchema = z.object({
 });
 export type AssignMCQOutput = z.infer<typeof AssignMCQOutputSchema>;
 
+// This function is deprecated and should not be called.
 export async function assignMCQ(input: AssignMCQInput): Promise<AssignMCQOutput> {
-  return assignMCQFlow(input);
+  console.warn("assignMCQ AI flow is deprecated. Assignment creation is handled directly in the UI.");
+  // Return a failure response to indicate deprecation.
+  return { success: false, message: "This AI flow is deprecated." };
+  // return assignMCQFlow(input); // Original call removed
 }
 
+// The prompt and flow below are also deprecated.
+
 const prompt = ai.definePrompt({
-  name: 'assignMCQPrompt',
+  name: 'assignMCQPrompt_DEPRECATED', // Renamed to indicate deprecation
   input: {
     schema: z.object({
       classId: z.string().describe('The ID of the class to assign the MCQs to.').optional(),
@@ -43,7 +51,7 @@ const prompt = ai.definePrompt({
       message: z.string().describe('A message indicating the status of the assignment.'),
     }),
   },
-  prompt: `You are an AI assistant designed to help students answer multiple-choice questions (MCQs).
+  prompt: `DEPRECATED PROMPT: You are an AI assistant designed to help students answer multiple-choice questions (MCQs).
   Your task is to provide answers based on the context provided.
   The relevant course material is given as context.
 
@@ -51,8 +59,8 @@ const prompt = ai.definePrompt({
   Context:
   {{{context}}}
   </CODE_BLOCK>
-  
-  MCQs Data: {{{mcqData}}}  
+
+  MCQs Data: {{{mcqData}}}
 
   Provide the output in JSON format.
   `,
@@ -62,12 +70,12 @@ const assignMCQFlow = ai.defineFlow<
   typeof AssignMCQInputSchema,
   typeof AssignMCQOutputSchema
 >({
-  name: 'assignMCQFlow',
+  name: 'assignMCQFlow_DEPRECATED', // Renamed to indicate deprecation
   inputSchema: AssignMCQInputSchema,
   outputSchema: AssignMCQOutputSchema,
 }, async input => {
+  // Deprecated logic - kept for reference
   let context: string = '';
-  
   switch (input.grade) {
     case 'grade-8':
       context = `
@@ -99,11 +107,13 @@ const assignMCQFlow = ai.defineFlow<
     default: context = `The student is in an unspecified grade, please provide answer based on the best information you know.`; break;
   }
 
-  const {output} = await prompt({
-    classId: input.classId,
-    mcqData: input.mcqData,
-    context,
-  });
+  // const {output} = await prompt({ // Call to deprecated prompt removed
+  //   classId: input.classId,
+  //   mcqData: input.mcqData,
+  //   context,
+  // });
+  // return output!;
 
-  return output!;;
+  // Return failure response
+  return { success: false, message: "This AI flow is deprecated." };
 });

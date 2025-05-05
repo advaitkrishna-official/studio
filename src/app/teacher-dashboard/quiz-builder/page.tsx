@@ -12,23 +12,18 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  generateMCQ,
-  GenerateMCQOutput,
-} from '@/ai/flows/generate-mcq';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/components/auth-provider";
-import {
-  assignMCQ,
-  AssignMCQInput,
-  AssignMCQOutput,
-} from "@/ai/flows/assign-mcq";
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { GenerateQuizInput } from "@/ai/flows/generate-quiz";
-
 import { generateQuiz, GenerateQuizOutput } from '@/ai/flows/generate-quiz';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, addDoc, serverTimestamp } from "firebase/firestore";
 
 const QuizBuilderPage = () => {
   const [topic, setTopic] = useState('');
@@ -44,6 +39,8 @@ const QuizBuilderPage = () => {
   const {user, userClass} = useAuth();
   //Static class options
   const [classes, setClasses] = useState<string[]>(["Grade 1","Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8"]);
+  const [dueDate, setDueDate] = useState<Date | undefined>(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)); // Default to one week from now
+
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -73,65 +70,58 @@ const QuizBuilderPage = () => {
   };
 
   const handleAssign = async () => {
+    if (!user) {
+      toast({ variant: "destructive", title: "Error", description: "You must be logged in." });
+      return;
+    }
+    if (!quiz) {
+      setError("No Quiz generated to assign.");
+      toast({ variant: "destructive", title: "Error", description: "Please generate Quiz first." });
+      return;
+    }
+    if (!selectedClass) {
+      setError("Please select a class to assign the Quiz to.");
+      toast({ variant: "destructive", title: "Error", description: "Please select a class." });
+      return;
+    }
+     if (!dueDate) {
+       setError("Please select a due date.");
+       toast({ variant: "destructive", title: "Error", description: "Please select a due date." });
+       return;
+     }
+
     setIsAssigning(true);
     setError(null);
+
     try {
-      if (!quiz) {
-        setError("No Quiz generated to assign.");
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Please generate Quiz first.",
-        });
-        return;
-      }
+      // Create assignment document in Firestore
+      const assignmentData = {
+        title: `Quiz: ${topic || 'Untitled'}`,
+        description: `An AI-generated ${questionType} quiz on the topic of ${topic}.`,
+        type: questionType as AssignmentType, // Cast to AssignmentType
+        dueDate: dueDate,
+        mcqQuestions: questionType === 'MCQ' ? quiz.questions : [],
+        assignedTo: {
+          classId: selectedClass,
+          studentIds: [], // Assign to whole class, student IDs can be added later if needed
+        },
+        createdBy: user.uid,
+        createdAt: serverTimestamp(),
+      };
 
-      if (!selectedClass) {
-        setError("Please select a class to assign the Quiz to.");
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Please select a class.",
-        });
-        return;
-      }
+      const assignmentsCollection = collection(db, 'assignments');
+      await addDoc(assignmentsCollection, assignmentData);
 
-      // Fetch student IDs for the selected class
-      const studentsQuery = query(collection(db, "users"), where("class", "==", selectedClass), where("role", "==", "student"));
-      const studentsSnapshot = await getDocs(studentsQuery);
-      const studentIds = studentsSnapshot.docs.map(doc => doc.id);
-        
-      if (studentIds.length === 0) {
-           setError("No students found in the selected class.");
-            toast({
-              variant: "destructive",
-              title: "Error",
-              description: "No students found in the selected class.",
-            });
-            return;
-      }
-
-
-      const quizData = JSON.stringify(quiz.questions);
-      const result = await assignMCQ({
-        classId: selectedClass,
-        mcqData: quizData,
-        grade: selectedClass,
+      toast({
+        title: "Quiz Assigned",
+        description: `Quiz "${assignmentData.title}" assigned to ${selectedClass}.`,
+        duration: 3000
       });
-      if (result?.success) {
-        toast({
-          title: "Quiz Assigned",
-          description: result.message,
-          duration: 3000
-        });
-      } else {
-        setError(result.message || "Failed to assign Quiz.");
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: result.message || "Failed to assign Quiz.",
-        });
-      }
+
+      // Optionally clear the generated quiz after assigning
+      // setQuiz(null);
+      // setTopic('');
+
     } catch (e: any) {
       setError(e.message || "An error occurred while assigning Quiz.");
       toast({
@@ -144,13 +134,17 @@ const QuizBuilderPage = () => {
     }
   };
 
+  // Define AssignmentType locally if not imported
+  type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other' | 'True/False' | 'Fill in the Blanks' | 'Short Answer' | 'Long Answer' | 'Matching' | 'Code Output';
+
+
   return (
     <div className="container mx-auto py-8">
       <Card className="max-w-3xl mx-auto">
         <CardHeader>
           <CardTitle>Quiz Builder</CardTitle>
           <CardDescription>
-            Enter a topic and the number of Quiz to generate.
+            Enter a topic and the number of Questions to generate.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -164,13 +158,14 @@ const QuizBuilderPage = () => {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="numQuestions">Number of Quizs</Label>
+            <Label htmlFor="numQuestions">Number of Questions</Label>
             <Input
               id="numQuestions"
               type="number"
-              placeholder="Number of Quizs to generate"
+              placeholder="Number of Questions to generate"
               value={numQuestions.toString()}
               onChange={e => setNumQuestions(parseInt(e.target.value))}
+              min="1"
             />
           </div>
           <div className="grid gap-2">
@@ -204,16 +199,16 @@ const QuizBuilderPage = () => {
             </Select>
           </div>
           <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? 'Generating Quizs...' : 'Generate Quizs'}
+            {isLoading ? 'Generating Quiz...' : 'Generate Quiz'}
           </Button>
           {error && <p className="text-red-500">{error}</p>}
           {quiz && quiz.questions && (
             <div className="mt-8">
               <h2 className="text-2xl font-bold tracking-tight">
-                Generated Quizs
+                Generated Quiz
               </h2>
               <p className="text-sm text-muted-foreground">
-                Here are your AI generated Quizs on the topic of {topic}
+                Here are your AI generated questions on the topic of {topic}
               </p>
               <div className="grid gap-4 mt-4">
                 {quiz.questions.map((q, index) => (
@@ -238,9 +233,9 @@ const QuizBuilderPage = () => {
                   </Card>
                 ))}
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="class">Select Class</Label>
-                <Select onValueChange={setSelectedClass} defaultValue={userClass? userClass:undefined}>
+              <div className="grid gap-2 mt-6">
+                <Label htmlFor="class">Assign to Class</Label>
+                <Select onValueChange={setSelectedClass} value={selectedClass}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a class" />
                   </SelectTrigger>
@@ -251,8 +246,33 @@ const QuizBuilderPage = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleAssign} disabled={isAssigning || !selectedClass} >
-                {isAssigning ? "Assigning Quizs..." : "Assign Quizs to Class"}
+               <div className="grid gap-2 mt-4">
+                 <Label htmlFor="dueDate">Due Date</Label>
+                 <Popover>
+                   <PopoverTrigger asChild>
+                     <Button
+                       variant={"outline"}
+                       className={cn(
+                         "w-full justify-start text-left font-normal",
+                         !dueDate && "text-muted-foreground"
+                       )}
+                     >
+                       <CalendarIcon className="mr-2 h-4 w-4" />
+                       {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+                     </Button>
+                   </PopoverTrigger>
+                   <PopoverContent className="w-auto p-0">
+                     <Calendar
+                       mode="single"
+                       selected={dueDate}
+                       onSelect={setDueDate}
+                       initialFocus
+                     />
+                   </PopoverContent>
+                 </Popover>
+               </div>
+              <Button onClick={handleAssign} disabled={isAssigning || !selectedClass || !dueDate} className="mt-4">
+                {isAssigning ? "Assigning Quiz..." : "Assign Quiz to Class"}
               </Button>
             </div>
           )}
