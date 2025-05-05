@@ -92,7 +92,7 @@ const StudentAssignmentsPage: React.FC = () => {
       return;
     }
     if (!user?.uid) {
-      // setError('User not logged in.'); // No need to set error, just wait for auth
+      setError('User not logged in.'); // Set error if user is not logged in
       setIsLoading(false);
       return;
     }
@@ -351,8 +351,9 @@ const StudentAssignmentsPage: React.FC = () => {
                   <CardContent className="p-4 space-y-4">
                     <p className="text-muted-foreground">{selectedAssignment.description}</p>
                     <p className="text-sm font-medium">
-                        Due: {formatDueDate(selectedAssignment.dueDate)}
-                     </p>
+                       Due: {formatDueDate(selectedAssignment.dueDate)}
+                    </p>
+
 
                     {/* Submission Area */}
                     {submission?.status !== 'Submitted' && (
@@ -451,4 +452,3 @@ const StudentAssignmentsPage: React.FC = () => {
 };
 
 export default StudentAssignmentsPage;
-    
