@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
@@ -27,6 +26,7 @@ import {
   getDocs,
   Timestamp,
   orderBy,
+  documentId,
   DocumentData
 } from 'firebase/firestore';
 import { useAuth } from "@/components/auth-provider";
@@ -59,6 +59,7 @@ import {
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon, ArrowLeft, ArrowRight } from "lucide-react";
 import {
+
   Dialog,
   DialogContent,
   DialogHeader,
@@ -68,6 +69,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { assignTask } from '@/ai/flows/assign-task'; // Import assignTask
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { generateMCQ, GenerateMCQOutput } from '@/ai/flows/generate-mcq';
 
 type AssignmentType = 'Written' | 'MCQ' | 'Test' | 'Other';
@@ -171,7 +173,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
           } else if (data.dueDate instanceof Date) {
             dueDate = data.dueDate; // Already a Date
           } else if (data.dueDate?.seconds) { // Handle Firestore Timestamp object structure
-             dueDate = new Timestamp(data.dueDate.seconds, data.dueDate.nanoseconds).toDate();
+             dueDate = new Timestamp(data.dueDate.seconds as number, data.dueDate.nanoseconds as number).toDate();
           }
           // else if (typeof data.dueDate === 'string') { // Handle ISO string date (less common now)
           //    try { dueDate = new Date(data.dueDate); } catch (e) { console.warn(`Invalid date string: ${data.dueDate}`); }
@@ -249,22 +251,21 @@ const TeachersAssignmentHubPage: React.FC = () => {
   };
 
   const handleGenerateMCQs = async () => {
-     if (!userClass) { // Check if teacher's grade/class context exists
-        toast({ title: 'Error', description: 'Cannot determine grade level for generation.' });
+     const gradeForAI = selectedClass.toLowerCase().replace(/\s+/g, '-'); // Use selectedClass
+     if (!gradeForAI) {
+        toast({ title: 'Error', description: 'Please select a class first.' });
         return;
      }
     setIsGeneratingMCQs(true);
     setGeneratingError(null);
     try {
-        // Use teacher's class context (userClass) for the grade parameter
-       const gradeForAI = userClass.toLowerCase().replace(/\s+/g, '-');
       const result = await generateMCQ({ topic: mcqTopic, numQuestions: mcqNumQuestions, grade: gradeForAI });
       if (!result || !result.questions || result.questions.length === 0) {
          setGeneratingError("AI failed to generate questions for this topic.");
          toast({ title: 'Info', description: 'AI could not generate questions. Try a different topic.' });
       } else {
         setGeneratedMCQs(result);
-        setNewAssignment({ ...newAssignment, mcqQuestions: result.questions || [] });
+        setNewAssignment({ ...newAssignment, mcqQuestions: result.questions as McqQuestion[] || [] });
         toast({ title: 'Success', description: 'MCQs generated. Review and create the assignment.' });
         setCurrentCardIndex(0); // Reset card index
       }
@@ -301,7 +302,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
       } else if (date instanceof Date) {
          dateObj = date;
       } else if (typeof date === 'object' && date?.seconds) { // Handle plain object Timestamps
-        dateObj = new Timestamp(date.seconds, date.nanoseconds).toDate();
+        dateObj = new Timestamp(date.seconds as number, date.nanoseconds as number).toDate();
       }
 
      if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
@@ -376,25 +377,26 @@ const TeachersAssignmentHubPage: React.FC = () => {
 
        {/* View Details Dialog */}
        <Dialog open={!!selectedAssignment} onOpenChange={() => setSelectedAssignment(null)}>
-           <DialogContent className="max-w-2xl"> {/* Increased max-width */}
-               <DialogHeader>
-                   <DialogTitle>{selectedAssignment?.title}</DialogTitle>
+           <DialogContent className="max-w-3xl p-6"> {/* Increased max-width and padding */}
+               <DialogHeader className="mb-4"> {/* Added margin-bottom */}
+                   <DialogTitle className="text-xl font-semibold">{selectedAssignment?.title}</DialogTitle>
                    <DialogDescription>{selectedAssignment?.description}</DialogDescription>
                </DialogHeader>
                {selectedAssignment && (
                    <Card className="mt-4 border-none shadow-none">
-                       <CardContent className="p-0 space-y-2">
-                           <p><strong>Type:</strong> <Badge variant="outline">{selectedAssignment.type}</Badge></p>
-                           <p><strong>Due Date:</strong> {formatDate(selectedAssignment.dueDate)}</p>
+                       <CardContent className="p-0 space-y-4"> {/* Increased spacing */}
+                           {/* Changed from <p> to <div> to allow block elements like Badge inside */}
+                           <div className="text-sm"><strong>Type:</strong> <Badge variant="outline">{selectedAssignment.type}</Badge></div>
+                           <p className="text-sm"><strong>Due Date:</strong> {formatDate(selectedAssignment.dueDate)}</p>
                            {selectedAssignment.type === 'MCQ' && selectedAssignment.mcqQuestions && (
                                <div className="mt-4">
                                    <h4 className="text-md font-semibold mb-2">MCQ Questions</h4>
                                    <ScrollArea className="h-[300px] border rounded-md p-3 bg-muted/50">
                                        <ul className="space-y-3">
                                            {selectedAssignment.mcqQuestions.map((question, index) => (
-                                               <li key={index} className="text-sm">
-                                                   <p className="font-medium">{index + 1}. {question.question}</p>
-                                                   <ul className="list-disc pl-5 mt-1 text-xs text-muted-foreground">
+                                               <li key={index} className="text-sm p-2 bg-white rounded shadow-sm">
+                                                   <p className="font-medium mb-1">{index + 1}. {question.question}</p>
+                                                   <ul className="list-disc pl-5 mt-1 text-xs text-muted-foreground space-y-0.5">
                                                        {question.options.map((option, i) => (
                                                            <li key={i} className={option === question.correctAnswer ? 'text-green-600 font-medium' : ''}>
                                                                {String.fromCharCode(65 + i)}. {option}
@@ -412,7 +414,7 @@ const TeachersAssignmentHubPage: React.FC = () => {
                        </CardContent>
                    </Card>
                )}
-               <DialogFooter>
+               <DialogFooter className="mt-6"> {/* Added margin-top */}
                    <Button type="button" variant="secondary" onClick={() => setSelectedAssignment(null)}>Close</Button>
                </DialogFooter>
            </DialogContent>
@@ -420,114 +422,114 @@ const TeachersAssignmentHubPage: React.FC = () => {
 
 
        {/* Create New Assignment Dialog */}
-       <Dialog open={isCreateAssignmentOpen} onOpenChange={setIsCreateAssignmentOpen}>
-         <DialogContent className="max-w-[700px] p-8"> {/* Use max-width and padding */}
-           <DialogHeader>
-             {/* Moved title inside the grid for layout control */}
-             {/* Button row moved to the bottom */}
-           </DialogHeader>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {/* Two-column grid */}
-             {/* Left Column */}
-             <div className="space-y-4">
-               <h2 className="text-xl font-semibold mb-4">Assignment Details</h2> {/* Section Title */}
-               <div>
-                 <Label htmlFor="new-title">Title</Label>
-                 <Input id="new-title" value={newAssignment.title} onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })} placeholder="Assignment Title" />
-               </div>
-               <div>
-                 <Label htmlFor="new-description">Description</Label>
-                 <Textarea id="new-description" value={newAssignment.description} onChange={(e) => setNewAssignment({ ...newAssignment, description: e.target.value })} placeholder="Assignment Description" className="min-h-[120px]" />
-               </div>
-               <div>
-                 <Label htmlFor="new-type">Type</Label>
-                 <Select value={newAssignment.type} onValueChange={(value) => setNewAssignment({ ...newAssignment, type: value as AssignmentType })}>
-                   <SelectTrigger><SelectValue /></SelectTrigger>
-                   <SelectContent>
-                     <SelectItem value="Written">Written</SelectItem>
-                     <SelectItem value="MCQ">MCQ</SelectItem>
-                     <SelectItem value="Test">Test</SelectItem>
-                     <SelectItem value="Other">Other</SelectItem>
-                   </SelectContent>
-                 </Select>
-               </div>
-               <div>
-                 <Label htmlFor="new-dueDate">Due Date</Label>
-                 <Popover>
-                   <PopoverTrigger asChild>
-                     <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newTaskDueDate && "text-muted-foreground")}>
-                       <CalendarIcon className="mr-2 h-4 w-4" />
-                       {newTaskDueDate ? format(newTaskDueDate, "PPP") : <span>Pick a date</span>}
-                     </Button>
-                   </PopoverTrigger>
-                   <PopoverContent className="w-auto p-0">
-                     <Calendar mode="single" selected={newTaskDueDate} onSelect={setNewTaskDueDate} initialFocus />
-                   </PopoverContent>
-                 </Popover>
-               </div>
-             </div>
+        <Dialog open={isCreateAssignmentOpen} onOpenChange={setIsCreateAssignmentOpen}>
+          <DialogContent className="max-w-[700px] p-8 sm:p-6 md:max-w-3xl"> {/* Responsive max-width */}
+            <DialogHeader>
+              {/* Title moved below for better structure in grid */}
+            </DialogHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6"> {/* Responsive Grid */}
+              {/* Left Column */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold">Assignment Details</h2> {/* Moved Title Here */}
+                <div>
+                  <Label htmlFor="new-title">Title</Label>
+                  <Input id="new-title" value={newAssignment.title} onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })} placeholder="Assignment Title" />
+                </div>
+                <div>
+                  <Label htmlFor="new-description">Description</Label>
+                  <Textarea id="new-description" value={newAssignment.description} onChange={(e) => setNewAssignment({ ...newAssignment, description: e.target.value })} placeholder="Assignment Description" className="min-h-[120px]" />
+                </div>
+                <div>
+                  <Label htmlFor="new-type">Type</Label>
+                  <Select value={newAssignment.type} onValueChange={(value) => setNewAssignment({ ...newAssignment, type: value as AssignmentType })}>
+                    <SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger> {/* Added placeholder */}
+                    <SelectContent>
+                      <SelectItem value="Written">Written</SelectItem>
+                      <SelectItem value="MCQ">MCQ</SelectItem>
+                      <SelectItem value="Test">Test</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="new-dueDate">Due Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newTaskDueDate && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newTaskDueDate ? format(newTaskDueDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={newTaskDueDate} onSelect={setNewTaskDueDate} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
 
-             {/* Right Column (MCQ) */}
-             <div className="space-y-4">
-               {newAssignment.type === 'MCQ' && (
-                 <>
-                   <h2 className="text-xl font-semibold mb-4">MCQ Generator</h2>
-                   <div>
-                     <Label htmlFor="mcq-topic">Topic</Label>
-                     <Input id="mcq-topic" value={mcqTopic} onChange={(e) => setMcqTopic(e.target.value)} placeholder="Topic for MCQs" />
-                   </div>
-                   <div>
-                     <Label htmlFor="mcq-num">Number of Questions</Label>
-                     <Input id="mcq-num" type="number" value={mcqNumQuestions} onChange={(e) => setMcqNumQuestions(parseInt(e.target.value) || 1)} min="1" max="20" />
-                   </div>
-                   <Button onClick={handleGenerateMCQs} disabled={isGeneratingMCQs || !mcqTopic} className="w-full">
-                     {isGeneratingMCQs ? 'Generating...' : 'Generate MCQs'}
-                   </Button>
-                   {generatingError && <p className="text-sm text-red-500">{generatingError}</p>}
+              {/* Right Column (MCQ) */}
+              <div className="space-y-4">
+                {newAssignment.type === 'MCQ' && (
+                  <>
+                    <h2 className="text-xl font-semibold">MCQ Generator</h2>
+                    <div>
+                      <Label htmlFor="mcq-topic">Topic</Label>
+                      <Input id="mcq-topic" value={mcqTopic} onChange={(e) => setMcqTopic(e.target.value)} placeholder="Topic for MCQs" />
+                    </div>
+                    <div>
+                      <Label htmlFor="mcq-num">Number of Questions</Label>
+                      <Input id="mcq-num" type="number" value={mcqNumQuestions} onChange={(e) => setMcqNumQuestions(parseInt(e.target.value) || 1)} min="1" max="20" />
+                    </div>
+                    <Button onClick={handleGenerateMCQs} disabled={isGeneratingMCQs || !mcqTopic} className="w-full">
+                      {isGeneratingMCQs ? 'Generating...' : 'Generate MCQs'}
+                    </Button>
+                    {generatingError && <p className="text-sm text-red-500">{generatingError}</p>}
 
-                   {generatedMCQs && generatedMCQs.questions && generatedMCQs.questions.length > 0 && (
+                    {generatedMCQs && generatedMCQs.questions && generatedMCQs.questions.length > 0 && (
                       <div className="mt-4 space-y-2">
-                       <Label>Generated MCQs ({currentCardIndex + 1} of {generatedMCQs.questions.length})</Label>
-                         <Card ref={cardRef} className="p-4 border rounded h-[200px] overflow-y-auto bg-muted/30 shadow-inner">
-                             <p className="font-medium text-sm mb-2">{generatedMCQs.questions[currentCardIndex].question}</p>
-                             <ul className="list-disc pl-5 text-xs space-y-1">
-                                 {generatedMCQs.questions[currentCardIndex].options.map((option, i) => (
-                                     <li key={i} className={option === generatedMCQs.questions[currentCardIndex].correctAnswer ? 'text-green-700 font-semibold' : ''}>
-                                         {option} {option === generatedMCQs.questions[currentCardIndex].correctAnswer && ' (Correct)'}
-                                     </li>
-                                 ))}
-                             </ul>
-                         </Card>
-                         <div className="flex justify-between items-center mt-2">
-                              <Button variant="outline" size="sm" onClick={prevCard} disabled={currentCardIndex === 0}>
-                                 <ArrowLeft className="h-4 w-4 mr-1" /> Prev
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={nextCard} disabled={currentCardIndex === generatedMCQs.questions.length - 1}>
-                                  Next <ArrowRight className="h-4 w-4 ml-1" />
-                              </Button>
-                          </div>
+                        <Label>Generated MCQs ({currentCardIndex + 1} of {generatedMCQs.questions.length})</Label>
+                        <Card ref={cardRef} className="p-4 border rounded h-[200px] overflow-y-auto bg-muted/30 shadow-inner">
+                          <p className="font-medium text-sm mb-2">{generatedMCQs.questions[currentCardIndex].question}</p>
+                          <ul className="list-disc pl-5 text-xs space-y-1">
+                            {generatedMCQs.questions[currentCardIndex].options.map((option, i) => (
+                              <li key={i} className={option === generatedMCQs.questions[currentCardIndex].correctAnswer ? 'text-green-700 font-semibold' : ''}>
+                                {option} {option === generatedMCQs.questions[currentCardIndex].correctAnswer && ' (Correct)'}
+                              </li>
+                            ))}
+                          </ul>
+                        </Card>
+                        <div className="flex justify-between items-center mt-2">
+                          <Button variant="outline" size="sm" onClick={prevCard} disabled={currentCardIndex === 0}>
+                            <ArrowLeft className="h-4 w-4 mr-1" /> Prev
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={nextCard} disabled={currentCardIndex === generatedMCQs.questions.length - 1}>
+                            Next <ArrowRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
                       </div>
-                   )}
-                 </>
-               )}
-               {newAssignment.type !== 'MCQ' && (
-                 <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                    MCQ options appear when type is set to MCQ.
-                 </div>
-               )}
-             </div>
-           </div>
+                    )}
+                  </>
+                )}
+                {newAssignment.type !== 'MCQ' && (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm p-4 border rounded-md border-dashed">
+                    MCQ options will appear here when the assignment type is set to MCQ.
+                  </div>
+                )}
+              </div>
+            </div>
 
-           {/* Footer Buttons */}
-           <DialogFooter className="pt-6"> {/* Added padding-top */}
-             <Button variant="secondary" onClick={() => setIsCreateAssignmentOpen(false)}>Cancel</Button>
-             <Button onClick={handleCreateAssignment}>Create Assignment</Button>
-           </DialogFooter>
-         </DialogContent>
-       </Dialog>
+            {/* Footer Buttons */}
+            <DialogFooter className="pt-6 mt-6 sm:mt-0 flex justify-end gap-4"> {/* Use flex for button alignment */}
+                <Button variant="secondary" onClick={() => setIsCreateAssignmentOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreateAssignment} className="bg-primary hover:bg-primary/90"> {/* Primary color button */}
+                  Create Assignment
+                </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
     </div>
   );
 };
 
 export default TeachersAssignmentHubPage;
-
