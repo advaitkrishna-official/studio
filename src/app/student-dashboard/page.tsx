@@ -153,7 +153,11 @@ export default function StudentDashboardPage() {
       }).length;
 
 
-      setAssignments(assignmentsData.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())); // Store all valid assignments, sorted by due date
+      setAssignments(assignmentsData.sort((a, b) => {
+        const dateA = isTimestamp(a.dueDate) ? a.dueDate.toDate() : a.dueDate;
+        const dateB = isTimestamp(b.dueDate) ? b.dueDate.toDate() : b.dueDate;
+        return dateA.getTime() - dateB.getTime();
+      })); // Store all valid assignments, sorted by due date
       setDueTodayCount(countDueToday); // Update count of *unsubmitted* tasks due today
       setLoadingTasks(false);
     }, (error) => {
@@ -307,7 +311,7 @@ export default function StudentDashboardPage() {
                        {loadingTasks ? <p>Loading...</p> : assignments.slice(0, 3).map(a => ( // Show top 3 upcoming
                            <div key={a.id} className="flex items-center justify-between text-sm py-1 border-b last:border-b-0">
                                <span>{a.title} ({a.type})</span>
-                               <span className="text-muted-foreground">{format(a.dueDate, 'MMM dd')}</span>
+                               <span className="text-muted-foreground">{format(isTimestamp(a.dueDate) ? a.dueDate.toDate() : a.dueDate, 'MMM dd')}</span>
                            </div>
                        ))}
                        {assignments.length === 0 && !loadingTasks && <p>No upcoming assignments.</p>}

@@ -1,10 +1,10 @@
-'use client';
+'use client'; // Keep this page as a client component
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
-import { auth, db } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import {
   collection,
   query,
@@ -16,7 +16,6 @@ import {
   orderBy,
   Timestamp,
 } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
 import { format, isPast } from 'date-fns';
 import {
   Card,
@@ -28,57 +27,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import { Separator } from '@/components/ui/separator';
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import {
-  Search,
-  Menu,
-  Home,
+  CheckCircle,
+  Calendar as CalendarIcon, // Renamed CalendarIcon
   ListChecks,
+  Hash,
   BookOpenCheck,
   LayoutGrid,
-  PencilRuler,
-  BookOpen,
-  LineChart,
-  LogOut,
-  Code,
-  Database,
-  Cpu,
-  Hash,
-  CheckCircle,
-  Calendar as CalendarIcon,
-  ChevronRight,
-  Settings,
-  HelpCircle,
   User as UserIcon,
+  LineChart,
+  ChevronRight,
   Activity,
-  BookCopy,
-  BookText,
-  GraduationCap,
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 
 // Interfaces (assuming these are defined correctly)
 interface Assignment {
@@ -87,14 +46,6 @@ interface Assignment {
   dueDate: Date; // AssumingdueDate is always a Date object after fetching
   type: string;
   assignedTo: { classId: string; studentIds: string[] };
-}
-
-interface GradeData {
-  id: string;
-  taskName: string;
-  score: number;
-  feedback: string;
-  timestamp: Timestamp | Date;
 }
 
 interface Event {
@@ -107,17 +58,15 @@ interface Event {
 // Function to get initials for AvatarFallback
 const getInitials = (name: string) => {
   return name
-    .split(' ')
+    ?.split(' ')
     .map(n => n[0])
     .join('')
-    .toUpperCase();
+    .toUpperCase() || '';
 };
 
-
 export default function TeacherDashboardPage() {
-  const { user, userType, userClass, signOut: contextSignOut } = useAuth();
+  const { user, userType, userClass } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [pendingAssignments, setPendingAssignments] = useState(0);
@@ -133,18 +82,9 @@ export default function TeacherDashboardPage() {
   const [newLessonOpen, setNewLessonOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-    if (userType === 'student') {
-      router.push('/student-dashboard'); // Redirect students
-      return;
-    }
-    if (!userClass) {
-       console.warn("Teacher class not found, dashboard might not load data.");
-       setLoading(false); // Stop loading if no class context
-       return;
+    if (!user || !userClass) {
+        setLoading(false); // Stop loading if no user or class context
+        return;
     }
 
     setLoading(true);
@@ -176,7 +116,6 @@ export default function TeacherDashboardPage() {
             console.warn(`Skipping assignment ${docSnap.id} due to invalid dueDate:`, data.dueDate);
             continue; // Skip this assignment if date is invalid
          }
-
 
         const assignment: Assignment = {
           id: docSnap.id,
@@ -224,6 +163,7 @@ export default function TeacherDashboardPage() {
     });
 
     // --- Fetch Average Student Progress ---
+    // Note: Ensure your student documents have a 'progress' field or similar
     const stuQuery = query(
       collection(db, 'Users'), // Ensure correct collection name 'Users'
       where('class', '==', userClass),
@@ -236,7 +176,7 @@ export default function TeacherDashboardPage() {
         stuSnap.docs.forEach(doc => {
              const data = doc.data();
              // Assuming progress is stored like { overall: 75 } or just a number field 'progress'
-             const progressVal = data.progress?.overall ?? data.progress ?? 0;
+             const progressVal = data.progress ?? 0; // Access direct progress field
              if (typeof progressVal === 'number' && !isNaN(progressVal)) {
                  totalProgressSum += progressVal;
                  validStudentCount++;
@@ -246,7 +186,6 @@ export default function TeacherDashboardPage() {
           setAvgProgress(validStudentCount > 0 ? totalProgressSum / validStudentCount : 0);
         }
     });
-
 
     // --- Fetch Upcoming Events ---
     const eventsQuery = query(
@@ -283,7 +222,6 @@ export default function TeacherDashboardPage() {
        }
     });
 
-
     setLoading(false);
 
     // Cleanup listeners
@@ -293,13 +231,8 @@ export default function TeacherDashboardPage() {
       unsubStudents();
       unsubEvents();
     };
-  }, [user, userType, userClass, router]); // Rerun if user or class changes
+  }, [user, userClass]); // Rerun if user or class changes
 
-
-  const handleLogout = async () => {
-    await contextSignOut(); // Use signOut from context
-    // router.push('/login'); // Redirect handled by AuthProvider now
-  };
 
   const dashboardItems = [
     { title: 'Lesson Planner', href: '/teacher-dashboard/lesson-planner', icon: BookOpenCheck, description: "Create and manage lesson plans." },
@@ -308,16 +241,6 @@ export default function TeacherDashboardPage() {
     { title: 'Assignment Hub', href: '/teacher-dashboard/teachers-assignment-hub', icon: ListChecks, description: "Create & track assignments." },
     { title: 'Class Calendar', href: '/teacher-dashboard/class-calendar', icon: CalendarIcon, description: "View & manage schedule." },
     { title: 'Overview', href: '/teacher-dashboard/overview', icon: LineChart, description: "Class performance overview." },
-  ];
-
-   const navLinks = [
-    { title: 'Teacher Home', href: '/teacher-dashboard', icon: Home },
-    { title: 'Lesson Planner', href: '/teacher-dashboard/lesson-planner', icon: BookOpenCheck },
-    { title: 'Quiz Builder', href: '/teacher-dashboard/quiz-builder', icon: LayoutGrid },
-    { title: 'Student Manager', href: '/teacher-dashboard/student-manager', icon: UserIcon },
-    { title: 'Assignment Hub', href: '/teacher-dashboard/teachers-assignment-hub', icon: ListChecks },
-    { title: 'Class Calendar', href: '/teacher-dashboard/class-calendar', icon: CalendarIcon },
-    { title: 'Overview', href: '/teacher-dashboard/overview', icon: LineChart },
   ];
 
 
@@ -337,203 +260,114 @@ export default function TeacherDashboardPage() {
     );
   }
 
-  if (!user || userType !== 'teacher') {
-     // Redirect handled in useEffect, show minimal loading/message here
-     return <div className="flex items-center justify-center min-h-screen"><p>Loading or redirecting...</p></div>;
-  }
-
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
-      {/* Header with Top Navigation */}
-      <header className="sticky top-0 z-40 w-full border-b bg-white shadow-sm">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4">
-          {/* Left Side: Logo */}
-          <Link href="/teacher-dashboard" className="flex items-center gap-2 text-xl font-bold text-indigo-600">
-            <GraduationCap className="w-7 h-7" /> EduAI Teacher
-          </Link>
-
-          {/* Center: Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-1">
-            {navLinks.map(item => (
-                <Button key={item.href} variant="ghost" size="sm" asChild className="text-gray-600 hover:text-indigo-600 hover:bg-indigo-50">
-                    <Link href={item.href}>
-                        <item.icon className="mr-1.5 h-4 w-4" /> {item.title}
-                    </Link>
-                </Button>
-            ))}
-          </nav>
-
-          {/* Right Side: User Menu & Mobile Menu Trigger */}
-           <div className="flex items-center gap-3">
-              {/* User Dropdown */}
-              <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                     <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                          <Avatar className="h-9 w-9 border-2 border-indigo-100">
-                             <AvatarImage src={user?.photoURL || undefined} alt="User Avatar" data-ai-hint="teacher avatar" />
-                              <AvatarFallback className="bg-indigo-100 text-indigo-600 font-semibold">
-                                  {getInitials(user.displayName || user.email || 'T')}
-                              </AvatarFallback>
-                          </Avatar>
-                      </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel className="font-normal">
-                          <div className="flex flex-col space-y-1">
-                            <p className="text-sm font-medium leading-none">{user.displayName || user.email}</p>
-                            <p className="text-xs leading-none text-muted-foreground">
-                              Teacher
-                            </p>
-                          </div>
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => router.push('/teacher-dashboard/settings')}>
-                          <Settings className="mr-2 h-4 w-4" /> Settings
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => router.push('/teacher-dashboard/help')}>
-                          <HelpCircle className="mr-2 h-4 w-4" /> Help
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:bg-red-50 focus:text-red-700">
-                          <LogOut className="mr-2 h-4 w-4" /> Log out
-                      </DropdownMenuItem>
-                  </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Mobile Menu Trigger */}
-              <Sheet>
-                 <SheetTrigger asChild className="md:hidden">
-                    <Button variant="outline" size="icon"><Menu className="h-5 w-5" /></Button>
-                 </SheetTrigger>
-                 <SheetContent side="left" className="w-64 p-4">
-                     <nav className="flex flex-col space-y-2 mt-6">
-                          {navLinks.map(item => (
-                             <Button key={item.href} variant="ghost" asChild className="justify-start gap-3 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50">
-                                  <Link href={item.href}>
-                                      <item.icon className="w-5 h-5" /> {item.title}
-                                  </Link>
-                              </Button>
-                          ))}
-                     </nav>
-                     <Separator className="my-4"/>
-                     <Button variant="ghost" onClick={handleLogout} className="w-full justify-start gap-3 text-red-600 hover:bg-red-50 hover:text-red-700">
-                         <LogOut className="w-5 h-5" /> Log Out
-                     </Button>
-                 </SheetContent>
-               </Sheet>
-            </div>
+    <div className="space-y-8"> {/* Added parent div with spacing */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+           <h1 className="text-3xl font-bold text-gray-800">Teacher Home</h1>
+            <p className="text-gray-500">Welcome back, {user?.displayName || user?.email}!</p>
         </div>
-      </header>
+      </div>
 
-      {/* Main content */}
-      <main className="flex-1 container mx-auto p-6 lg:p-10 space-y-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-             <h1 className="text-3xl font-bold text-gray-800">Teacher Home</h1>
-              <p className="text-gray-500">Welcome back, {user.displayName || user.email}!</p>
-          </div>
-        </div>
-
-        {/* KPI Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {kpiData.map(({ label, value, icon: Icon }) => (
-                <Card key={label} className="p-4 flex items-center gap-3 bg-white shadow-sm rounded-lg border border-gray-200">
-                <div className="p-2 bg-indigo-100 rounded-full">
-                     <Icon className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div>
-                    <p className="text-sm text-gray-500">{label}</p>
-                    <p className="text-xl font-semibold text-gray-800">{value}</p>
-                     {/* Mini Progress Bar for Avg Progress */}
-                      {label === 'Avg. Class Progress' && typeof value === 'string' && (
-                        <Progress value={parseFloat(value)} className="h-1 mt-1 w-full" />
-                      )}
-                </div>
-                </Card>
-            ))}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="flex flex-wrap gap-3">
-          <Button variant="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => router.push('/teacher-dashboard/teachers-assignment-hub')}>
-              <ListChecks className="mr-2 h-4 w-4" /> New Assignment
-          </Button>
-           <Button variant="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => router.push('/teacher-dashboard/quiz-builder')}>
-               <LayoutGrid className="mr-2 h-4 w-4" /> New Quiz
-           </Button>
-          <Button variant="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => router.push('/teacher-dashboard/lesson-planner')}>
-              <BookOpenCheck className="mr-2 h-4 w-4" /> New Lesson Plan
-          </Button>
-        </div>
-
-        {/* Feature Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {dashboardItems.map(item => (
-            <Link key={item.href} href={item.href} className="block group">
-              <Card className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:scale-[1.02] hover:border-indigo-300 transition-all duration-200 h-full flex flex-col justify-between">
-                  <div>
-                      <div className="p-2 bg-indigo-100 rounded-lg inline-block mb-3">
-                         <item.icon className="w-6 h-6 text-indigo-600" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-800">{item.title}</h3>
-                      <p className="text-sm text-gray-500 mt-1">{item.description}</p>
-                 </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400 mt-4 self-end group-hover:text-indigo-500" />
+      {/* KPI Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {kpiData.map(({ label, value, icon: Icon }) => (
+              <Card key={label} className="p-4 flex items-center gap-3 bg-white shadow-sm rounded-lg border border-gray-200">
+              <div className="p-2 bg-indigo-100 rounded-full">
+                   <Icon className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                  <p className="text-sm text-gray-500">{label}</p>
+                  <p className="text-xl font-semibold text-gray-800">{value}</p>
+                   {/* Mini Progress Bar for Avg Progress */}
+                    {label === 'Avg. Class Progress' && typeof value === 'string' && (
+                      <Progress value={parseFloat(value)} className="h-1 mt-1 w-full" />
+                    )}
+              </div>
               </Card>
-            </Link>
           ))}
-        </div>
+      </div>
 
-         {/* Activity Feed & Upcoming Events Combined */}
-         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-             <Card className="lg:col-span-2 bg-white shadow-sm rounded-lg border border-gray-200">
-                 <CardHeader>
-                     <CardTitle className="text-xl flex items-center gap-2"><Activity className="w-5 h-5 text-orange-500"/> Recent Activity</CardTitle>
-                     <CardDescription>Latest updates and submissions.</CardDescription>
-                 </CardHeader>
-                 <CardContent>
-                     {recentActivity.length > 0 ? (
-                         <ul className="space-y-3">
-                             {recentActivity.slice(0, 5).map((activity, index) => ( // Show top 5
-                                 <li key={index} className="flex items-center text-sm text-gray-600 border-b pb-2 last:border-0">
-                                     <CheckCircle className="w-4 h-4 mr-2 text-green-500 flex-shrink-0"/>
-                                     <span>{activity}</span>
-                                     <span className="ml-auto text-xs text-gray-400">~ {index + 1}h ago</span>
-                                 </li>
-                             ))}
-                         </ul>
-                     ) : (
-                         <p className="text-gray-500">No recent activity.</p>
-                     )}
-                 </CardContent>
-             </Card>
+      {/* Quick Actions */}
+      <div className="flex flex-wrap gap-3">
+        <Button variant="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => router.push('/teacher-dashboard/teachers-assignment-hub')}>
+            <ListChecks className="mr-2 h-4 w-4" /> New Assignment
+        </Button>
+         <Button variant="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => router.push('/teacher-dashboard/quiz-builder')}>
+             <LayoutGrid className="mr-2 h-4 w-4" /> New Quiz
+         </Button>
+        <Button variant="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => router.push('/teacher-dashboard/lesson-planner')}>
+            <BookOpenCheck className="mr-2 h-4 w-4" /> New Lesson Plan
+        </Button>
+      </div>
 
-             <Card className="bg-white shadow-sm rounded-lg border border-gray-200">
-                  <CardHeader>
-                      <CardTitle className="text-xl flex items-center gap-2"><CalendarIcon className="w-5 h-5 text-blue-500"/> Upcoming Events</CardTitle>
-                      <CardDescription>What's next on the schedule.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                      {upcomingEvents.length > 0 ? (
-                          <ul className="space-y-3">
-                              {upcomingEvents.slice(0, 5).map((event) => ( // Show top 5
-                                  <li key={event.id} className="flex items-center text-sm text-gray-600 border-b pb-2 last:border-0">
-                                       <div className="flex-1">
-                                          <p className="font-medium">{event.title}</p>
-                                          <p className="text-xs text-gray-400">{event.description?.substring(0,30)}...</p> {/* Truncate description */}
-                                       </div>
-                                      <span className="ml-auto text-xs text-gray-500 font-medium">{format(event.date, 'MMM dd')}</span>
-                                  </li>
-                              ))}
-                          </ul>
-                      ) : (
-                          <p className="text-gray-500">No upcoming events.</p>
-                      )}
-                       {upcomingEvents.length > 0 && <Button variant="link" size="sm" className="px-0 mt-3" onClick={() => router.push('/teacher-dashboard/class-calendar')}>View Calendar &rarr;</Button>}
-                  </CardContent>
-              </Card>
-         </div>
-      </main>
+      {/* Feature Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {dashboardItems.map(item => (
+          <Link key={item.href} href={item.href} className="block group">
+            <Card className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:scale-[1.02] hover:border-indigo-300 transition-all duration-200 h-full flex flex-col justify-between">
+                <div>
+                    <div className="p-2 bg-indigo-100 rounded-lg inline-block mb-3">
+                       <item.icon className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-800">{item.title}</h3>
+                    <p className="text-sm text-gray-500 mt-1">{item.description}</p>
+               </div>
+                <ChevronRight className="w-5 h-5 text-gray-400 mt-4 self-end group-hover:text-indigo-500" />
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+       {/* Activity Feed & Upcoming Events Combined */}
+       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           <Card className="lg:col-span-2 bg-white shadow-sm rounded-lg border border-gray-200">
+               <CardHeader>
+                   <CardTitle className="text-xl flex items-center gap-2"><Activity className="w-5 h-5 text-orange-500"/> Recent Activity</CardTitle>
+                   <CardDescription>Latest updates and submissions.</CardDescription>
+               </CardHeader>
+               <CardContent>
+                   {recentActivity.length > 0 ? (
+                       <ul className="space-y-3">
+                           {recentActivity.slice(0, 5).map((activity, index) => ( // Show top 5
+                               <li key={index} className="flex items-center text-sm text-gray-600 border-b pb-2 last:border-0">
+                                   <CheckCircle className="w-4 h-4 mr-2 text-green-500 flex-shrink-0"/>
+                                   <span>{activity}</span>
+                                   <span className="ml-auto text-xs text-gray-400">~ {index + 1}h ago</span>
+                               </li>
+                           ))}
+                       </ul>
+                   ) : (
+                       <p className="text-gray-500">No recent activity.</p>
+                   )}
+               </CardContent>
+           </Card>
+
+           <Card className="bg-white shadow-sm rounded-lg border border-gray-200">
+                <CardHeader>
+                    <CardTitle className="text-xl flex items-center gap-2"><CalendarIcon className="w-5 h-5 text-blue-500"/> Upcoming Events</CardTitle>
+                    <CardDescription>What's next on the schedule.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {upcomingEvents.length > 0 ? (
+                        <ul className="space-y-3">
+                            {upcomingEvents.slice(0, 5).map((event) => ( // Show top 5
+                                <li key={event.id} className="flex items-center text-sm text-gray-600 border-b pb-2 last:border-0">
+                                     <div className="flex-1">
+                                        <p className="font-medium">{event.title}</p>
+                                        <p className="text-xs text-gray-400">{event.description?.substring(0,30)}...</p> {/* Truncate description */}
+                                     </div>
+                                    <span className="ml-auto text-xs text-gray-500 font-medium">{format(event.date, 'MMM dd')}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-gray-500">No upcoming events.</p>
+                    )}
+                     {upcomingEvents.length > 0 && <Button variant="link" size="sm" className="px-0 mt-3" onClick={() => router.push('/teacher-dashboard/class-calendar')}>View Calendar &rarr;</Button>}
+                </CardContent>
+            </Card>
+       </div>
     </div>
   );
 }
