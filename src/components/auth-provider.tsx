@@ -1,4 +1,5 @@
-'use client';
+// src/components/auth-provider.tsx
+'use client'; // Ensure this remains a client component
 
 import React, {
   useState,
@@ -49,6 +50,7 @@ export default function AuthProviderComponent({children}: AuthProviderProps) {
       console.error('AuthProvider: Firestore DB is not initialized');
       setUserType(null); // Set defaults if DB fails
       setUserClass(null);
+      setLoading(false); // Ensure loading stops if DB fails early
       return;
     }
 
@@ -56,6 +58,7 @@ export default function AuthProviderComponent({children}: AuthProviderProps) {
       console.log('AuthProvider: No current user, skipping fetchUserData.');
       setUserType(null);
       setUserClass(null);
+      setLoading(false); // Ensure loading stops if no user
       return;
     }
 
@@ -74,7 +77,8 @@ export default function AuthProviderComponent({children}: AuthProviderProps) {
            determinedClass = userData.teacherGrade || null;
            console.log(`AuthProvider: User is a teacher, setting teacherGrade: ${determinedClass}`);
         } else if (role === 'student') {
-           determinedClass = userData.class || userData.grade || null; // Check both 'class' and 'grade' fields
+           // Check both 'class' and 'grade' fields for flexibility
+           determinedClass = userData.class || userData.grade || null;
            console.log(`AuthProvider: User is a student, setting class/grade: ${determinedClass}`);
         } else {
            console.warn(`AuthProvider: User role is unknown or missing: ${role}`);
@@ -93,6 +97,9 @@ export default function AuthProviderComponent({children}: AuthProviderProps) {
       console.error('AuthProvider: Error fetching user data:', error);
       setUserType(null); // Reset on error
       setUserClass(null);
+    } finally {
+        setLoading(false); // Stop loading after fetch attempt (success or error)
+        console.log("AuthProvider: fetchUserData complete, loading set to false.");
     }
   }, []); // Removed db from dependencies as it should be stable
 
@@ -111,8 +118,8 @@ export default function AuthProviderComponent({children}: AuthProviderProps) {
     console.log("AuthProvider: Setting up onAuthStateChanged listener.");
     const unsubscribe = onAuthStateChanged(firebaseAuth, async firebaseUser => {
       console.log(`AuthProvider: onAuthStateChanged triggered. User: ${firebaseUser ? firebaseUser.uid : 'null'}`);
-      // --- Start loading immediately ---
-      setLoading(true);
+      // Set loading to true whenever the auth state might change
+      // setLoading(true); // Moved setting loading false to fetchUserData or no user case
 
       if (!firebaseUser) {
         console.log("AuthProvider: No user logged in.");
@@ -121,23 +128,11 @@ export default function AuthProviderComponent({children}: AuthProviderProps) {
         setUserClass(null);
         // --- Stop loading when no user ---
         setLoading(false);
+        console.log("AuthProvider: No user, loading set to false.");
       } else {
         console.log(`AuthProvider: User ${firebaseUser.uid} logged in. Setting user state.`);
         setUser(firebaseUser); // Set user first
-        console.log(`AuthProvider: Fetching data for user ${firebaseUser.uid}...`);
-        try {
-          await fetchUserData(firebaseUser); // Wait for user data fetch
-          console.log("AuthProvider: fetchUserData complete.");
-        } catch (e) {
-           console.error("AuthProvider: Error during fetchUserData in listener:", e);
-           // Reset states on error during fetch
-           setUserType(null);
-           setUserClass(null);
-        } finally {
-           // --- Stop loading AFTER fetchUserData attempt ---
-           setLoading(false);
-           console.log("AuthProvider: Loading set to false.");
-        }
+        await fetchUserData(firebaseUser); // Fetch data, fetchUserData will set loading false
       }
     });
 
@@ -155,6 +150,7 @@ export default function AuthProviderComponent({children}: AuthProviderProps) {
         return;
     }
     try {
+      setLoading(true); // Indicate loading during sign out
       console.log("AuthProvider: Signing out...");
       await firebaseSignOut(firebaseAuth);
       setUser(null); // Clear user state immediately
@@ -165,6 +161,8 @@ export default function AuthProviderComponent({children}: AuthProviderProps) {
     } catch (error) {
       console.error('AuthProvider: Error signing out:', error);
       // Optionally show a toast message on error
+    } finally {
+        setLoading(false); // Stop loading after sign out attempt
     }
   };
 
@@ -175,9 +173,9 @@ export default function AuthProviderComponent({children}: AuthProviderProps) {
     userType,
     userClass,
     signOut: signOutFunc,
-  }), [user, loading, userType, userClass, signOutFunc]);
+  }), [user, loading, userType, userClass]); // Removed router and signOutFunc as deps because signOutFunc doesn't change
 
-  console.log("AuthProvider: Rendering with context value:", value); // Log context value on render
+  console.log("AuthProvider: Rendering with context value:", {loading, user: user?.uid, userType, userClass}); // Log context value on render
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

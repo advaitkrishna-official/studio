@@ -1,11 +1,10 @@
-'use client';
-
+// src/app/layout.tsx
 import { Geist, Geist_Mono } from 'next/font/google';
 import '@/app/globals.css';
-import { ReactNode } from 'react';
-import AuthProvider from '@/components/auth-provider'; // Corrected import path
-import { Toaster } from "@/components/ui/toaster"; // Import Toaster
-import { metadata } from './metadata'; // Import metadata
+import type { ReactNode } from 'react';
+import AuthProvider from '@/components/auth-provider'; // Import AuthProvider directly
+import { Toaster } from "@/components/ui/toaster";
+import { metadata } from './metadata';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -24,11 +23,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      {/* Removed potentially problematic attributes often added by extensions */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {/* AuthProvider is a Client Component, wrapping children here */}
         <AuthProvider>
           {children}
-          <Toaster /> {/* Add Toaster here for app-wide toasts */}
+          <Toaster />
         </AuthProvider>
       </body>
     </html>
