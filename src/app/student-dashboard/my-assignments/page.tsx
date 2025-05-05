@@ -248,7 +248,7 @@ export default function StudentAssignmentsPage() {
     if (sub?.status === 'Submitted' || sub?.status === 'Graded') {
       return sub.status;
     }
-    if (isPast(due) && sub?.status !== 'Submitted' && sub?.status !== 'Graded') { // Explicit check for submission status
+    if (isPast(due)) {
       return 'Overdue';
     }
     return sub?.status === 'Not Started' ? 'Not Started' : 'Due';

@@ -34,6 +34,7 @@ import {
   LineChart,
   ListChecks
 } from 'lucide-react';
+import { isTimestamp } from '@/lib/utils'; // Import the type guard
 
 interface Assignment {
   id: string;
@@ -52,10 +53,10 @@ interface GradeData {
   timestamp: Timestamp | Date;
 }
 
-// Type guard to check if a value is a Firestore Timestamp
-function isTimestamp(value: any): value is Timestamp {
- return typeof value === 'object' && value !== null && value instanceof Timestamp;
-}
+// Type guard to check if a value is a Firestore Timestamp - Moved outside component
+// function isTimestamp(value: any): value is Timestamp {
+//  return typeof value === 'object' && value !== null && value instanceof Timestamp;
+// }
 
 export default function StudentDashboardPage() {
   const { user, userClass, loading: authLoading, signOut } = useAuth(); // Added signOut
@@ -72,8 +73,13 @@ export default function StudentDashboardPage() {
     if (authLoading || !user || !userClass) { // Wait for auth and ensure user/class exist
       setLoadingTasks(false);
       setLoadingProgress(false);
+      setAssignments([]); // Clear assignments if no user/class
+      setDueTodayCount(0);
+      setOverallProgress(0);
+      console.log("Auth loading or user/class missing, skipping fetch.");
       return;
     }
+    console.log("Starting useEffect for data fetch...");
     setLoadingTasks(true);
     setLoadingProgress(true);
 
@@ -81,111 +87,108 @@ export default function StudentDashboardPage() {
     const assignmentsQuery = query(
       collection(db, 'assignments'),
       where('assignedTo.classId', '==', userClass)
-      // If assignments are assigned to specific students, add:
-      // where('assignedTo.studentIds', 'array-contains', user.uid)
+      // No longer ordering here, sort client-side after fetching submissions
     );
 
-
     const unsubAssignments = onSnapshot(assignmentsQuery, async (snap) => {
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+       console.log(`Assignments snapshot received: ${snap.size} docs for class ${userClass}`);
+       const now = new Date();
+       let countDueToday = 0;
+       const assignmentsData: Assignment[] = [];
+       const submissionChecks: Promise<boolean>[] = []; // Promises to check submission status
 
-      let countDueToday = 0;
-      const assignmentsData: Assignment[] = [];
-      const submissionPromises: Promise<{ id: string; submitted: boolean }>[] = [];
+        for (const docSnap of snap.docs) {
+          const d = docSnap.data() as DocumentData;
+          const isAssignedToUser = !d.assignedTo?.studentIds || d.assignedTo.studentIds.length === 0 || d.assignedTo.studentIds.includes(user.uid);
 
+          if (isAssignedToUser) {
+              let dueDate: Date | null = null;
+              if (d.dueDate && isTimestamp(d.dueDate)) {
+                  dueDate = d.dueDate.toDate();
+              } else if (d.dueDate instanceof Date && !isNaN(d.dueDate.getTime())) {
+                  dueDate = d.dueDate;
+              }
 
-       // Iterate through assignments to fetch submission status
-      for (const docSnap of snap.docs) {
-        const d = docSnap.data() as DocumentData;
-         // Ensure assignedTo and assignedTo.studentIds exist before checking
-        const isAssignedToUser = d.assignedTo?.studentIds?.length === 0 || d.assignedTo?.studentIds?.includes(user.uid);
+              if (dueDate) {
+                 const assignment: Assignment = {
+                    id: docSnap.id,
+                    title: d.title || 'Untitled Assignment',
+                    description: d.description || '',
+                    type: d.type || 'Other',
+                    dueDate: dueDate,
+                    assignedTo: d.assignedTo || { classId: userClass, studentIds: [] },
+                  };
+                  assignmentsData.push(assignment);
 
-        // If assignments can be assigned class-wide OR individually
-        if (isAssignedToUser) {
-            let dueDate: Date | null = null;
-             // Check if dueDate exists and is a Firestore Timestamp
-             if (d.dueDate && d.dueDate.seconds) {
-                 dueDate = new Timestamp(d.dueDate.seconds, d.dueDate.nanoseconds).toDate();
-             } else if (d.dueDate instanceof Date) {
-                 dueDate = d.dueDate;
-             }
-
-            if (dueDate instanceof Date && !isNaN(dueDate.getTime())) {
-              const assignment: Assignment = {
-                id: docSnap.id,
-                title: d.title || 'Untitled Assignment',
-                description: d.description || '',
-                type: d.type || 'Other',
-                dueDate: dueDate,
-                assignedTo: d.assignedTo || { classId: userClass, studentIds: [] },
-              };
-
-              assignmentsData.push(assignment); // Add assignment first
-
-               // Check if due today (before filtering submitted)
-               if (dueDate >= todayStart && dueDate < todayEnd) {
-                 // Fetch submission status for this assignment
-                 const subRef = doc(db, 'assignments', assignment.id, 'submissions', user.uid);
-                 submissionPromises.push(
-                   getDoc(subRef).then(subSnap => ({
-                     id: assignment.id,
-                     submitted: subSnap.exists() && (subSnap.data()?.status === 'Submitted' || subSnap.data()?.status === 'Graded')
-                   }))
-                 );
-               }
-            } else {
-              console.warn(`Skipping assignment ${docSnap.id} due to invalid dueDate:`, d.dueDate);
-            }
+                  // Check if due today AND check submission status
+                  if (isToday(dueDate)) {
+                    const subRef = doc(db, 'assignments', assignment.id, 'submissions', user.uid);
+                    submissionChecks.push(
+                      getDoc(subRef).then(subSnap => {
+                        const isSubmitted = subSnap.exists() && (subSnap.data()?.status === 'Submitted' || subSnap.data()?.status === 'Graded');
+                        console.log(`Assignment ${assignment.id} due today. Submitted: ${isSubmitted}`);
+                        return !isSubmitted; // Return true if NOT submitted (counts towards dueTodayCount)
+                      }).catch(err => {
+                          console.error(`Error checking submission for ${assignment.id}:`, err);
+                          return false; // Assume submitted or error if check fails
+                      })
+                    );
+                  }
+              } else {
+                  console.warn(`Skipping assignment ${docSnap.id} due to invalid dueDate:`, d.dueDate);
+              }
+          }
         }
 
-      }
+        // Wait for all submission checks to complete
+        const dueTodayResults = await Promise.all(submissionChecks);
+        countDueToday = dueTodayResults.filter(isDue).length; // Count how many returned true (are due today and not submitted)
 
-       // Wait for all submission checks
-      const submissionResults = await Promise.all(submissionPromises);
-      const submittedIds = new Set(submissionResults.filter(s => s.submitted).map(s => s.id));
+        console.log(`Calculated dueTodayCount: ${countDueToday}`);
 
-       // Filter assignments due today that are NOT submitted
-      countDueToday = assignmentsData.filter(a => {
-        const isDueToday = a.dueDate >= todayStart && a.dueDate < todayEnd;
-        return isDueToday && !submittedIds.has(a.id);
-      }).length;
+        setAssignments(assignmentsData.sort((a, b) => {
+            const dateA = a.dueDate instanceof Date ? a.dueDate.getTime() : 0;
+            const dateB = b.dueDate instanceof Date ? b.dueDate.getTime() : 0;
+            return dateA - dateB;
+        }));
+        setDueTodayCount(countDueToday);
+        setLoadingTasks(false);
+        console.log("Assignments fetch and due today calculation complete.");
 
-
-      setAssignments(assignmentsData.sort((a, b) => {
-        const dateA = isTimestamp(a.dueDate) ? a.dueDate.toDate() : a.dueDate;
-        const dateB = isTimestamp(b.dueDate) ? b.dueDate.toDate() : b.dueDate;
-        return dateA.getTime() - dateB.getTime();
-      })); // Store all valid assignments, sorted by due date
-      setDueTodayCount(countDueToday); // Update count of *unsubmitted* tasks due today
-      setLoadingTasks(false);
     }, (error) => {
       console.error("Error fetching assignments:", error);
       setLoadingTasks(false);
+      setAssignments([]); // Clear assignments on error
+      setDueTodayCount(0);
     });
 
 
     // Fetch Overall Progress
     const fetchGrades = async () => {
       if (!user) return;
+      setLoadingProgress(true); // Ensure loading starts
+      console.log("Fetching grades for progress calculation...");
       try {
         const gradesRef = collection(db, 'Users', user.uid, 'grades');
         const gradesSnap = await getDocs(gradesRef);
         const gradesData = gradesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as GradeData));
+        console.log(`Fetched ${gradesData.length} grades.`);
 
         if (gradesData.length > 0) {
           const validScores = gradesData.map(g => g.score).filter(s => typeof s === 'number' && !isNaN(s));
           const avg = validScores.length > 0 ? validScores.reduce((sum, score) => sum + score, 0) / validScores.length : 0;
-          setOverallProgress(avg);
+          setOverallProgress(Math.min(100, Math.max(0, avg))); // Cap progress between 0 and 100
+          console.log(`Calculated overall progress: ${avg}`);
         } else {
           setOverallProgress(0);
+          console.log("No valid grades found, progress set to 0.");
         }
       } catch (error) {
         console.error("Error fetching grades:", error);
-        setOverallProgress(0);
+        setOverallProgress(0); // Reset progress on error
       } finally {
         setLoadingProgress(false);
+        console.log("Grade fetching complete.");
       }
     };
 
@@ -193,6 +196,7 @@ export default function StudentDashboardPage() {
 
     // Cleanup listener on unmount
     return () => {
+      console.log("Cleaning up assignments listener.");
       unsubAssignments();
     };
   }, [user, userClass, authLoading]); // Depend on authLoading as well
@@ -206,9 +210,9 @@ export default function StudentDashboardPage() {
 
 
   // Main render logic
-  if (authLoading) {
+  if (authLoading && !user) { // Improved loading check
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-100px)]">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-100">
         <span className="loader"></span>
       </div>
     );
@@ -311,7 +315,7 @@ export default function StudentDashboardPage() {
                        {loadingTasks ? <p>Loading...</p> : assignments.slice(0, 3).map(a => ( // Show top 3 upcoming
                            <div key={a.id} className="flex items-center justify-between text-sm py-1 border-b last:border-b-0">
                                <span>{a.title} ({a.type})</span>
-                               <span className="text-muted-foreground">{format(isTimestamp(a.dueDate) ? a.dueDate.toDate() : a.dueDate, 'MMM dd')}</span>
+                               <span className="text-muted-foreground">{format(a.dueDate instanceof Date ? a.dueDate : new Date(), 'MMM dd')}</span>
                            </div>
                        ))}
                        {assignments.length === 0 && !loadingTasks && <p>No upcoming assignments.</p>}
