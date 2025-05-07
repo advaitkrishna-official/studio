@@ -7,10 +7,10 @@ const nextConfig: NextConfig = {
       ...config.experiments,
       topLevelAwait: true,
     };
-    config.output = {
-      ...config.output,
-      publicPath: '/',
-    };
+    // config.output = {
+    //   ...config.output,
+    //   publicPath: '/', // Removing this line
+    // };
 
     // Ignore async_hooks module
     config.resolve.fallback = {
