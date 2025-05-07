@@ -8,19 +8,37 @@ To get started, take a look at src/app/page.tsx.
 
 ### Chunk Loading Errors (404 for JS files)
 
-If you encounter errors like "Failed to load resource" for JavaScript files (e.g., `/static/chunks/...js`) with a 404 status, it's often due to a mismatch between the client's expected files and the server's available files, especially after a deployment or build.
+If you encounter errors like "Failed to load resource" or `ChunkLoadError` for JavaScript files (e.g., `/_next/static/chunks/...js` or `/static/chunks/...js`) with a 404 status, it's often due to a mismatch between the client's expected files and the server's available files. This can happen after a new deployment, if a build process was interrupted, or if there's a caching issue.
 
-To fix this:
+**To fix this, especially after a deployment:**
 
-1.  **Delete the `.next` directory**: This directory contains Next.js's build cache.
-    ```bash
-    rm -rf .next
-    ```
-2.  **Rebuild the project**:
-    ```bash
-    npm run build
-    ```
-3.  **Restart your server**: If running locally, stop and restart your development server (`npm run dev`) or production server (`npm run start`). If deployed, this might involve re-deploying.
+1.  **Force a Hard Refresh & Clear Cache (Browser):**
+    *   Open your browser's developer tools (usually F12).
+    *   Go to the "Network" tab.
+    *   Check the "Disable cache" option.
+    *   Right-click the refresh button and select "Empty Cache and Hard Reload".
+
+2.  **If the issue persists (especially in a development environment or self-hosted production):**
+    *   **Stop your Next.js server.**
+    *   **Delete the `.next` directory**: This directory contains Next.js's build cache. In your project's root directory, run:
+        ```bash
+        rm -rf .next
+        ```
+    *   **Rebuild the project**:
+        ```bash
+        npm run build
+        ```
+    *   **Restart your server**:
+        *   For development: `npm run dev`
+        *   For production: `npm run start`
+    *   **If deployed to a platform (like Vercel, Firebase App Hosting, etc.):**
+        *   Trigger a new deployment. This usually involves pushing a new commit or manually re-deploying through the platform's dashboard. This ensures the server has the latest, consistent build artifacts.
+
+3.  **Check Base Path:** If you're using a `basePath` in your `next.config.js`, ensure it's correctly configured and that your server is serving assets from that path.
+
+4.  **CDN or Caching Layers:** If you have a CDN or other caching layers in front of your application, try purging their cache.
+
+These steps usually resolve chunk loading errors by ensuring the client and server are synchronized with the latest build files.
 
 ### Hydration Errors
 
@@ -43,3 +61,5 @@ To mitigate this:
 - Teachers can upload, organize, and manage learning resources.
 - Resource types may include PDFs, videos, documents, and external links.
 - Resources can be tagged by subject and grade level for easy searching.
+
+```
