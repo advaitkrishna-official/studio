@@ -7,11 +7,10 @@ import { ListOrdered } from "lucide-react"
 const Icons = {
   arrowRight: ArrowRight,
   check: Check,
-    close:X,
   chevronDown: ChevronsUpDown,
   circle: Circle,
   workflow: Workflow,
-  close: X,
+  close: X, // Keep one instance of close: X
   copy: Copy,
   dark: Moon,
   edit: Edit,

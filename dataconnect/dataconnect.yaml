@@ -1,11 +1,11 @@
 specVersion: "v1"
-serviceId: "studio"
+serviceId: "advait"
 location: "us-central1"
 schema:
   source: "./schema"
   datasource:
     postgresql:
-      database: "fdcdb"
+      database: "postgres"
       cloudSql:
         instanceId: "studio-fdc"
       # schemaValidation: "COMPATIBLE"

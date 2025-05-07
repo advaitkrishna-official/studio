@@ -1,7 +1,7 @@
 
 const connectorConfig = {
   connector: 'default',
-  service: 'studio',
+  service: 'advait',
   location: 'us-central1'
 };
 exports.connectorConfig = connectorConfig;

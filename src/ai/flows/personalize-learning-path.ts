@@ -22,19 +22,19 @@ const PersonalizeLearningPathInputSchema = z.object({
 export type PersonalizeLearningPathInput = z.infer<typeof PersonalizeLearningPathInputSchema>;
 
 const RecommendedTopicSchema = z.object({
-  topic: z.string().describe('The topic to focus on.'),
-  reason: z.string().describe('The reason for recommending this topic based on performance data.'),
+  topic: z.string().describe('The topic to focus on.').nonempty(),
+  reason: z.string().describe('The reason for recommending this topic based on performance data.').nonempty(),
 });
 
 const RecommendedQuestionTypeSchema = z.object({
-  questionType: z.string().describe('The question type to focus on (e.g., flashcards, MCQ, long answer).'),
-  reason: z.string().describe('The reason for recommending this question type based on performance data.'),
+  questionType: z.string().describe('The question type to focus on (e.g., flashcards, MCQ, long answer).').nonempty(),
+  reason: z.string().describe('The reason for recommending this question type based on performance data.').nonempty(),
 });
 
 const PersonalizeLearningPathOutputSchema = z.object({
-  recommendedTopics: z.array(RecommendedTopicSchema).describe('Array of recommended topics for the student to focus on.'),
-  recommendedQuestionTypes: z.array(RecommendedQuestionTypeSchema).describe('Array of recommended question types for the student to focus on.'),
-  summary: z.string().describe('A summary of the student performance and the recommendations.'),
+  recommendedTopics: z.array(RecommendedTopicSchema).describe('Array of recommended topics for the student to focus on.').nonempty(),
+  recommendedQuestionTypes: z.array(RecommendedQuestionTypeSchema).describe('Array of recommended question types for the student to focus on.').nonempty(),
+  summary: z.string().describe('A summary of the student performance and the recommendations.').nonempty(),
 });
 export type PersonalizeLearningPathOutput = z.infer<typeof PersonalizeLearningPathOutputSchema>;
 
@@ -130,9 +130,17 @@ const personalizeLearningPathFlow = ai.defineFlow<
         learningStyle: input.learningStyle,
         context: context // Pass the generated context
     });
-    if (!output) {
-        throw new Error("AI failed to generate recommendations."); // Handle potential null output
+
+    if (!output || !output.recommendedTopics || output.recommendedTopics.length === 0) {
+      throw new Error("AI failed to generate recommended topics.");
     }
+    if (!output.recommendedQuestionTypes || output.recommendedQuestionTypes.length === 0) {
+      throw new Error("AI failed to generate recommended question types.");
+    }
+    if (!output.summary) {
+      throw new Error("AI failed to generate a summary.");
+    }
+
     return output;
   }
 );

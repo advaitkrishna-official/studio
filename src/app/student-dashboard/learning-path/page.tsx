@@ -15,22 +15,20 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 
 interface Recommendations {
   recommendedTopics: { topic: string; reason: string; }[];
-  recommendedQuestionTypes: { reason: string; questionType: string; }[];
-  summary: string;
+  recommendedQuestionTypes: { questionType: string; reason: string; }[];
+  summary: string; // Make summary required
 }
 
 
 const LearningPathPage = () => {
   const [performanceData, setPerformanceData] = useState("");
   const [learningStyle, setLearningStyle] = useState("");
-  const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
+  const [recommendations, setRecommendations] = useState<Recommendations | null>(null); // Keep state as nullable
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, userClass, loading: authLoading } = useAuth(); // Get user, userClass, and auth loading state
   const { toast } = useToast(); // Use the toast hook
   // Removed JSON validation state as it's no longer needed
-  // const [isJsonValid, setIsJsonValid] = useState(true);
-
   // Handle performance data input change
   const handlePerformanceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
      const value = e.target.value;
@@ -68,7 +66,13 @@ const LearningPathPage = () => {
         performanceData,
         learningStyle,
       });
-      setRecommendations(result);
+      // Type assertion here assumes that the personalizeLearningPath function
+      // is correctly implemented to return data matching the Recommendations interface
+      // based on the GenKit schema definition.
+      // If personalizeLearningPath is updated to guarantee non-optional fields,
+      // this assertion might become unnecessary or the Recommendations interface
+      // should be updated to match the *actual* return type.
+      setRecommendations(result as Recommendations);
       toast({ title: 'Learning Path Generated', description: 'Recommendations are ready.' });
     } catch (e: any) {
       setError(e.message || "An error occurred while generating the learning path.");
