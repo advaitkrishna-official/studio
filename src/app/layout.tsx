@@ -3,9 +3,9 @@
 
 import { Geist, Geist_Mono } from 'next/font/google';
 import '@/app/globals.css';
-import AuthProvider from '@/components/auth-provider'; // Corrected import path
-import { Toaster } from "@/components/ui/toaster"; // Ensure Toaster is imported
-import { ReactNode, Suspense } from 'react'; // Make sure ReactNode is imported
+import AuthProvider from '@/components/auth-provider';
+import { Toaster } from "@/components/ui/toaster";
+import { ReactNode, Suspense } from 'react';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,8 +15,6 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
-
-// Metadata should be defined in metadata.ts or a server component, not here.
 
 // Loading component to show while Suspense is waiting
 const LoadingComponent = () => {
@@ -57,4 +55,3 @@ export default function RootLayout({
     </html>
   );
 }
-    
