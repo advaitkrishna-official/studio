@@ -1,18 +1,12 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
   webpack: (config) => {
     config.experiments = {
       ...config.experiments,
       topLevelAwait: true,
     };
-    // config.output = {
-    //   ...config.output,
-    //   publicPath: '/', // Removing this line
-    // };
-
-    // Ignore async_hooks module
     config.resolve.fallback = {
       ...config.resolve.fallback,
       async_hooks: false,
@@ -37,7 +31,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'picsum.photos', // Added for AI Tutor avatars
+        hostname: 'picsum.photos',
         port: '',
         pathname: '/**',
       }
