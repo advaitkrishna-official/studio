@@ -27,6 +27,22 @@ const nextConfig: NextConfig = {
     FIREBASE_APP_ID: process.env.FIREBASE_APP_ID,
     GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos', // Added for AI Tutor avatars
+        port: '',
+        pathname: '/**',
+      }
+    ],
+  },
 };
 
 export default nextConfig;
