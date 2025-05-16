@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -12,21 +13,30 @@ function Redirector() {
   useEffect(() => {
     if (loading) return;
 
-    let target = '/login';
+    let target: string | null = null;
 
     if (user) {
       if (userType === 'teacher') {
         target = '/teacher-dashboard';
-        // if (userClass) target += `?class=${userClass}`;
       } else if (userType === 'student') {
         target = '/student-dashboard';
       } else {
-        console.warn('Unknown role, sending to login');
+        // Unknown role, or role not yet determined
+        // console.warn('Redirector: Unknown user role or role not loaded, staying on current page or redirecting to landing.');
+        // If already on landing, login, or register, do nothing. Otherwise, go to landing.
+        if (pathname !== '/landing' && pathname !== '/login' && pathname !== '/register') {
+          target = '/landing';
+        }
+      }
+    } else {
+      // No user, redirect to landing page if not already on landing, login, or register
+      if (pathname !== '/landing' && pathname !== '/login' && pathname !== '/register') {
+        target = '/landing';
       }
     }
 
-    if (pathname !== target) {
-      console.log(`Redirecting to: ${target}`);
+    if (target && pathname !== target) {
+      console.log(`Redirecting from ${pathname} to: ${target}`);
       router.replace(target);
     }
   }, [user, loading, userType, userClass, router, pathname]);
@@ -39,7 +49,7 @@ function Redirector() {
     );
   }
 
-  return null;
+  return null; // This component only handles redirection
 }
 
 export default function Home() {
