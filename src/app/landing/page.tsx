@@ -76,11 +76,11 @@ export default function LandingPage() {
           </motion.div>
           <div className="mt-16 relative aspect-video max-w-4xl mx-auto rounded-xl shadow-2xl overflow-hidden">
             <Image
-              src="https://placehold.co/1200x675/E0E7FF/3B82F6?text=EduAI+Platform"
+              src="https://placehold.co/1200x675.png"
               alt="EduAI Platform Showcase"
               layout="fill"
               objectFit="cover"
-              data-ai-hint="education technology platform"
+              data-ai-hint="education technology"
             />
           </div>
         </div>
@@ -138,11 +138,11 @@ export default function LandingPage() {
             </p>
             <div className="relative aspect-video max-w-2xl mx-auto rounded-lg shadow-lg overflow-hidden">
              <Image
-                src="https://placehold.co/800x450/C7D2FE/4338CA?text=The+EduAI+Team"
+                src="https://placehold.co/800x450.png"
                 alt="EduAI Team"
                 layout="fill"
                 objectFit="cover"
-                data-ai-hint="diverse team working"
+                data-ai-hint="team photo"
               />
             </div>
           </div>
