@@ -43,7 +43,7 @@ export default function LandingPage() {
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
-          <Link href="/landing" className="flex items-center text-2xl font-bold text-primary">
+          <Link href="/" className="flex items-center text-2xl font-bold text-primary">
             <GraduationCap className="mr-2 h-7 w-7" />
             EduAI
           </Link>
@@ -204,7 +204,6 @@ export default function LandingPage() {
                 <CardContent className="pt-6">
                   <p className="italic text-muted-foreground mb-4">"EduAI has completely changed how I study. The personalized paths are amazing!"</p>
                   <div className="flex items-center">
-                    {/* Avatar placeholder removed as per request */}
                     <div>
                       <p className="font-semibold">Student User {i}</p>
                       <p className="text-xs text-muted-foreground">Grade 10</p>
@@ -213,26 +212,6 @@ export default function LandingPage() {
                 </CardContent>
               </Card>
             ))}
-          </div>
-        </div>
-      </motion.section>
-
-
-      {/* About Us Section */}
-      <motion.section
-        id="about"
-        initial="hidden"
-        animate="visible"
-        variants={sectionVariants}
-        className="py-16 bg-white"
-      >
-        <div className="container mx-auto px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Meet the Minds Behind EduAI</h2>
-          <div className="max-w-3xl mx-auto">
-            <p className="text-muted-foreground mb-8 leading-relaxed">
-              EduAI was born from a passion for education and a belief in the transformative power of technology. Our team of educators, developers, and AI specialists is dedicated to creating tools that empower both students and teachers, making learning more accessible, engaging, and effective for everyone. We strive to build the future of education, one intelligent feature at a time.
-            </p>
-            {/* Image container removed */}
           </div>
         </div>
       </motion.section>
@@ -264,7 +243,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-10 text-center bg-gray-100 border-t">
         <div className="container mx-auto px-6">
-          <Link href="/landing" className="flex items-center justify-center text-xl font-bold text-primary mb-4">
+          <Link href="/" className="flex items-center justify-center text-xl font-bold text-primary mb-4">
             <GraduationCap className="mr-2 h-6 w-6" />
             EduAI
           </Link>
@@ -272,8 +251,8 @@ export default function LandingPage() {
             &copy; {new Date().getFullYear()} EduAI. All rights reserved. Empowering Minds, Shaping Futures.
           </p>
           <div className="space-x-4">
-            <Link href="/landing#features" className="text-sm text-muted-foreground hover:text-primary">Features</Link>
-            <Link href="/landing#about" className="text-sm text-muted-foreground hover:text-primary">About</Link>
+            <Link href="/#features" className="text-sm text-muted-foreground hover:text-primary">Features</Link>
+            {/* Removed About link since section is deleted */}
             <Link href="#" className="text-sm text-muted-foreground hover:text-primary">Privacy Policy</Link>
             <Link href="#" className="text-sm text-muted-foreground hover:text-primary">Terms of Service</Link>
           </div>
