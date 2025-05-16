@@ -127,11 +127,14 @@ export default function AnimatedLogin() {
           {loading ? 'Signing In…' : 'Sign In'}
         </motion.button>
 
-        <p className="mt-4 text-center text-gray-600">
+        <p className="mt-4 text-center text-sm text-gray-600">
           New here?{' '}
           <Link href="/register" className="text-indigo-600 font-medium hover:underline">
             Create an account
           </Link>
+        </p>
+         <p className="mt-2 text-center text-xs text-gray-500">
+          Or <Link href="/" className="text-indigo-600 hover:underline">go back to Home</Link>
         </p>
       </motion.div>
     </div>

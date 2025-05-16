@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, ChangeEvent } from 'react';
@@ -5,9 +6,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { auth, db, getUserDataByUid } from '@/lib/firebase';
+import { auth, db, createUserDocument } from '@/lib/firebase'; // Corrected import
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from "firebase/firestore";
 import {
   Select,
   SelectTrigger,
@@ -49,18 +50,21 @@ export default function AnimatedRegister() {
       if (!email || !password || !role || (role === 'teacher' && !secretCode) || (role === 'student' && !grade)) {
         throw new Error('Please fill in all required fields.');
       }
-      if (role === 'teacher' && secretCode !== '1111') {
+      if (role === 'teacher' && secretCode !== '1111') { // Teacher secret code validation
         throw new Error('Invalid secret code for teachers.');
       }
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      await setDoc(doc(collection(db, 'Users'), cred.user.uid), {
-        uid: cred.user.uid,
-        email: cred.user.email,
-        role,
-        grade: role === 'student' ? grade : null,
-        teacherGrade: role === 'teacher' ? grade : null,
+
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Create user document in Firestore
+      await createUserDocument(user.uid, email, role, {
+        grade: role === 'student' ? grade : undefined,
+        teacherGrade: role === 'teacher' ? grade : undefined, // Also store grade for teacher if applicable
+        secretCode: role === 'teacher' ? secretCode : undefined,
       });
-      toast({ title: 'Registration successful! Please log in.' });
+
+      toast({ title: 'Registration successful!', description: 'Please log in to continue.' });
       router.push('/login');
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Registration Failed', description: err.message });
@@ -138,7 +142,7 @@ export default function AnimatedRegister() {
                 <SelectValue placeholder="Select your grade…" />
               </SelectTrigger>
               <SelectContent>
-                {['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5'].map((g) => (
+                {['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5', 'Grade 6', 'Grade 8'].map((g) => (
                   <SelectItem key={g} value={g}>{g}</SelectItem>
                 ))}
               </SelectContent>
@@ -152,7 +156,7 @@ export default function AnimatedRegister() {
                   <SelectValue placeholder="Select your teaching grade…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5'].map((g) => (
+                  {['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5', 'Grade 6', 'Grade 8'].map((g) => (
                     <SelectItem key={g} value={g}>{g}</SelectItem>
                   ))}
                 </SelectContent>
@@ -181,11 +185,14 @@ export default function AnimatedRegister() {
           {loading ? 'Registering…' : 'Register'}
         </motion.button>
 
-        <p className="mt-4 text-center text-gray-600">
+        <p className="mt-4 text-center text-sm text-gray-600">
           Already have an account?{' '}
           <Link href="/login" className="text-indigo-600 font-medium hover:underline">
             Sign in
           </Link>
+        </p>
+        <p className="mt-2 text-center text-xs text-gray-500">
+          Or <Link href="/" className="text-indigo-600 hover:underline">go back to Home</Link>
         </p>
       </motion.div>
 

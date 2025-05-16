@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -131,7 +132,7 @@ export default function TeacherDashboardLayout({
       <header className="sticky top-0 z-40 w-full border-b bg-white shadow-sm">
         <div className="container mx-auto flex h-14 items-center justify-between px-4">
           {/* Left Side: Logo */}
-          <Link href="/teacher-dashboard" className="flex items-center gap-2 text-xl font-bold text-indigo-600">
+          <Link href="/" className="flex items-center gap-2 text-xl font-bold text-indigo-600">
             <GraduationCap className="w-7 h-7" /> EduAI Teacher
           </Link>
 

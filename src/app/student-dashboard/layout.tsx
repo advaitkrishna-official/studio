@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { motion } from 'framer-motion';
-import { collection, query, onSnapshot, where, DocumentData, Timestamp, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, where, DocumentData, Timestamp, getDocs, doc, getDoc, orderBy } from 'firebase/firestore';
 import { useAuth } from '@/components/auth-provider';
 import { format } from 'date-fns';
 import {
@@ -145,7 +145,7 @@ export default function StudentDashboardLayout({
       {/* Navbar */}
       <header className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
-          <Link href="/student-dashboard" className="flex items-center text-indigo-600 font-bold text-xl">
+          <Link href="/" className="flex items-center text-indigo-600 font-bold text-xl">
             <GraduationCap className="mr-2 h-6 w-6" /> EduAI
           </Link>
 
