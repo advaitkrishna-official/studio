@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { GraduationCap, Sparkles, Users, BarChartBig, BookOpen, Rocket, CheckCircle, Lightbulb, MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Image from 'next/image';
 
 const FeatureCard = ({ icon, title, description, delay = 0 }: { icon: React.ElementType, title: string, description: string, delay?: number }) => {
   const IconComponent = icon;
@@ -205,7 +204,7 @@ export default function LandingPage() {
                 <CardContent className="pt-6">
                   <p className="italic text-muted-foreground mb-4">"EduAI has completely changed how I study. The personalized paths are amazing!"</p>
                   <div className="flex items-center">
-                    <Image src="https://placehold.co/40x40.png" alt={`User ${i}`} data-ai-hint="user avatar" width={40} height={40} className="rounded-full mr-3" />
+                    {/* Avatar placeholder removed as per request */}
                     <div>
                       <p className="font-semibold">Student User {i}</p>
                       <p className="text-xs text-muted-foreground">Grade 10</p>
@@ -233,15 +232,7 @@ export default function LandingPage() {
             <p className="text-muted-foreground mb-8 leading-relaxed">
               EduAI was born from a passion for education and a belief in the transformative power of technology. Our team of educators, developers, and AI specialists is dedicated to creating tools that empower both students and teachers, making learning more accessible, engaging, and effective for everyone. We strive to build the future of education, one intelligent feature at a time.
             </p>
-            <div className="relative aspect-video max-w-2xl mx-auto rounded-lg shadow-xl overflow-hidden border border-gray-200">
-              <Image
-                src="https://placehold.co/600x400.png"
-                alt="EduAI Team or Product"
-                data-ai-hint="team photo"
-                layout="fill"
-                objectFit="cover"
-              />
-            </div>
+            {/* Image container removed */}
           </div>
         </div>
       </motion.section>
